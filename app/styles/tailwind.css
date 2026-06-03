@@ -1,0 +1,234 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ========== Primary Color Variables ========== */
+    /* Background Colors - Primary Palette */
+    --primary-bg: #44b6b2;
+    --primary-bg-dark: #000f28;
+    --primary-bg-light: #5bcdc9f2;
+
+    /* Background Colors - Secondary Palette */
+    --secondary-bg: #822bd4;
+    --secondary-bg-light: #9960e0;
+    --secondary-bg-transparent: #822bd4b7;
+
+    /* Background Colors - Neutral Palette */
+    --neutral-bg-white: #ffffff;
+    --neutral-bg-light: #f6faff;
+    --neutral-bg-gray: #e6e8ee;
+    --neutral-bg-blue: #e2edff;
+    --neutral-bg-cyan: #ecf7fb;
+    --neutral-bg-purple: #f1ecfd;
+    --neutral-bg-silver: #d1d5db;
+
+    /* Background Colors - Transparent Variants */
+    --bg-white-19: #ffffff19;
+    --bg-white-33: #ffffff33;
+    --bg-white-3d: #ffffff3d;
+
+    /* ========== Text Color Variables ========== */
+    --text-primary: #012047;
+    --text-secondary: #465d7c;
+    --text-muted: #91a0b3;
+    --text-dark: #1f2937;
+    --text-accent-teal: #44b6b2;
+    --text-accent-blue: #0e82fd;
+    --text-white: #ffffff;
+
+    /* ========== Border Color Variables ========== */
+    --border-primary: #e6e8ee;
+    --border-secondary: #e5e7eb;
+    --border-accent: #44b6b2;
+    --border-light: #f2edfe;
+
+    /* ========== Typography Variables ========== */
+    /* Font Sizes */
+    --font-size-xs: 10px;
+    --font-size-sm: 12px;
+    --font-size-base: 13px;
+    --font-size-md: 14px;
+    --font-size-lg: 15px;
+    --font-size-xl: 16px;
+    --font-size-2xl: 18px;
+    --font-size-3xl: 20px;
+    --font-size-4xl: 24px;
+    --font-size-5xl: 32px;
+    --font-size-6xl: 38px;
+    --font-size-7xl: 44px;
+
+    /* Font Weights */
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+
+    /* Line Heights */
+    --line-height-xs: 13px;
+    --line-height-sm: 15px;
+    --line-height-base: 16px;
+    --line-height-md: 17px;
+    --line-height-lg: 19px;
+    --line-height-xl: 20px;
+    --line-height-2xl: 22px;
+    --line-height-3xl: 24px;
+    --line-height-4xl: 25px;
+    --line-height-5xl: 30px;
+    --line-height-6xl: 39px;
+    --line-height-7xl: 46px;
+    --line-height-8xl: 48px;
+    --line-height-9xl: 56px;
+
+    /* ========== Spacing Variables ========== */
+    /* Margin Values */
+    --margin-xs: 4px;
+    --margin-sm: 6px;
+    --margin-md: 8px;
+    --margin-lg: 10px;
+    --margin-xl: 12px;
+    --margin-2xl: 14px;
+    --margin-3xl: 16px;
+    --margin-4xl: 20px;
+    --margin-5xl: 22px;
+    --margin-6xl: 24px;
+    --margin-7xl: 28px;
+    --margin-8xl: 32px;
+    --margin-9xl: 44px;
+    --margin-10xl: 54px;
+    --margin-11xl: 56px;
+    --margin-12xl: 60px;
+    --margin-13xl: 78px;
+    --margin-14xl: 80px;
+    --margin-15xl: 82px;
+    --margin-16xl: 84px;
+    --margin-17xl: 96px;
+    --margin-18xl: 130px;
+    --margin-19xl: 148px;
+    --margin-20xl: 150px;
+    --margin-21xl: 152px;
+    --margin-22xl: 188px;
+    --margin-23xl: 250px;
+    --margin-24xl: 360px;
+    --margin-25xl: 424px;
+    --margin-26xl: 468px;
+
+    /* Padding Values */
+    --padding-xs: 2px;
+    --padding-sm: 4px;
+    --padding-md: 6px;
+    --padding-lg: 8px;
+    --padding-xl: 10px;
+    --padding-2xl: 12px;
+    --padding-3xl: 14px;
+    --padding-4xl: 16px;
+    --padding-5xl: 18px;
+    --padding-6xl: 20px;
+    --padding-7xl: 22px;
+    --padding-8xl: 24px;
+    --padding-9xl: 28px;
+    --padding-10xl: 30px;
+    --padding-11xl: 34px;
+    --padding-12xl: 36px;
+    --padding-13xl: 38px;
+    --padding-14xl: 40px;
+    --padding-15xl: 42px;
+    --padding-16xl: 48px;
+    --padding-17xl: 52px;
+    --padding-18xl: 56px;
+    --padding-19xl: 58px;
+    --padding-20xl: 60px;
+    --padding-21xl: 64px;
+    --padding-22xl: 70px;
+    --padding-23xl: 74px;
+    --padding-24xl: 102px;
+    --padding-25xl: 150px;
+    --padding-26xl: 516px;
+
+    /* Gap Values */
+    --gap-xs: 2px;
+    --gap-sm: 4px;
+    --gap-md: 6px;
+    --gap-lg: 8px;
+    --gap-xl: 10px;
+    --gap-2xl: 12px;
+    --gap-3xl: 14px;
+    --gap-4xl: 16px;
+    --gap-5xl: 18px;
+    --gap-6xl: 20px;
+    --gap-7xl: 22px;
+    --gap-8xl: 24px;
+    --gap-9xl: 26px;
+    --gap-10xl: 28px;
+    --gap-11xl: 32px;
+    --gap-12xl: 34px;
+    --gap-13xl: 38px;
+    --gap-14xl: 40px;
+    --gap-15xl: 42px;
+    --gap-16xl: 60px;
+    --gap-17xl: 62px;
+    --gap-18xl: 74px;
+    --gap-19xl: 104px;
+    --gap-20xl: 140px;
+
+    /* ========== Border Variables ========== */
+    /* Border Radius */
+    --radius-none: 0px;
+    --radius-sm: 4px;
+    --radius-md: 5px;
+    --radius-lg: 6px;
+    --radius-xl: 10px;
+    --radius-2xl: 14px;
+    --radius-3xl: 16px;
+    --radius-4xl: 18px;
+    --radius-5xl: 20px;
+    --radius-6xl: 24px;
+    --radius-7xl: 26px;
+    --radius-8xl: 32px;
+    --radius-9xl: 48px;
+    --radius-10xl: 110px;
+    --radius-11xl: 144px;
+    --radius-12xl: 190px;
+    --radius-13xl: 202px;
+    --radius-14xl: 250px;
+    --radius-15xl: 260px;
+
+    /* Border Width */
+    --border-width-thin: 1px;
+    --border-width-medium: 2px;
+
+    /* ========== Component-Specific Variables ========== */
+    /* Header Component */
+    --header-bg: var(--neutral-bg-white);
+    --header-text: var(--text-primary);
+    --header-menu-gap: var(--gap-13xl);
+
+    /* Button Component */
+    --button-primary-bg: var(--primary-bg);
+    --button-primary-text: var(--text-white);
+    --button-secondary-bg: var(--secondary-bg);
+    --button-secondary-text: var(--text-white);
+    --button-outline-border: var(--border-accent);
+    --button-outline-text: var(--text-accent-teal);
+
+    /* Link Component */
+    --link-text: var(--text-primary);
+    --link-hover: var(--text-accent-blue);
+
+    /* Card Component */
+    --card-bg: var(--neutral-bg-white);
+    --card-border: var(--border-primary);
+    --card-shadow: 0 2px 8px rgba(1, 32, 71, 0.08);
+
+    /* Input Component */
+    --input-border: var(--border-primary);
+    --input-text: var(--text-primary);
+    --input-placeholder: var(--text-muted);
+
+    /* Footer Component */
+    --footer-bg: var(--primary-bg-dark);
+    --footer-text: var(--text-white);
+    --footer-gap: var(--gap-16xl);
+  }
+}
