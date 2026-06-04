@@ -12,6 +12,7 @@ interface Stats {
   rendezvous: number;
   consultations: number;
   ordonnances: number;
+  controles: number; // ✅ NOUVEAU
 }
 interface RendezVousAPI {
   id: number;
@@ -33,6 +34,7 @@ export default function MedecinDashboard() {
     rendezvous: 0,
     consultations: 0,
     ordonnances: 0,
+    controles: 0, // ✅ NOUVEAU
   });
   const [prochainRdv, setProchainRdv] = useState<RendezVousAPI | null>(null);
   const [notifs, setNotifs] = useState<NotificationAPI[]>([]);
@@ -49,13 +51,15 @@ export default function MedecinDashboard() {
       api.get("consultations/"),
       api.get("ordonnances/"),
       api.get("notifications/"),
+      api.get("controles/"), // ✅ NOUVEAU
     ])
-      .then(([p, r, c, o, n]) => {
+      .then(([p, r, c, o, n, ctrl]) => {
         setStats({
-          patients: p.data.length,
-          rendezvous: r.data.length,
+          patients:      p.data.length,
+          rendezvous:    r.data.length,
           consultations: c.data.length,
-          ordonnances: o.data.length,
+          ordonnances:   o.data.length,
+          controles:     ctrl.data.results?.length ?? ctrl.data.length ?? 0, // ✅ NOUVEAU
         });
         const sorted = [...r.data].sort(
           (a: RendezVousAPI, b: RendezVousAPI) =>
@@ -94,6 +98,13 @@ export default function MedecinDashboard() {
       icon: "📋",
       path: "/dashboard/medecin/ordonnances",
     },
+    // ✅ NOUVEAU : carte contrôles
+    {
+      label: "Contrôles",
+      value: stats.controles,
+      icon: "📈",
+      path: "/dashboard/medecin/controles",
+    },
   ];
 
   const quickActions = [
@@ -111,6 +122,12 @@ export default function MedecinDashboard() {
       label: "Ordonnances",
       icon: "📋",
       path: "/dashboard/medecin/ordonnances",
+    },
+    // ✅ NOUVEAU
+    {
+      label: "Contrôles",
+      icon: "📈",
+      path: "/dashboard/medecin/controles",
     },
     { label: "Mon profil", icon: "👤", path: "/dashboard/medecin/profil" },
   ];
@@ -195,14 +212,15 @@ export default function MedecinDashboard() {
       >
         <Sidebar
           stats={{
-            rendezvous: stats.rendezvous,
+            rendezvous:    stats.rendezvous,
             consultations: stats.consultations,
-            ordonnances: stats.ordonnances,
+            ordonnances:   stats.ordonnances,
+            controles:     stats.controles, // ✅ NOUVEAU
           }}
         />
         <Navbar
           title="Dashboard Médecin"
-          subtitle={`Bonjour  ${username} 👋`}
+          subtitle={`Bonjour ${username} 👋`}
         />
 
         <main
@@ -213,11 +231,11 @@ export default function MedecinDashboard() {
             paddingTop: "100px",
           }}
         >
-          {/* Stat Cards */}
+          {/* Stat Cards — 5 colonnes pour inclure Contrôles */}
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
+              gridTemplateColumns: "repeat(5, 1fr)",
               gap: 20,
               marginBottom: 28,
             }}
@@ -239,7 +257,7 @@ export default function MedecinDashboard() {
                   <div>
                     <p
                       style={{
-                        fontSize: 12,
+                        fontSize: 11,
                         color: "#64748b",
                         marginBottom: 8,
                         fontWeight: 600,
@@ -253,7 +271,7 @@ export default function MedecinDashboard() {
                       className="text-gradient"
                       style={{
                         fontFamily: "'Syne', sans-serif",
-                        fontSize: 40,
+                        fontSize: 36,
                         fontWeight: 800,
                         lineHeight: 1,
                         marginBottom: 12,
@@ -264,14 +282,14 @@ export default function MedecinDashboard() {
                   </div>
                   <div
                     style={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 14,
+                      width: 44,
+                      height: 44,
+                      borderRadius: 12,
                       background: "linear-gradient(135deg, #8B5CF6, #10B981)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      fontSize: 22,
+                      fontSize: 20,
                       color: "white",
                       boxShadow: "0 8px 16px -4px rgba(139, 92, 246, 0.4)",
                     }}
@@ -294,7 +312,7 @@ export default function MedecinDashboard() {
                       borderRadius: 2,
                       background: "linear-gradient(90deg, #8B5CF6, #10B981)",
                     }}
-                  ></div>
+                  />
                   <p
                     className="text-gradient"
                     style={{ fontSize: 12, fontWeight: 700 }}
@@ -315,6 +333,7 @@ export default function MedecinDashboard() {
               marginBottom: 28,
             }}
           >
+            {/* Prochain RDV */}
             <div
               style={{
                 background: "linear-gradient(135deg, #8B5CF6, #06C98B)",
@@ -326,275 +345,84 @@ export default function MedecinDashboard() {
                 boxShadow: "0 20px 40px -10px rgba(139, 92, 246, 0.5)",
               }}
             >
-              <div
-                style={{
-                  position: "absolute",
-                  top: -30,
-                  right: -30,
-                  width: 150,
-                  height: 150,
-                  borderRadius: "50%",
-                  background: "rgba(255,255,255,0.2)",
-                  border: "1px solid rgba(255,255,255,0.3)",
-                }}
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  bottom: -40,
-                  left: -20,
-                  width: 120,
-                  height: 120,
-                  borderRadius: "50%",
-                  background: "rgba(255,255,255,0.1)",
-                }}
-              />
+              <div style={{ position: "absolute", top: -30, right: -30, width: 150, height: 150, borderRadius: "50%", background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.3)" }} />
+              <div style={{ position: "absolute", bottom: -40, left: -20, width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,0.1)" }} />
 
-              <p
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: "1.5px",
-                  textTransform: "uppercase",
-                  opacity: 0.9,
-                  marginBottom: 20,
-                }}
-              >
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase", opacity: 0.9, marginBottom: 20 }}>
                 Prochain rendez-vous
               </p>
 
               {prochainRdv ? (
                 <>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 20,
-                      marginBottom: 24,
-                      position: "relative",
-                      zIndex: 1,
-                    }}
-                  >
-                    <div
-                      style={{
-                        background: "rgba(255,255,255,0.2)",
-                        backdropFilter: "blur(8px)",
-                        border: "1px solid rgba(255,255,255,0.4)",
-                        borderRadius: 18,
-                        padding: "14px 20px",
-                        textAlign: "center",
-                        flexShrink: 0,
-                      }}
-                    >
-                      <p
-                        style={{
-                          fontFamily: "'Syne', sans-serif",
-                          fontSize: 34,
-                          fontWeight: 800,
-                          lineHeight: 1,
-                          color: "white",
-                        }}
-                      >
+                  <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 24, position: "relative", zIndex: 1 }}>
+                    <div style={{ background: "rgba(255,255,255,0.2)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 18, padding: "14px 20px", textAlign: "center", flexShrink: 0 }}>
+                      <p style={{ fontFamily: "'Syne', sans-serif", fontSize: 34, fontWeight: 800, lineHeight: 1, color: "white" }}>
                         {new Date(prochainRdv.date_heure).getDate()}
                       </p>
-                      <p
-                        style={{
-                          fontSize: 11,
-                          opacity: 1,
-                          marginTop: 2,
-                          textTransform: "uppercase",
-                          color: "rgba(255,255,255,0.9)",
-                        }}
-                      >
-                        {new Date(prochainRdv.date_heure).toLocaleDateString(
-                          "fr-FR",
-                          { month: "short" },
-                        )}
+                      <p style={{ fontSize: 11, opacity: 1, marginTop: 2, textTransform: "uppercase", color: "rgba(255,255,255,0.9)" }}>
+                        {new Date(prochainRdv.date_heure).toLocaleDateString("fr-FR", { month: "short" })}
                       </p>
                     </div>
                     <div>
-                      <p
-                        style={{
-                          fontFamily: "'Syne', sans-serif",
-                          fontSize: 19,
-                          fontWeight: 700,
-                          marginBottom: 6,
-                          color: "white",
-                        }}
-                      >
+                      <p style={{ fontFamily: "'Syne', sans-serif", fontSize: 19, fontWeight: 700, marginBottom: 6, color: "white" }}>
                         {prochainRdv.patient_name || "Patient"}
                       </p>
-                      <p
-                        style={{
-                          fontSize: 13,
-                          opacity: 0.95,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                          color: "white",
-                        }}
-                      >
-                        🕐{" "}
-                        {new Date(prochainRdv.date_heure).toLocaleTimeString(
-                          "fr-FR",
-                          { hour: "2-digit", minute: "2-digit" },
-                        )}
+                      <p style={{ fontSize: 13, opacity: 0.95, display: "flex", alignItems: "center", gap: 6, color: "white" }}>
+                        🕐 {new Date(prochainRdv.date_heure).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
                       </p>
-                      <span
-                        style={{
-                          display: "inline-block",
-                          marginTop: 8,
-                          fontSize: 11,
-                          padding: "4px 14px",
-                          borderRadius: 20,
-                          background: "rgba(255,255,255,0.25)",
-                          border: "1px solid rgba(255,255,255,0.4)",
-                          fontWeight: 700,
-                          textTransform: "capitalize",
-                          color: "white",
-                        }}
-                      >
+                      <span style={{ display: "inline-block", marginTop: 8, fontSize: 11, padding: "4px 14px", borderRadius: 20, background: "rgba(255,255,255,0.25)", border: "1px solid rgba(255,255,255,0.4)", fontWeight: 700, textTransform: "capitalize", color: "white" }}>
                         {prochainRdv.status || "en attente"}
                       </span>
                     </div>
                   </div>
                   <button
                     onClick={() => router.push("/dashboard/medecin/rendezvous")}
-                    style={{
-                      background: "white",
-                      color: "#8B5CF6",
-                      border: "none",
-                      borderRadius: 12,
-                      padding: "12px 28px",
-                      fontSize: 14,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                      boxShadow: "0 8px 20px rgba(0,0,0,0.15)",
-                      transition: "transform 0.2s",
-                      position: "relative",
-                      zIndex: 1,
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.transform = "scale(1.05)")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.transform = "scale(1)")
-                    }
+                    style={{ background: "white", color: "#8B5CF6", border: "none", borderRadius: 12, padding: "12px 28px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 8px 20px rgba(0,0,0,0.15)", transition: "transform 0.2s", position: "relative", zIndex: 1 }}
+                    onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.05)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
                   >
                     Voir détails
                   </button>
                 </>
               ) : (
-                <div
-                  style={{
-                    textAlign: "center",
-                    padding: "2rem 0",
-                    opacity: 0.95,
-                  }}
-                >
+                <div style={{ textAlign: "center", padding: "2rem 0", opacity: 0.95 }}>
                   <p style={{ fontSize: 40, marginBottom: 10 }}>📅</p>
-                  <p style={{ fontSize: 15, fontWeight: 600 }}>
-                    Aucun rendez-vous prévu
-                  </p>
+                  <p style={{ fontSize: 15, fontWeight: 600 }}>Aucun rendez-vous prévu</p>
                 </div>
               )}
             </div>
 
-            <div
-              style={{
-                background: "rgba(255, 255, 255, 0.75)",
-                backdropFilter: "blur(12px)",
-                borderRadius: 28,
-                padding: 24,
-                border: "1px solid rgba(255,255,255,0.9)",
-                boxShadow: "0 4px 6px -1px rgba(0,0,0,0.02)",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 20,
-                }}
-              >
-                <h2
-                  style={{
-                    fontFamily: "'Syne', sans-serif",
-                    fontWeight: 700,
-                    fontSize: 16,
-                    color: "#1e1b4b",
-                    margin: 0,
-                  }}
-                >
+            {/* Notifications */}
+            <div style={{ background: "rgba(255, 255, 255, 0.75)", backdropFilter: "blur(12px)", borderRadius: 28, padding: 24, border: "1px solid rgba(255,255,255,0.9)", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.02)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 16, color: "#1e1b4b", margin: 0 }}>
                   Notifications
                 </h2>
-                <span
-                  className="text-gradient"
-                  style={{ fontSize: 12, cursor: "pointer", fontWeight: 700 }}
-                >
+                <span className="text-gradient" style={{ fontSize: 12, cursor: "pointer", fontWeight: 700 }}>
                   Voir tout →
                 </span>
               </div>
               {notifs.length === 0 ? (
-                <div
-                  style={{
-                    textAlign: "center",
-                    padding: "2rem 0",
-                    color: "#94a3b8",
-                  }}
-                >
+                <div style={{ textAlign: "center", padding: "2rem 0", color: "#94a3b8" }}>
                   <p style={{ fontSize: 24, marginBottom: 8 }}>🔔</p>
-                  <p style={{ fontSize: 13, fontWeight: 500 }}>
-                    Aucune notification
-                  </p>
+                  <p style={{ fontSize: 13, fontWeight: 500 }}>Aucune notification</p>
                 </div>
               ) : (
-                <div
-                  style={{ display: "flex", flexDirection: "column", gap: 12 }}
-                >
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   {notifs.map((n) => (
                     <div
                       key={n.id}
                       style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: 12,
+                        display: "flex", alignItems: "flex-start", gap: 12,
                         padding: "14px",
-                        background: n.lu
-                          ? "transparent"
-                          : "rgba(139, 92, 246, 0.06)",
+                        background: n.lu ? "transparent" : "rgba(139, 92, 246, 0.06)",
                         borderRadius: 14,
-                        border: n.lu
-                          ? "1px solid transparent"
-                          : "1px solid rgba(139, 92, 246, 0.15)",
+                        border: n.lu ? "1px solid transparent" : "1px solid rgba(139, 92, 246, 0.15)",
                         transition: "all 0.2s",
                       }}
                     >
-                      <div
-                        style={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: "50%",
-                          background: n.lu
-                            ? "#e2e8f0"
-                            : "linear-gradient(135deg, #8B5CF6, #10B981)",
-                          marginTop: 4,
-                          flexShrink: 0,
-                          boxShadow: n.lu
-                            ? "none"
-                            : "0 0 10px rgba(139, 92, 246, 0.6)",
-                        }}
-                      />
-                      <p
-                        style={{
-                          fontSize: 13,
-                          color: n.lu ? "#94a3b8" : "#334155",
-                          lineHeight: 1.5,
-                          fontWeight: n.lu ? 400 : 600,
-                        }}
-                      >
+                      <div style={{ width: 10, height: 10, borderRadius: "50%", background: n.lu ? "#e2e8f0" : "linear-gradient(135deg, #8B5CF6, #10B981)", marginTop: 4, flexShrink: 0, boxShadow: n.lu ? "none" : "0 0 10px rgba(139, 92, 246, 0.6)" }} />
+                      <p style={{ fontSize: 13, color: n.lu ? "#94a3b8" : "#334155", lineHeight: 1.5, fontWeight: n.lu ? 400 : 600 }}>
                         {n.message}
                       </p>
                     </div>
@@ -604,67 +432,23 @@ export default function MedecinDashboard() {
             </div>
           </div>
 
-          {/* Actions rapides */}
-          <div
-            style={{
-              background: "rgba(255,255,255,0.6)",
-              backdropFilter: "blur(12px)",
-              borderRadius: 28,
-              padding: 24,
-              border: "1px solid rgba(255,255,255,0.9)",
-            }}
-          >
-            <h2
-              style={{
-                fontFamily: "'Syne', sans-serif",
-                fontWeight: 700,
-                fontSize: 16,
-                color: "#1e1b4b",
-                marginBottom: 20,
-              }}
-            >
+          {/* Actions rapides — 5 colonnes */}
+          <div style={{ background: "rgba(255,255,255,0.6)", backdropFilter: "blur(12px)", borderRadius: 28, padding: 24, border: "1px solid rgba(255,255,255,0.9)" }}>
+            <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 16, color: "#1e1b4b", marginBottom: 20 }}>
               Actions rapides
             </h2>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(4, 1fr)",
-                gap: 16,
-              }}
-            >
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16 }}>
               {quickActions.map((a) => (
                 <button
                   key={a.label}
                   className="action-btn"
                   onClick={() => router.push(a.path)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 14,
-                    fontFamily: "inherit",
-                    textAlign: "left",
-                  }}
+                  style={{ display: "flex", alignItems: "center", gap: 14, fontFamily: "inherit", textAlign: "left" }}
                 >
-                  <div
-                    style={{
-                      width: 42,
-                      height: 42,
-                      borderRadius: 12,
-                      background: "linear-gradient(135deg, #8B5CF6, #10B981)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 18,
-                      flexShrink: 0,
-                      color: "white",
-                      boxShadow: "0 4px 10px rgba(139, 92, 246, 0.3)",
-                    }}
-                  >
+                  <div style={{ width: 42, height: 42, borderRadius: 12, background: "linear-gradient(135deg, #8B5CF6, #10B981)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0, color: "white", boxShadow: "0 4px 10px rgba(139, 92, 246, 0.3)" }}>
                     {a.icon}
                   </div>
-                  <span
-                    style={{ fontSize: 14, fontWeight: 600, color: "#334155" }}
-                  >
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>
                     {a.label}
                   </span>
                 </button>
