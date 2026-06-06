@@ -1,3 +1,4 @@
+// D:\teleconsultation\frontend\app\dashboard\medecin\rendezvous\page.tsx
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -5,6 +6,12 @@ import { useAuth } from "../../../../context/AuthContext";
 import Sidebar from "../../../../components/Sidebar";
 import Navbar from "../../../../components/Navbar";
 import api from "../../../../lib/api";
+import dynamic from "next/dynamic";
+
+const VideoCall = dynamic(() => import("@/components/VideoCall"), {
+  ssr: false,
+  loading: () => <p>Chargement de la vidéo...</p>,
+});
 
 interface RendezVous {
   id: number;
@@ -52,6 +59,7 @@ export default function MedecinRendezVous() {
   const [data, setData] = useState<RendezVous[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<FilterType>("tous");
+  const [activeVideoRdvId, setActiveVideoRdvId] = useState<number | null>(null);
   const [stats, setStats] = useState({
     rendezvous: 0,
     consultations: 0,
@@ -539,31 +547,24 @@ export default function MedecinRendezVous() {
 
                       <div style={{ display: "flex", gap: 8 }}>
                         <button
-                          onClick={() =>
-                            router.push("/dashboard/medecin/consultations")
-                          }
+                          onClick={() => setActiveVideoRdvId(rdv.id)}
                           style={{
-                            background: "rgba(139, 92, 246, 0.08)",
+                            background:
+                              "linear-gradient(135deg, #2563EB, #7C3AED)",
                             border: "none",
                             borderRadius: 10,
                             padding: "6px 12px",
-                            color: "#8B5CF6",
+                            color: "white",
                             fontWeight: 600,
                             fontSize: 12,
                             cursor: "pointer",
-                            transition: "all 0.2s",
                             fontFamily: "inherit",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
                           }}
-                          onMouseEnter={(e) =>
-                            (e.currentTarget.style.background =
-                              "rgba(139, 92, 246, 0.15)")
-                          }
-                          onMouseLeave={(e) =>
-                            (e.currentTarget.style.background =
-                              "rgba(139, 92, 246, 0.08)")
-                          }
                         >
-                          Consulter
+                          📹 Rejoindre
                         </button>
                       </div>
                     </div>
@@ -573,6 +574,13 @@ export default function MedecinRendezVous() {
             </div>
           )}
         </main>
+        {activeVideoRdvId && (
+          <VideoCall
+            channelName={`rdv-${activeVideoRdvId}`}
+            rdvId={activeVideoRdvId}
+            onEnd={() => setActiveVideoRdvId(null)}
+          />
+        )}
       </div>
     </>
   );

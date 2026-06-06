@@ -12,48 +12,85 @@ import Navbar from "../../../../components/Navbar";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
-interface Stats { rendezvous: number; consultations: number; ordonnances: number; }
+interface Stats {
+  rendezvous: number;
+  consultations: number;
+  ordonnances: number;
+}
 
 // Champs attendus par le frontend (normalisés)
 interface Certificat {
   id: number;
   patient_name: string;
   patient_dob: string | null;
-  type: string;           // arret | reprise | consultation | aptitude | inaptitude | grossesse | deces | custom
+  type: string; // arret | reprise | consultation | aptitude | inaptitude | grossesse | deces | custom
   body: string;
   start_date: string | null;
   duration: number | null;
-  status: string;         // brouillon | signe
+  status: string; // brouillon | signe
   medecin: number;
   created_at: string;
   medecin_name?: string;
 }
 
-const TYPE_INFO: Record<string, { label: string; color: string; bg: string; icon: string }> = {
-  arret:        { label: "Arrêt de travail",     color: "#B45309", bg: "#FEF3C7", icon: "🛌" },
-  reprise:      { label: "Reprise de travail",   color: "#1D4ED8", bg: "#DBEAFE", icon: "💼" },
-  consultation: { label: "Consultation",         color: "#6D28D9", bg: "#EDE9FE", icon: "🩺" },
-  aptitude:     { label: "Aptitude",             color: "#065F46", bg: "#D1FAE5", icon: "✅" },
-  inaptitude:   { label: "Inaptitude",           color: "#991B1B", bg: "#FEE2E2", icon: "⛔" },
-  grossesse:    { label: "Grossesse",            color: "#9D174D", bg: "#FCE7F3", icon: "🤰" },
-  deces:        { label: "Décès",                color: "#374151", bg: "#F3F4F6", icon: "🕊️" },
-  custom:       { label: "Attestation médicale", color: "#5B21B6", bg: "#EDE9FE", icon: "📋" },
+const TYPE_INFO: Record<
+  string,
+  { label: string; color: string; bg: string; icon: string }
+> = {
+  arret: {
+    label: "Arrêt de travail",
+    color: "#B45309",
+    bg: "#FEF3C7",
+    icon: "🛌",
+  },
+  reprise: {
+    label: "Reprise de travail",
+    color: "#1D4ED8",
+    bg: "#DBEAFE",
+    icon: "💼",
+  },
+  consultation: {
+    label: "Consultation",
+    color: "#6D28D9",
+    bg: "#EDE9FE",
+    icon: "🩺",
+  },
+  aptitude: { label: "Aptitude", color: "#065F46", bg: "#D1FAE5", icon: "✅" },
+  inaptitude: {
+    label: "Inaptitude",
+    color: "#991B1B",
+    bg: "#FEE2E2",
+    icon: "⛔",
+  },
+  grossesse: {
+    label: "Grossesse",
+    color: "#9D174D",
+    bg: "#FCE7F3",
+    icon: "🤰",
+  },
+  deces: { label: "Décès", color: "#374151", bg: "#F3F4F6", icon: "🕊️" },
+  custom: {
+    label: "Attestation médicale",
+    color: "#5B21B6",
+    bg: "#EDE9FE",
+    icon: "📋",
+  },
 };
 
 // ── Fonctions utilitaires ──────────────────────────────────────
 
 /** Mappe les noms de champs Django vers les noms attendus par le frontend */
 const normalizeCertificat = (raw: any): Certificat => ({
-  id:           raw.id,
+  id: raw.id,
   patient_name: raw.patient_name ?? raw.nom_patient ?? "",
-  patient_dob:  raw.patient_dob ?? raw.date_naissance ?? null,
-  type:         raw.type_certificat || raw.type || "custom",        // ✅ type_certificat en premier
-  body:         raw.notes ?? raw.body ?? raw.contenu ?? "",         // ✅ notes en premier
-  start_date:   raw.date_debut_arret ?? raw.start_date ?? null,     // ✅ nom Django exact
-  duration:     raw.nb_jours_arret ?? raw.duration ?? null,         // ✅ nom Django exact
-  status:       raw.status || raw.statut || "brouillon",
-  medecin:      raw.medecin ?? raw.medecin_id ?? 0,
-  created_at:   raw.date_emission ?? raw.created_at ?? "",          // ✅ date_emission = champ Django
+  patient_dob: raw.patient_dob ?? raw.date_naissance ?? null,
+  type: raw.type_certificat || raw.type || "custom", // ✅ type_certificat en premier
+  body: raw.notes ?? raw.body ?? raw.contenu ?? "", // ✅ notes en premier
+  start_date: raw.date_debut_arret ?? raw.start_date ?? null, // ✅ nom Django exact
+  duration: raw.nb_jours_arret ?? raw.duration ?? null, // ✅ nom Django exact
+  status: raw.status || raw.statut || "brouillon",
+  medecin: raw.medecin ?? raw.medecin_id ?? 0,
+  created_at: raw.date_emission ?? raw.created_at ?? "", // ✅ date_emission = champ Django
   medecin_name: raw.medecin_name ?? raw.nom_medecin ?? undefined,
 });
 
@@ -64,7 +101,11 @@ const formatDate = (d: string | null | undefined): string => {
     const date = new Date(d);
     return isNaN(date.getTime())
       ? "—"
-      : date.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+      : date.toLocaleDateString("fr-FR", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        });
   } catch {
     return "—";
   }
@@ -74,18 +115,25 @@ export default function PatientCertificats() {
   const { token, isLoading } = useAuth();
   const router = useRouter();
 
-  const [stats, setStats]             = useState<Stats>({ rendezvous: 0, consultations: 0, ordonnances: 0 });
+  const [stats, setStats] = useState<Stats>({
+    rendezvous: 0,
+    consultations: 0,
+    ordonnances: 0,
+  });
   const [certificats, setCertificats] = useState<Certificat[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [search, setSearch]           = useState("");
-  const [selected, setSelected]       = useState<Certificat | null>(null);
-  const [exporting, setExporting]     = useState<"pdf" | "image" | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<Certificat | null>(null);
+  const [exporting, setExporting] = useState<"pdf" | "image" | null>(null);
 
   const paperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isLoading) return;
-    if (!token) { router.push("/login"); return; }
+    if (!token) {
+      router.push("/login");
+      return;
+    }
     setLoading(true);
     Promise.all([
       api.get("rendezvous/"),
@@ -94,8 +142,12 @@ export default function PatientCertificats() {
       api.get("certificats/"),
     ])
       .then(([r, c, o, cert]) => {
-        setStats({ rendezvous: r.data.length, consultations: c.data.length, ordonnances: o.data.length });
-        
+        setStats({
+          rendezvous: r.data.length,
+          consultations: c.data.length,
+          ordonnances: o.data.length,
+        });
+
         // Debug : vérifier les données brutes de l'API
         console.log("🔍 RAW certificat[0]:", cert.data[0]);
 
@@ -106,8 +158,9 @@ export default function PatientCertificats() {
         console.log("✅ NORMALIZED certificat[0]:", normalized[0]);
 
         // Tri par date décroissante
-        const sorted = [...normalized].sort((a: Certificat, b: Certificat) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        const sorted = [...normalized].sort(
+          (a: Certificat, b: Certificat) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
         );
         setCertificats(sorted);
       })
@@ -122,7 +175,9 @@ export default function PatientCertificats() {
     if (!selected) return `certificat.${ext}`;
     const type = TYPE_INFO[selected.type]?.label || selected.type;
     const date = selected.created_at
-      ? new Date(selected.created_at).toLocaleDateString("fr-FR").replace(/\//g, "-")
+      ? new Date(selected.created_at)
+          .toLocaleDateString("fr-FR")
+          .replace(/\//g, "-")
       : "date";
     return `certificat_${type}_${date}.${ext}`;
   };
@@ -143,7 +198,7 @@ export default function PatientCertificats() {
             .paper-head  { display:flex; justify-content:space-between; align-items:flex-start; padding-bottom:14px; border-bottom:1.5px solid #0F172A; margin-bottom:18px; }
             .paper-dr    { font-size:17px; font-weight:700; color:#0F172A; }
             .paper-sub   { font-size:11px; color:#666; margin-top:3px; line-height:1.7; font-family:sans-serif; }
-            .paper-seal  { width:34px; height:34px; border-radius:50%; border:2px solid #8B5CF6; display:flex; align-items:center; justify-content:center; font-size:16px; color:#8B5CF6; }
+            .paper-seal  { width:34px; height:34px; border-radius:50%; border:2px solid #378ADD; display:flex; align-items:center; justify-content:center; font-size:16px; color:#378ADD; }
             .paper-ttl   { text-align:center; font-size:10px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:#0F172A; padding:10px 0 14px; border-bottom:.5px solid #E2E8F0; margin-bottom:16px; font-family:sans-serif; }
             .paper-badge { display:inline-block; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; margin-bottom:14px; font-family:sans-serif; }
             .paper-body  { font-size:13px; color:#0F172A; line-height:2; white-space:pre-wrap; }
@@ -160,7 +215,10 @@ export default function PatientCertificats() {
     `);
     win.document.close();
     win.focus();
-    setTimeout(() => { win.print(); win.close(); }, 400);
+    setTimeout(() => {
+      win.print();
+      win.close();
+    }, 400);
   };
 
   // ── Export PDF (import statique) ────────────────────────────
@@ -174,13 +232,17 @@ export default function PatientCertificats() {
         backgroundColor: "#ffffff",
       });
       const imgData = canvas.toDataURL("image/png");
-      const pdf     = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pageW   = pdf.internal.pageSize.getWidth();
-      const pageH   = pdf.internal.pageSize.getHeight();
-      const ratio   = canvas.height / canvas.width;
-      const imgW    = pageW - 20;
-      const imgH    = imgW * ratio;
-      const y       = imgH < pageH ? (pageH - imgH) / 2 : 10;
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const ratio = canvas.height / canvas.width;
+      const imgW = pageW - 20;
+      const imgH = imgW * ratio;
+      const y = imgH < pageH ? (pageH - imgH) / 2 : 10;
       pdf.addImage(imgData, "PNG", 10, y, imgW, imgH);
       pdf.save(getFilename("pdf"));
     } catch {
@@ -200,9 +262,9 @@ export default function PatientCertificats() {
         useCORS: true,
         backgroundColor: "#ffffff",
       });
-      const link    = document.createElement("a");
+      const link = document.createElement("a");
       link.download = getFilename("png");
-      link.href     = canvas.toDataURL("image/png");
+      link.href = canvas.toDataURL("image/png");
       link.click();
     } catch {
       alert("Erreur lors de l'export image.");
@@ -211,10 +273,13 @@ export default function PatientCertificats() {
     }
   };
 
-  const filtered = certificats.filter(c =>
-    (c.patient_name ?? "").toLowerCase().includes(search.toLowerCase()) ||
-    (c.medecin_name ?? "").toLowerCase().includes(search.toLowerCase()) ||
-    (TYPE_INFO[c.type]?.label ?? c.type ?? "").toLowerCase().includes(search.toLowerCase())
+  const filtered = certificats.filter(
+    (c) =>
+      (c.patient_name ?? "").toLowerCase().includes(search.toLowerCase()) ||
+      (c.medecin_name ?? "").toLowerCase().includes(search.toLowerCase()) ||
+      (TYPE_INFO[c.type]?.label ?? c.type ?? "")
+        .toLowerCase()
+        .includes(search.toLowerCase()),
   );
 
   return (
@@ -243,7 +308,7 @@ export default function PatientCertificats() {
         /* Stats strip */
         .stats-row { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:24px; animation:fadeUp .4s ease .05s backwards; }
         .stat-card { background:rgba(255,255,255,.85); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,.9); border-radius:16px; padding:14px 18px; display:flex; align-items:center; gap:12px; box-shadow:0 2px 8px rgba(0,0,0,.03); }
-        .stat-icon { width:38px; height:38px; border-radius:11px; background:linear-gradient(135deg,#8B5CF6,#10B981); display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
+        .stat-icon { width:38px; height:38px; border-radius:11px; background:linear-gradient(135deg,#378ADD,#10B981); display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
         .stat-val  { font-family:'Syne',sans-serif; font-size:20px; font-weight:800; color:#0F172A; line-height:1; }
         .stat-lbl  { font-size:11px; color:#94A3B8; margin-top:2px; }
 
@@ -260,7 +325,7 @@ export default function PatientCertificats() {
         .card-date   { font-size:12px; color:#94A3B8; }
         .card-body   { font-size:12px; color:#64748B; margin-top:10px; line-height:1.6; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
         .card-footer { display:flex; justify-content:space-between; align-items:center; margin-top:14px; padding-top:12px; border-top:1px solid #F1F5F9; }
-        .card-days   { font-size:11px; font-weight:600; color:#8B5CF6; background:#F5F3FF; padding:3px 10px; border-radius:8px; }
+        .card-days   { font-size:11px; font-weight:600; color:#378ADD; background:#F5F3FF; padding:3px 10px; border-radius:8px; }
 
         /* Empty */
         .empty-state { text-align:center; padding:80px 20px; color:#94A3B8; }
@@ -281,7 +346,7 @@ export default function PatientCertificats() {
         .action-btn:disabled { opacity:.55; cursor:not-allowed !important; }
         .btn-print { background:#F1F5F9; color:#334155; }
         .btn-print:hover:not(:disabled) { background:#E2E8F0; transform:translateY(-1px); }
-        .btn-pdf   { background:#8B5CF6; color:#fff; box-shadow:0 4px 12px rgba(139,92,246,.3); }
+        .btn-pdf   { background:#378ADD; color:#fff; box-shadow:0 4px 12px rgba(139,92,246,.3); }
         .btn-pdf:hover:not(:disabled)   { background:#7C3AED; transform:translateY(-1px); }
         .btn-image { background:#0EA5E9; color:#fff; box-shadow:0 4px 12px rgba(14,165,233,.3); }
         .btn-image:hover:not(:disabled) { background:#0284C7; transform:translateY(-1px); }
@@ -289,11 +354,11 @@ export default function PatientCertificats() {
 
         /* Papier */
         .modal-body     { padding:24px 28px 28px; }
-        .paper-preview  { border:1px solid #E2E8F0; border-radius:16px; padding:32px 28px; font-family:'Times New Roman',Georgia,serif; background:#fff; border-top:3px solid #8B5CF6; }
+        .paper-preview  { border:1px solid #E2E8F0; border-radius:16px; padding:32px 28px; font-family:'Times New Roman',Georgia,serif; background:#fff; border-top:3px solid #378ADD; }
         .paper-head     { display:flex; justify-content:space-between; align-items:flex-start; padding-bottom:14px; border-bottom:1.5px solid #0F172A; margin-bottom:18px; }
         .paper-dr       { font-size:16px; font-weight:700; color:#0F172A; }
         .paper-sub      { font-size:11px; color:#666; margin-top:3px; line-height:1.7; font-family:sans-serif; }
-        .paper-seal     { width:36px; height:36px; border-radius:50%; border:2px solid #8B5CF6; display:flex; align-items:center; justify-content:center; font-size:18px; color:#8B5CF6; }
+        .paper-seal     { width:36px; height:36px; border-radius:50%; border:2px solid #378ADD; display:flex; align-items:center; justify-content:center; font-size:18px; color:#378ADD; }
         .paper-ttl      { text-align:center; font-size:10px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:#0F172A; padding:10px 0 14px; border-bottom:.5px solid #E2E8F0; margin-bottom:16px; font-family:sans-serif; }
         .paper-badge    { display:inline-block; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; margin-bottom:14px; font-family:sans-serif; }
         .paper-body     { font-size:13px; color:#0F172A; line-height:2; white-space:pre-wrap; min-height:80px; }
@@ -309,13 +374,14 @@ export default function PatientCertificats() {
         <Navbar title="Mes Certificats Médicaux" subtitle="Espace patient" />
 
         <main className="page-main">
-
           {/* Header */}
           <div className="header-row">
             <div>
               <div className="page-title">📄 Mes Certificats Médicaux</div>
               <div className="page-sub">
-                {certificats.length} certificat{certificats.length !== 1 ? "s" : ""} disponible{certificats.length !== 1 ? "s" : ""}
+                {certificats.length} certificat
+                {certificats.length !== 1 ? "s" : ""} disponible
+                {certificats.length !== 1 ? "s" : ""}
               </div>
             </div>
             <div className="toolbar">
@@ -324,10 +390,19 @@ export default function PatientCertificats() {
                 <input
                   placeholder="Rechercher par type, médecin..."
                   value={search}
-                  onChange={e => setSearch(e.target.value)}
+                  onChange={(e) => setSearch(e.target.value)}
                 />
                 {search && (
-                  <span style={{ fontSize: 13, color: "#CBD5E1", cursor: "pointer" }} onClick={() => setSearch("")}>✕</span>
+                  <span
+                    style={{
+                      fontSize: 13,
+                      color: "#CBD5E1",
+                      cursor: "pointer",
+                    }}
+                    onClick={() => setSearch("")}
+                  >
+                    ✕
+                  </span>
                 )}
               </div>
             </div>
@@ -336,10 +411,18 @@ export default function PatientCertificats() {
           {/* Stats strip */}
           <div className="stats-row">
             {[
-              { icon: "📄", val: certificats.length,                                    lbl: "Total certificats" },
-              { icon: "✅", val: certificats.filter(c => c.status === "signe").length,   lbl: "Signés" },
-              { icon: "✏️", val: certificats.filter(c => c.status === "brouillon").length, lbl: "Brouillons" },
-            ].map(s => (
+              { icon: "📄", val: certificats.length, lbl: "Total certificats" },
+              {
+                icon: "✅",
+                val: certificats.filter((c) => c.status === "signe").length,
+                lbl: "Signés",
+              },
+              {
+                icon: "✏️",
+                val: certificats.filter((c) => c.status === "brouillon").length,
+                lbl: "Brouillons",
+              },
+            ].map((s) => (
               <div key={s.lbl} className="stat-card">
                 <div className="stat-icon">{s.icon}</div>
                 <div>
@@ -354,56 +437,117 @@ export default function PatientCertificats() {
           {loading ? (
             <div className="grid">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} style={{ background: "#fff", borderRadius: 20, padding: 22, border: "1px solid #F1F5F9" }}>
-                  <div className="skeleton" style={{ height: 24, width: "60%", marginBottom: 14 }} />
-                  <div className="skeleton" style={{ height: 16, width: "40%", marginBottom: 10 }} />
-                  <div className="skeleton" style={{ height: 14, width: "80%" }} />
+                <div
+                  key={i}
+                  style={{
+                    background: "#fff",
+                    borderRadius: 20,
+                    padding: 22,
+                    border: "1px solid #F1F5F9",
+                  }}
+                >
+                  <div
+                    className="skeleton"
+                    style={{ height: 24, width: "60%", marginBottom: 14 }}
+                  />
+                  <div
+                    className="skeleton"
+                    style={{ height: 16, width: "40%", marginBottom: 10 }}
+                  />
+                  <div
+                    className="skeleton"
+                    style={{ height: 14, width: "80%" }}
+                  />
                 </div>
               ))}
             </div>
           ) : filtered.length === 0 ? (
             <div className="empty-state">
-              <div style={{ fontSize: 52, marginBottom: 16, opacity: .4 }}>📄</div>
-              <div style={{ fontSize: 16, fontWeight: 600, color: "#64748B" }}>Aucun certificat trouvé</div>
+              <div style={{ fontSize: 52, marginBottom: 16, opacity: 0.4 }}>
+                📄
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: "#64748B" }}>
+                Aucun certificat trouvé
+              </div>
               <div style={{ fontSize: 13, marginTop: 6 }}>
-                {search ? "Essayez un autre terme de recherche." : "Vos certificats médicaux apparaîtront ici."}
+                {search
+                  ? "Essayez un autre terme de recherche."
+                  : "Vos certificats médicaux apparaîtront ici."}
               </div>
             </div>
           ) : (
             <div className="grid">
-              {filtered.map(cert => {
-                const info    = TYPE_INFO[cert.type] ?? { label: cert.type, color: "#6D28D9", bg: "#EDE9FE", icon: "📋" };
+              {filtered.map((cert) => {
+                const info = TYPE_INFO[cert.type] ?? {
+                  label: cert.type,
+                  color: "#6D28D9",
+                  bg: "#EDE9FE",
+                  icon: "📋",
+                };
                 const isSigne = cert.status === "signe";
                 const dateStr = formatDate(cert.created_at); // Utilisation de la fonction robuste
 
                 return (
-                  <div key={cert.id} className="cert-card" onClick={() => setSelected(cert)}>
+                  <div
+                    key={cert.id}
+                    className="cert-card"
+                    onClick={() => setSelected(cert)}
+                  >
                     <div className="card-top">
-                      <span className="type-badge" style={{ color: info.color, background: info.bg }}>
+                      <span
+                        className="type-badge"
+                        style={{ color: info.color, background: info.bg }}
+                      >
                         {info.icon} {info.label}
                       </span>
-                      <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 600, color: isSigne ? "#065F46" : "#92400E" }}>
-                        <span className="status-dot" style={{ background: isSigne ? "#10B981" : "#F59E0B" }} />
+                      <span
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 5,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          color: isSigne ? "#065F46" : "#92400E",
+                        }}
+                      >
+                        <span
+                          className="status-dot"
+                          style={{
+                            background: isSigne ? "#10B981" : "#F59E0B",
+                          }}
+                        />
                         {isSigne ? "Signé" : "Brouillon"}
                       </span>
                     </div>
 
                     <div className="card-dr">
-                      {cert.medecin_name ? `Dr. ${cert.medecin_name}` : "TéléConsult"}
+                      {cert.medecin_name
+                        ? `Dr. ${cert.medecin_name}`
+                        : "TéléConsult"}
                     </div>
                     <div className="card-date">{dateStr}</div>
 
-                    {cert.body && (
-                      <div className="card-body">{cert.body}</div>
-                    )}
+                    {cert.body && <div className="card-body">{cert.body}</div>}
 
                     <div className="card-footer">
-                      {cert.duration
-                        ? <span className="card-days">⏱ {cert.duration} jour{cert.duration > 1 ? "s" : ""}</span>
-                        : cert.start_date
-                          ? <span className="card-days">📅 {formatDate(cert.start_date)}</span>
-                          : <span />}
-                      <span style={{ fontSize: 12, color: "#8B5CF6", fontWeight: 600 }}>
+                      {cert.duration ? (
+                        <span className="card-days">
+                          ⏱ {cert.duration} jour{cert.duration > 1 ? "s" : ""}
+                        </span>
+                      ) : cert.start_date ? (
+                        <span className="card-days">
+                          📅 {formatDate(cert.start_date)}
+                        </span>
+                      ) : (
+                        <span />
+                      )}
+                      <span
+                        style={{
+                          fontSize: 12,
+                          color: "#378ADD",
+                          fontWeight: 600,
+                        }}
+                      >
                         Voir le détail →
                       </span>
                     </div>
@@ -416,120 +560,187 @@ export default function PatientCertificats() {
       </div>
 
       {/* ── Modal détail + export ── */}
-      {selected && (() => {
-        const info    = TYPE_INFO[selected.type] ?? { label: selected.type, color: "#6D28D9", bg: "#EDE9FE", icon: "📋" };
-        const isSigne = selected.status === "signe";
-        const dateStr = formatDate(selected.created_at); // Utilisation de la fonction robuste
+      {selected &&
+        (() => {
+          const info = TYPE_INFO[selected.type] ?? {
+            label: selected.type,
+            color: "#6D28D9",
+            bg: "#EDE9FE",
+            icon: "📋",
+          };
+          const isSigne = selected.status === "signe";
+          const dateStr = formatDate(selected.created_at); // Utilisation de la fonction robuste
 
-        return (
-          <div className="modal-overlay" onClick={() => setSelected(null)}>
-            <div className="modal-box" onClick={e => e.stopPropagation()}>
-
-              {/* Header modal */}
-              <div className="modal-header">
-                <div>
-                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 17, color: "#0F172A" }}>
-                    Certificat médical
-                  </div>
-                  <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 3, display: "flex", alignItems: "center", gap: 8 }}>
-                    <span className="status-dot" style={{ background: isSigne ? "#10B981" : "#F59E0B", display: "inline-block" }} />
-                    {isSigne ? "Signé" : "Brouillon"} · Émis le {dateStr}
-                  </div>
-                </div>
-                <button className="modal-close" onClick={() => setSelected(null)}>✕</button>
-              </div>
-
-              {/* Boutons export */}
-              <div className="actions-row">
-                <button className="action-btn btn-print" onClick={handlePrint}>
-                  🖨️ Imprimer
-                </button>
-                <button
-                  className="action-btn btn-pdf"
-                  onClick={handleExportPDF}
-                  disabled={exporting !== null}
-                >
-                  {exporting === "pdf"
-                    ? <><div className="spinner" /> Génération…</>
-                    : <>📄 Télécharger PDF</>}
-                </button>
-                <button
-                  className="action-btn btn-image"
-                  onClick={handleExportImage}
-                  disabled={exporting !== null}
-                >
-                  {exporting === "image"
-                    ? <><div className="spinner" /> Export…</>
-                    : <>🖼️ Exporter image</>}
-                </button>
-              </div>
-
-              {/* Papier (capturé par html2canvas) */}
-              <div className="modal-body">
-                <div className="paper-preview" ref={paperRef}>
-                  <div className="paper-head">
-                    <div>
-                      <div className="paper-dr">
-                        {selected.medecin_name ? `Dr. ${selected.medecin_name}` : "TéléConsult"}
-                      </div>
-                      <div className="paper-sub">Médecin · TéléConsult<br />Tunis, Tunisie</div>
-                    </div>
-                    <div className="paper-seal">⚕</div>
-                  </div>
-
-                  <div className="paper-ttl">{info.label}</div>
-
+          return (
+            <div className="modal-overlay" onClick={() => setSelected(null)}>
+              <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+                {/* Header modal */}
+                <div className="modal-header">
                   <div>
-                    <span className="paper-badge" style={{ background: info.bg, color: info.color }}>
-                      {info.icon} {info.label}
-                    </span>
+                    <div
+                      style={{
+                        fontFamily: "'Syne',sans-serif",
+                        fontWeight: 800,
+                        fontSize: 17,
+                        color: "#0F172A",
+                      }}
+                    >
+                      Certificat médical
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#94A3B8",
+                        marginTop: 3,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <span
+                        className="status-dot"
+                        style={{
+                          background: isSigne ? "#10B981" : "#F59E0B",
+                          display: "inline-block",
+                        }}
+                      />
+                      {isSigne ? "Signé" : "Brouillon"} · Émis le {dateStr}
+                    </div>
                   </div>
+                  <button
+                    className="modal-close"
+                    onClick={() => setSelected(null)}
+                  >
+                    ✕
+                  </button>
+                </div>
 
-                  {/* Infos arrêt/reprise */}
-                  {(selected.start_date || selected.duration) && (
-                    <div style={{
-                      marginBottom: 14,
-                      padding: "8px 12px",
-                      background: "#F8FAFC",
-                      borderRadius: 8,
-                      fontSize: 12,
-                      color: "#334155",
-                      fontFamily: "sans-serif",
-                      display: "flex",
-                      gap: 16,
-                    }}>
-                      {selected.start_date && (
-                        <span>📅 À compter du : <strong>{formatDate(selected.start_date)}</strong></span>
-                      )}
-                      {selected.duration && (
-                        <span>⏱ Durée : <strong>{selected.duration} jour{selected.duration > 1 ? "s" : ""}</strong></span>
+                {/* Boutons export */}
+                <div className="actions-row">
+                  <button
+                    className="action-btn btn-print"
+                    onClick={handlePrint}
+                  >
+                    🖨️ Imprimer
+                  </button>
+                  <button
+                    className="action-btn btn-pdf"
+                    onClick={handleExportPDF}
+                    disabled={exporting !== null}
+                  >
+                    {exporting === "pdf" ? (
+                      <>
+                        <div className="spinner" /> Génération…
+                      </>
+                    ) : (
+                      <>📄 Télécharger PDF</>
+                    )}
+                  </button>
+                  <button
+                    className="action-btn btn-image"
+                    onClick={handleExportImage}
+                    disabled={exporting !== null}
+                  >
+                    {exporting === "image" ? (
+                      <>
+                        <div className="spinner" /> Export…
+                      </>
+                    ) : (
+                      <>🖼️ Exporter image</>
+                    )}
+                  </button>
+                </div>
+
+                {/* Papier (capturé par html2canvas) */}
+                <div className="modal-body">
+                  <div className="paper-preview" ref={paperRef}>
+                    <div className="paper-head">
+                      <div>
+                        <div className="paper-dr">
+                          {selected.medecin_name
+                            ? `Dr. ${selected.medecin_name}`
+                            : "TéléConsult"}
+                        </div>
+                        <div className="paper-sub">
+                          Médecin · TéléConsult
+                          <br />
+                          Tunis, Tunisie
+                        </div>
+                      </div>
+                      <div className="paper-seal">⚕</div>
+                    </div>
+
+                    <div className="paper-ttl">{info.label}</div>
+
+                    <div>
+                      <span
+                        className="paper-badge"
+                        style={{ background: info.bg, color: info.color }}
+                      >
+                        {info.icon} {info.label}
+                      </span>
+                    </div>
+
+                    {/* Infos arrêt/reprise */}
+                    {(selected.start_date || selected.duration) && (
+                      <div
+                        style={{
+                          marginBottom: 14,
+                          padding: "8px 12px",
+                          background: "#F8FAFC",
+                          borderRadius: 8,
+                          fontSize: 12,
+                          color: "#334155",
+                          fontFamily: "sans-serif",
+                          display: "flex",
+                          gap: 16,
+                        }}
+                      >
+                        {selected.start_date && (
+                          <span>
+                            📅 À compter du :{" "}
+                            <strong>{formatDate(selected.start_date)}</strong>
+                          </span>
+                        )}
+                        {selected.duration && (
+                          <span>
+                            ⏱ Durée :{" "}
+                            <strong>
+                              {selected.duration} jour
+                              {selected.duration > 1 ? "s" : ""}
+                            </strong>
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="paper-body">
+                      {selected.body ? (
+                        selected.body
+                      ) : (
+                        <span style={{ color: "#94A3B8", fontStyle: "italic" }}>
+                          Aucun contenu renseigné pour ce certificat.
+                        </span>
                       )}
                     </div>
-                  )}
 
-                  <div className="paper-body">
-                    {selected.body 
-                      ? selected.body 
-                      : <span style={{ color: "#94A3B8", fontStyle: "italic" }}>Aucun contenu renseigné pour ce certificat.</span>
-                    }
-                  </div>
-
-                  <div className="paper-foot">
-                    <div className="paper-date">Le {dateStr}</div>
-                    <div className="sig-area">
-                      <div className="sig-line" />
-                      <div className="sig-name">
-                        {selected.medecin_name ? `Dr. ${selected.medecin_name}` : "Médecin"}
+                    <div className="paper-foot">
+                      <div className="paper-date">Le {dateStr}</div>
+                      <div className="sig-area">
+                        <div className="sig-line" />
+                        <div className="sig-name">
+                          {selected.medecin_name
+                            ? `Dr. ${selected.medecin_name}`
+                            : "Médecin"}
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
     </PrivateRoute>
   );
 }

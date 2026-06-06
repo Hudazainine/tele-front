@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../../context/AuthContext";
@@ -7,12 +8,17 @@ import api from "../../../../lib/api";
 import Sidebar from "../../../../components/Sidebar";
 import Navbar from "../../../../components/Navbar";
 
+// ─────────────────────────────────────────────
+// TYPES
+// ─────────────────────────────────────────────
+
 interface DMESection {
   id: string;
   title: string;
   icon: string;
   content: string;
 }
+
 interface SharedDMERecord {
   id: number;
   patient_name: string;
@@ -22,6 +28,21 @@ interface SharedDMERecord {
   created_at: string;
   token: string;
 }
+
+interface PatientProfile {
+  id: number;
+  user: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+  };
+  date_of_birth: string;
+  address: string;
+  blood_type?: string;
+  emergency_contact?: string;
+}
+
 interface Stats {
   rendezvous: number;
   consultations: number;
@@ -37,6 +58,7 @@ const ICON_MAP: Record<string, string> = {
   "[5]": "🏥",
   "[6]": "📝",
 };
+
 function resolveIcon(raw: string) {
   return ICON_MAP[raw] ?? raw;
 }
@@ -59,6 +81,10 @@ const SECTION_META: Record<string, { gradient: string; color: string }> = {
   notes: { gradient: "135deg, #A18CD1 0%, #FBC2EB 100%", color: "#A18CD1" },
 };
 
+// ─────────────────────────────────────────────
+// COMPONENTS
+// ─────────────────────────────────────────────
+
 function TimeBar({
   expiresAt,
   compact = false,
@@ -72,13 +98,11 @@ function TimeBar({
 
   useEffect(() => {
     const exp = new Date(expiresAt).getTime();
-    const created = exp - 86400000; // Assume 24h total duration for calculation logic
+    const created = exp - 86400000;
     const update = () => {
       const now = Date.now();
       const left = Math.max(0, exp - now);
       const total = exp - created;
-
-      // Avoid division by zero if weird dates
       const safeTotal = total > 0 ? total : 86400000;
 
       setPercent(Math.min(100, Math.round((left / safeTotal) * 100)));
@@ -243,6 +267,10 @@ function Avatar({ name, size = 44 }: { name: string; size?: number }) {
   );
 }
 
+// ─────────────────────────────────────────────
+// MAIN COMPONENT
+// ─────────────────────────────────────────────
+
 export default function MedecinDMEPage() {
   const { token, isLoading, username } = useAuth();
   const router = useRouter();
@@ -255,14 +283,42 @@ export default function MedecinDMEPage() {
   const [sharedDossiers, setSharedDossiers] = useState<SharedDMERecord[]>([]);
   const [selectedDossier, setSelectedDossier] =
     useState<SharedDMERecord | null>(null);
+
+  const [viewMode, setViewMode] = useState<"fiche" | "dossier">("fiche");
+  const [patientProfile, setPatientProfile] = useState<PatientProfile | null>(
+    null,
+  );
+  const [loadingProfile, setLoadingProfile] = useState(false);
+
   const [activeSection, setActiveSection] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [tokenInput, setTokenInput] = useState("");
   const [tokenError, setTokenError] = useState("");
   const [loadingToken, setLoadingToken] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-
   const [nowTs, setNowTs] = useState<number>(() => Date.now());
+
+  // Mise à jour de la vue quand on change de patient
+  useEffect(() => {
+    if (!selectedDossier) {
+      setPatientProfile(null);
+      return;
+    }
+
+    setViewMode("fiche");
+
+    setLoadingProfile(true);
+    api
+      .get(`patients/${selectedDossier.patient_id}/`)
+      .then((res) => {
+        setPatientProfile(res.data);
+      })
+      .catch((err) => {
+        console.error("Erreur récupération fiche patient:", err);
+        setPatientProfile(null);
+      })
+      .finally(() => setLoadingProfile(false));
+  }, [selectedDossier]);
 
   useEffect(() => {
     const t = setInterval(() => setNowTs(Date.now()), 10000);
@@ -338,6 +394,7 @@ export default function MedecinDMEPage() {
     if (selectedDossier?.token === t) {
       setSelectedDossier(null);
       setActiveSection("");
+      setPatientProfile(null);
     }
   };
 
@@ -364,98 +421,47 @@ export default function MedecinDMEPage() {
         @keyframes dmeFadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
         @keyframes dmeSlideIn { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
 
-        .dme-bg {
-          background: linear-gradient(135deg, #FDF4FF 0%, #ECFDF5 100%);
-          min-height: 100vh;
-        }
+        .dme-bg { background: linear-gradient(135deg, #FDF4FF 0%, #ECFDF5 100%); min-height: 100vh; }
+        .dme-card { background: rgba(255,255,255,0.78); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.95); border-radius: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); }
 
-        .dme-card {
-          background: rgba(255,255,255,0.78);
-          backdrop-filter: blur(12px);
-          border: 1px solid rgba(255,255,255,0.95);
-          border-radius: 24px;
-          box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
-        }
+        .text-grad { background: linear-gradient(135deg, #8B5CF6, #10B981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 
-        .text-grad {
-          background: linear-gradient(135deg, #8B5CF6, #10B981);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-
-        .dossier-row {
-          display:flex; align-items:center; gap:12px;
-          padding:12px 14px; border-radius:14px;
-          cursor:pointer; transition:all 0.2s ease;
-          border:1.5px solid transparent;
-          background:rgba(255,255,255,0.4);
-          margin-bottom:8px;
-        }
-        .dossier-row:hover:not(.exp-row) { 
-          border-color:rgba(16,185,129,0.25); 
-          background:rgba(16,185,129,0.06); 
-          transform:translateX(3px); 
-        }
-        .dossier-row.sel-row { 
-          border-color:rgba(16,185,129,0.4); 
-          background:rgba(16,185,129,0.1); 
-          box-shadow: 0 4px 12px rgba(16,185,129,0.08);
-        }
+        .dossier-row { display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:14px; cursor:pointer; transition:all 0.2s ease; border:1.5px solid transparent; background:rgba(255,255,255,0.4); margin-bottom:8px; }
+        .dossier-row:hover:not(.exp-row) { border-color:rgba(16,185,129,0.25); background:rgba(16,185,129,0.06); transform:translateX(3px); }
+        .dossier-row.sel-row { border-color:rgba(16,185,129,0.4); background:rgba(16,185,129,0.1); box-shadow: 0 4px 12px rgba(16,185,129,0.08); }
         .dossier-row.exp-row { opacity:0.5; cursor:not-allowed; filter: grayscale(0.5); }
 
-        .sec-tab-med {
-          display:flex; align-items:center; gap:9px;
-          padding:10px 13px; border-radius:12px;
-          cursor:pointer; transition:all 0.2s;
-          font-size:13px; font-weight:500; color:#64748B;
-          border:1px solid transparent;
-        }
+        .sec-tab-med { display:flex; align-items:center; gap:9px; padding:10px 13px; border-radius:12px; cursor:pointer; transition:all 0.2s; font-size:13px; font-weight:500; color:#64748B; border:1px solid transparent; }
         .sec-tab-med:hover { background:rgba(139,92,246,0.05); color:#334155; border-color:rgba(139,92,246,0.1); }
-        .sec-tab-med.active-tab { 
-          background:linear-gradient(135deg,rgba(139,92,246,0.1),rgba(16,185,129,0.08)); 
-          color:#1E293B; border-color:rgba(139,92,246,0.3); 
-          box-shadow:0 2px 8px rgba(139,92,246,0.1);
-        }
+        .sec-tab-med.active-tab { background:linear-gradient(135deg,rgba(139,92,246,0.1),rgba(16,185,129,0.08)); color:#1E293B; border-color:rgba(139,92,246,0.3); box-shadow:0 2px 8px rgba(139,92,246,0.1); }
         .sec-tab-med.empty-tab { opacity:0.4; }
 
-        .token-field {
-          flex:1; padding:13px 18px;
-          border:1.5px solid rgba(0,0,0,0.06);
-          border-radius:14px; font-family:'DM Sans',sans-serif;
-          font-size:14px; color:#334155; background:rgba(255,255,255,0.6); outline:none;
-          transition:all 0.2s;
-        }
+        .token-field { flex:1; padding:13px 18px; border:1.5px solid rgba(0,0,0,0.06); border-radius:14px; font-family:'DM Sans',sans-serif; font-size:14px; color:#334155; background:rgba(255,255,255,0.6); outline:none; transition:all 0.2s; }
         .token-field:focus { border-color:rgba(139,92,246,0.4); background:white; box-shadow:0 0 0 4px rgba(139,92,246,0.08); }
 
-        .token-submit {
-          padding:13px 24px; border-radius:14px;
-          background:linear-gradient(135deg,#8B5CF6,#10B981); color:white;
-          border:none; font-family:'DM Sans',sans-serif; font-weight:700; font-size:14px;
-          cursor:pointer; white-space:nowrap; transition:all 0.25s;
-          box-shadow:0 4px 14px rgba(139,92,246,0.25);
-        }
+        .token-submit { padding:13px 24px; border-radius:14px; background:linear-gradient(135deg,#8B5CF6,#10B981); color:white; border:none; font-family:'DM Sans',sans-serif; font-weight:700; font-size:14px; cursor:pointer; white-space:nowrap; transition:all 0.25s; box-shadow:0 4px 14px rgba(139,92,246,0.25); }
         .token-submit:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 8px 20px rgba(139,92,246,0.35); }
 
-        .stat-card {
-          padding:20px 22px; display:flex; align-items:center; gap:14px;
-        }
-        .stat-icon {
-          width:46px; height:46px; border-radius:14px;
-          display:flex; align-items:center; justify-content:center; font-size:20px; flexShrink:0;
-        }
+        .stat-card { padding:20px 22px; display:flex; align-items:center; gap:14px; }
+        .stat-icon { width:46px; height:46px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:20px; flexShrink:0; }
 
-        .content-area {
-          background:white; border:1.5px solid rgba(0,0,0,0.04);
-          border-radius:16px; padding:24px; min-height:200px;
-          font-size:15px; line-height:1.8; color:#334155; white-space:pre-wrap;
-        }
+        .content-area { background:white; border:1.5px solid rgba(0,0,0,0.04); border-radius:16px; padding:24px; min-height:200px; font-size:15px; line-height:1.8; color:#334155; white-space:pre-wrap; }
 
-        .read-badge {
-          display:inline-flex; align-items:center; gap:6px;
-          padding:5px 12px; border-radius:20px;
-          background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.2);
-          color:#059669; font-size:11px; font-weight:700; letter-spacing:0.5px;
-        }
+        .read-badge { display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:20px; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.2); color:#059669; font-size:11px; font-weight:700; letter-spacing:0.5px; }
+
+        /* Tab Styles */
+        .view-tabs { display:flex; gap:8px; padding:6px; background:rgba(255,255,255,0.5); border-radius:16px; margin-bottom:24px; border:1px solid rgba(255,255,255,0.8); }
+        .view-tab-btn { flex:1; padding:12px; border:none; border-radius:12px; background:transparent; color:#64748B; font-weight:600; font-size:14px; cursor:pointer; transition:all 0.2s; font-family:'DM Sans', sans-serif; display:flex; align-items:center; justify-content:center; gap:8px; }
+        .view-tab-btn:hover { background:rgba(255,255,255,0.8); color:#334155; }
+        .view-tab-btn.active { background:white; color:#0F172A; box-shadow:0 2px 8px rgba(0,0,0,0.05); }
+
+        /* Fiche Styles */
+        .fiche-grid { display:grid; grid-template-columns: 1fr 1fr; gap:24px; }
+        .fiche-card { background:rgba(255,255,255,0.6); border:1px solid rgba(255,255,255,0.8); border-radius:18px; padding:20px; }
+        .fiche-label { font-size:11px; font-weight:700; text-transform:uppercase; color:#94A3B8; letter-spacing:0.5px; margin-bottom:8px; }
+        .fiche-val { font-size:15px; color:#1E293B; font-weight:500; }
+        .fiche-big-val { font-size:22px; color:#0F172A; font-weight:700; }
+
       `}</style>
 
       <div
@@ -465,7 +471,7 @@ export default function MedecinDMEPage() {
         <Sidebar stats={stats} />
         <Navbar
           title="Dossiers Patients"
-          subtitle={`Dr. ${username ?? ""} — Lecture seule`}
+          subtitle={`Dr. ${username ?? ""} — Accès complet`}
         />
 
         <main
@@ -495,7 +501,7 @@ export default function MedecinDMEPage() {
                 marginBottom: 12,
               }}
             >
-              Accéder via lien de partage
+              Accès via lien
             </p>
             <div style={{ display: "flex", gap: 10 }}>
               <input
@@ -530,7 +536,7 @@ export default function MedecinDMEPage() {
             )}
           </div>
 
-          {/* Stats row */}
+          {/* Stats */}
           <div
             style={{
               display: "grid",
@@ -571,7 +577,7 @@ export default function MedecinDMEPage() {
                     marginTop: 3,
                   }}
                 >
-                  Dossiers actifs
+                  Actifs
                 </p>
               </div>
             </div>
@@ -643,13 +649,13 @@ export default function MedecinDMEPage() {
                     marginTop: 3,
                   }}
                 >
-                  Total patients
+                  Total
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Main layout */}
+          {/* Main Layout */}
           <div
             style={{
               display: "grid",
@@ -657,7 +663,7 @@ export default function MedecinDMEPage() {
               gap: 16,
             }}
           >
-            {/* Dossier list */}
+            {/* Liste des Dossiers */}
             <div
               className="dme-card"
               style={{ padding: 18, alignSelf: "start" }}
@@ -792,7 +798,7 @@ export default function MedecinDMEPage() {
               )}
             </div>
 
-            {/* Viewer */}
+            {/* Panneau Détail : Fiche OU Dossier */}
             {!selectedDossier ? (
               <div
                 className="dme-card"
@@ -847,289 +853,536 @@ export default function MedecinDMEPage() {
               </div>
             ) : (
               <div
-                style={{ display: "flex", flexDirection: "column", gap: 16 }}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 16,
+                  height: "100%",
+                  overflow: "hidden",
+                }}
               >
-                {/* Patient header card */}
-                <div className="dme-card" style={{ padding: "24px 28px" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                      marginBottom: 18,
-                    }}
-                  >
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 16 }}
+                {/* En-tête Patient commun */}
+                <div
+                  className="dme-card"
+                  style={{
+                    padding: "20px 24px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 16,
+                  }}
+                >
+                  <Avatar name={selectedDossier.patient_name} size={54} />
+                  <div style={{ flex: 1 }}>
+                    <h2
+                      style={{
+                        fontFamily: "'Syne',sans-serif",
+                        fontSize: 22,
+                        fontWeight: 800,
+                        color: "#1E293B",
+                        margin: 0,
+                        marginBottom: 4,
+                      }}
                     >
-                      <Avatar name={selectedDossier.patient_name} size={54} />
-                      <div>
-                        <h2
-                          style={{
-                            fontFamily: "'Syne',sans-serif",
-                            fontSize: 22,
-                            fontWeight: 800,
-                            color: "#1E293B",
-                            margin: 0,
-                            marginBottom: 4,
-                          }}
-                        >
-                          {selectedDossier.patient_name}
-                        </h2>
-                        <p
-                          style={{ fontSize: 13, color: "#64748B", margin: 0 }}
-                        >
-                          Partagé le{" "}
-                          {new Date(
-                            selectedDossier.created_at,
-                          ).toLocaleDateString("fr-FR", {
-                            day: "numeric",
-                            month: "long",
-                            year: "numeric",
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="read-badge">🔍 Lecture seule</span>
+                      {selectedDossier.patient_name}
+                    </h2>
+                    <p style={{ fontSize: 13, color: "#64748B", margin: 0 }}>
+                      Patient ID: #{selectedDossier.patient_id}
+                    </p>
                   </div>
-
-                  <TimeBar expiresAt={selectedDossier.expires_at} />
-
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(3,1fr)",
-                      gap: 12,
-                      marginTop: 20,
-                    }}
-                  >
-                    {[
-                      {
-                        val: filledSections.length,
-                        label: "Sections remplies",
-                        color: "#8B5CF6",
-                      },
-                      {
-                        val: selectedDossier.sections.length,
-                        label: "Total sections",
-                        color: "#10B981",
-                      },
-                      {
-                        val: `${Math.max(0, Math.round((new Date(selectedDossier.expires_at).getTime() - Number(new Date().getTime())) / 3600000))}h`,
-                        label: "Restantes",
-                        color: "#F59E0B",
-                      },
-                    ].map((item) => (
-                      <div
-                        key={item.label}
-                        style={{
-                          padding: "14px 16px",
-                          background: "rgba(255,255,255,0.5)",
-                          borderRadius: 14,
-                          border: "1px solid rgba(255,255,255,0.8)",
-                          textAlign: "center",
-                        }}
-                      >
-                        <p
-                          style={{
-                            fontFamily: "'Syne',sans-serif",
-                            fontSize: 24,
-                            fontWeight: 800,
-                            color: item.color,
-                            margin: 0,
-                          }}
-                        >
-                          {item.val}
-                        </p>
-                        <p
-                          style={{
-                            fontSize: 11,
-                            color: "#64748B",
-                            fontWeight: 600,
-                            margin: 0,
-                            marginTop: 2,
-                          }}
-                        >
-                          {item.label}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
+                  <span className="read-badge">🔍 Lecture seule</span>
                 </div>
 
-                {/* Sections reader */}
-                <div className="dme-card" style={{ padding: 24 }}>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "220px 1fr",
-                      gap: 20,
-                    }}
+                {/* TABS SWITCHER */}
+                <div className="view-tabs">
+                  <button
+                    className={`view-tab-btn ${viewMode === "fiche" ? "active" : ""}`}
+                    onClick={() => setViewMode("fiche")}
                   >
-                    <div>
-                      <p
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 700,
-                          letterSpacing: "1.5px",
-                          textTransform: "uppercase",
-                          color: "#94A3B8",
-                          marginBottom: 12,
-                        }}
-                      >
-                        Sections
-                      </p>
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 6,
-                        }}
-                      >
-                        {selectedDossier.sections.map((section) => {
-                          const filled = section.content.trim().length > 0;
-                          const isAct = activeSection === section.id;
-                          return (
-                            <div
-                              key={section.id}
-                              className={`sec-tab-med ${isAct ? "active-tab" : ""} ${!filled ? "empty-tab" : ""}`}
-                              onClick={() => setActiveSection(section.id)}
-                            >
-                              <span style={{ fontSize: 15 }}>
-                                {resolveIcon(section.icon)}
-                              </span>
-                              <span style={{ flex: 1 }}>{section.title}</span>
-                              {filled ? (
-                                <span
-                                  style={{
-                                    width: 6,
-                                    height: 6,
-                                    borderRadius: "50%",
-                                    background: isAct ? "#8B5CF6" : "#10B981",
-                                    flexShrink: 0,
-                                    boxShadow: isAct
-                                      ? "0 0 8px rgba(139,92,246,0.6)"
-                                      : "0 0 6px rgba(16,185,129,0.6)",
-                                  }}
-                                />
-                              ) : (
-                                <span
-                                  style={{
-                                    width: 6,
-                                    height: 6,
-                                    borderRadius: "50%",
-                                    background: "rgba(0,0,0,0.05)",
-                                    flexShrink: 0,
-                                  }}
-                                />
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
+                    👤 Fiche Technique
+                  </button>
+                  <button
+                    className={`view-tab-btn ${viewMode === "dossier" ? "active" : ""}`}
+                    onClick={() => setViewMode("dossier")}
+                  >
+                    📂 Dossier Médical
+                  </button>
+                </div>
 
-                    <div
-                      key={activeSection}
-                      style={{ animation: "dmeFadeUp 0.25s ease" }}
-                    >
-                      {currentSection ? (
+                {/* CONTENU SCROLLABLE */}
+                <div
+                  style={{
+                    flex: 1,
+                    overflowY: "auto",
+                    minHeight: 0,
+                    paddingRight: 4,
+                  }}
+                >
+                  {/* --- VUE 1: FICHE TECHNIQUE --- */}
+                  {viewMode === "fiche" && (
+                    <div style={{ animation: "dmeFadeUp 0.3s ease" }}>
+                      {loadingProfile ? (
+                        <div
+                          style={{
+                            padding: 40,
+                            textAlign: "center",
+                            color: "#94A3B8",
+                          }}
+                        >
+                          Chargement des informations...
+                        </div>
+                      ) : patientProfile ? (
                         <>
                           <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 14,
-                              marginBottom: 20,
-                            }}
+                            className="fiche-card"
+                            style={{ marginBottom: 16 }}
                           >
                             <div
                               style={{
-                                width: 48,
-                                height: 48,
-                                borderRadius: 16,
-                                flexShrink: 0,
-                                background: `linear-gradient(${SECTION_META[currentSection.id]?.gradient || "135deg, #8B5CF6, #10B981"})`,
-                                border: "1px solid rgba(255,255,255,0.2)",
                                 display: "flex",
                                 alignItems: "center",
-                                justifyContent: "center",
-                                fontSize: 22,
-                                boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
+                                gap: 16,
                               }}
                             >
-                              {resolveIcon(currentSection.icon)}
+                              <div
+                                style={{
+                                  width: 72,
+                                  height: 72,
+                                  borderRadius: 20,
+                                  background: "rgba(139,92,246,0.1)",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  fontSize: 32,
+                                  border: "2px dashed rgba(139,92,246,0.2)",
+                                }}
+                              >
+                                {patientProfile.user?.first_name
+                                  ? `${patientProfile.user.first_name[0]}${patientProfile.user.last_name[0]}`
+                                  : "NA"}
+                              </div>
+                              <div>
+                                <h3
+                                  style={{
+                                    fontSize: 24,
+                                    fontWeight: 800,
+                                    color: "#0F172A",
+                                    margin: 0,
+                                  }}
+                                >
+                                  {patientProfile.user?.first_name}{" "}
+                                  {patientProfile.user?.last_name}
+                                </h3>
+                                <p
+                                  style={{
+                                    fontSize: 14,
+                                    color: "#64748B",
+                                    margin: 0,
+                                  }}
+                                >
+                                  Patient • {patientProfile.user?.email}
+                                </p>
+                              </div>
                             </div>
-                            <h3
-                              style={{
-                                fontFamily: "'Syne',sans-serif",
-                                fontSize: 20,
-                                fontWeight: 800,
-                                color: "#1E293B",
-                                margin: 0,
-                              }}
-                            >
-                              {currentSection.title}
-                            </h3>
                           </div>
 
-                          <div className="content-area">
-                            {currentSection.content.trim() ? (
-                              currentSection.content
-                            ) : (
+                          <div className="fiche-grid">
+                            <div className="fiche-card">
+                              <p className="fiche-label">Contact</p>
                               <div
                                 style={{
                                   display: "flex",
                                   flexDirection: "column",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  padding: "40px",
-                                  color: "#94A3B8",
-                                  textAlign: "center",
-                                  gap: 12,
+                                  gap: 8,
                                 }}
                               >
-                                <span style={{ fontSize: 32 }}>📭</span>
-                                <p
+                                <div
                                   style={{
-                                    fontSize: 14,
-                                    fontWeight: 600,
-                                    margin: 0,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 8,
                                   }}
                                 >
-                                  Non renseigné par le patient
-                                </p>
+                                  <span style={{ fontSize: 16 }}>📞</span>
+                                  <span className="fiche-val">
+                                    {patientProfile.user?.phone ||
+                                      "Non renseigné"}
+                                  </span>
+                                </div>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 8,
+                                  }}
+                                >
+                                  <span style={{ fontSize: 16 }}>📧</span>
+                                  <span
+                                    className="fiche-val"
+                                    style={{ wordBreak: "break-all" }}
+                                  >
+                                    {patientProfile.user?.email ||
+                                      "Non renseigné"}
+                                  </span>
+                                </div>
                               </div>
-                            )}
+                            </div>
+
+                            <div className="fiche-card">
+                              <p className="fiche-label">Détails</p>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: 8,
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 8,
+                                  }}
+                                >
+                                  <span style={{ fontSize: 16 }}>🎂</span>
+                                  <span className="fiche-val">
+                                    {patientProfile.date_of_birth
+                                      ? new Date(
+                                          patientProfile.date_of_birth,
+                                        ).toLocaleDateString("fr-FR")
+                                      : "Non renseigné"}
+                                  </span>
+                                </div>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 8,
+                                  }}
+                                >
+                                  <span style={{ fontSize: 16 }}>🩸</span>
+                                  <span className="fiche-val">
+                                    {patientProfile.blood_type ||
+                                      "Non renseigné"}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
                           </div>
 
-                          <div
-                            style={{
-                              marginTop: 16,
-                              padding: "12px 16px",
-                              background: "rgba(16,185,129,0.05)",
-                              border: "1px solid rgba(16,185,129,0.1)",
-                              borderRadius: 14,
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 10,
-                              fontSize: 12,
-                              color: "#64748B",
-                            }}
-                          >
-                            <span>🔍</span>
-                            <span>
-                              Accès{" "}
-                              <strong style={{ color: "#059669" }}>
-                                lecture seule
-                              </strong>{" "}
-                              — modification non autorisée.
-                            </span>
+                          <div className="fiche-card">
+                            <p className="fiche-label">Adresse</p>
+                            <p className="fiche-val">
+                              {patientProfile.address || "Non renseigné"}
+                            </p>
                           </div>
                         </>
-                      ) : null}
+                      ) : (
+                        <div
+                          style={{
+                            padding: 40,
+                            textAlign: "center",
+                            color: "#64748B",
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 32,
+                              display: "block",
+                              marginBottom: 10,
+                            }}
+                          >
+                            📭
+                          </span>
+                          <p>Fiche technique non disponible</p>
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  )}
+
+                  {/* --- VUE 2: DOSSIER MÉDICAL --- */}
+                  {viewMode === "dossier" && (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 16,
+                        animation: "dmeFadeUp 0.3s ease",
+                      }}
+                    >
+                      {/* Header Dossier */}
+                      <div
+                        className="dme-card"
+                        style={{ padding: "20px 24px" }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            marginBottom: 12,
+                          }}
+                        >
+                          <p
+                            style={{
+                              fontSize: 13,
+                              color: "#64748B",
+                              margin: 0,
+                            }}
+                          >
+                            Dossier partagé le{" "}
+                            {new Date(
+                              selectedDossier.created_at,
+                            ).toLocaleDateString("fr-FR")}
+                          </p>
+                          <TimeBar expiresAt={selectedDossier.expires_at} />
+                        </div>
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(3,1fr)",
+                            gap: 10,
+                          }}
+                        >
+                          {[
+                            {
+                              val: filledSections.length,
+                              label: "Sections remplies",
+                              color: "#8B5CF6",
+                            },
+                            {
+                              val: selectedDossier.sections.length,
+                              label: "Total sections",
+                              color: "#10B981",
+                            },
+                            {
+                              val: `${Math.max(0, Math.round((new Date(selectedDossier.expires_at).getTime() - Number(new Date().getTime())) / 3600000))}h`,
+                              label: "Restantes",
+                              color: "#F59E0B",
+                            },
+                          ].map((item) => (
+                            <div
+                              key={item.label}
+                              style={{
+                                padding: "10px",
+                                background: "rgba(255,255,255,0.5)",
+                                borderRadius: 12,
+                                border: "1px solid rgba(255,255,255,0.8)",
+                                textAlign: "center",
+                              }}
+                            >
+                              <p
+                                style={{
+                                  fontFamily: "'Syne',sans-serif",
+                                  fontSize: 20,
+                                  fontWeight: 800,
+                                  color: item.color,
+                                  margin: 0,
+                                }}
+                              >
+                                {item.val}
+                              </p>
+                              <p
+                                style={{
+                                  fontSize: 11,
+                                  color: "#64748B",
+                                  fontWeight: 600,
+                                  margin: 0,
+                                  marginTop: 2,
+                                }}
+                              >
+                                {item.label}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Contenu Dossier */}
+                      <div
+                        className="dme-card"
+                        style={{ padding: 24, flex: 1 }}
+                      >
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "200px 1fr",
+                            gap: 20,
+                            height: "100%",
+                          }}
+                        >
+                          {/* Menu Gauche Dossier */}
+                          <div>
+                            <p
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 700,
+                                letterSpacing: "1.5px",
+                                textTransform: "uppercase",
+                                color: "#94A3B8",
+                                marginBottom: 12,
+                              }}
+                            >
+                              Sections
+                            </p>
+                            <div
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 6,
+                              }}
+                            >
+                              {selectedDossier.sections.map((section) => {
+                                const filled =
+                                  section.content.trim().length > 0;
+                                const isAct = activeSection === section.id;
+                                return (
+                                  <div
+                                    key={section.id}
+                                    className={`sec-tab-med ${isAct ? "active-tab" : ""} ${!filled ? "empty-tab" : ""}`}
+                                    onClick={() => setActiveSection(section.id)}
+                                  >
+                                    <span style={{ fontSize: 15 }}>
+                                      {resolveIcon(section.icon)}
+                                    </span>
+                                    <span style={{ flex: 1 }}>
+                                      {section.title}
+                                    </span>
+                                    {filled ? (
+                                      <span
+                                        style={{
+                                          width: 6,
+                                          height: 6,
+                                          borderRadius: "50%",
+                                          background: isAct
+                                            ? "#8B5CF6"
+                                            : "#10B981",
+                                          flexShrink: 0,
+                                          boxShadow: isAct
+                                            ? "0 0 8px rgba(139,92,246,0.6)"
+                                            : "0 0 6px rgba(16,185,129,0.6)",
+                                        }}
+                                      />
+                                    ) : (
+                                      <span
+                                        style={{
+                                          width: 6,
+                                          height: 6,
+                                          borderRadius: "50%",
+                                          background: "rgba(0,0,0,0.05)",
+                                          flexShrink: 0,
+                                        }}
+                                      />
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Contenu Dossier Droite */}
+                          <div
+                            key={activeSection}
+                            style={{ animation: "dmeFadeUp 0.25s ease" }}
+                          >
+                            {currentSection ? (
+                              <>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 14,
+                                    marginBottom: 20,
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      width: 48,
+                                      height: 48,
+                                      borderRadius: 16,
+                                      flexShrink: 0,
+                                      background: `linear-gradient(${SECTION_META[currentSection.id]?.gradient || "135deg, #8B5CF6, #10B981"})`,
+                                      border: "1px solid rgba(255,255,255,0.2)",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      fontSize: 22,
+                                      boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
+                                    }}
+                                  >
+                                    {resolveIcon(currentSection.icon)}
+                                  </div>
+                                  <h3
+                                    style={{
+                                      fontFamily: "'Syne',sans-serif",
+                                      fontSize: 20,
+                                      fontWeight: 800,
+                                      color: "#1E293B",
+                                      margin: 0,
+                                    }}
+                                  >
+                                    {currentSection.title}
+                                  </h3>
+                                </div>
+
+                                <div className="content-area">
+                                  {currentSection.content.trim() ? (
+                                    currentSection.content
+                                  ) : (
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        padding: "40px",
+                                        color: "#94A3B8",
+                                        textAlign: "center",
+                                        gap: 12,
+                                      }}
+                                    >
+                                      <span style={{ fontSize: 32 }}>📭</span>
+                                      <p
+                                        style={{
+                                          fontSize: 14,
+                                          fontWeight: 600,
+                                          margin: 0,
+                                        }}
+                                      >
+                                        Non renseigné par le patient
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div
+                                  style={{
+                                    marginTop: 16,
+                                    padding: "12px 16px",
+                                    background: "rgba(16,185,129,0.05)",
+                                    border: "1px solid rgba(16,185,129,0.1)",
+                                    borderRadius: 14,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 10,
+                                    fontSize: 12,
+                                    color: "#64748B",
+                                  }}
+                                >
+                                  <span>🔍</span>
+                                  <span>
+                                    Accès{" "}
+                                    <strong style={{ color: "#059669" }}>
+                                      lecture seule
+                                    </strong>{" "}
+                                    — modification non autorisée.
+                                  </span>
+                                </div>
+                              </>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

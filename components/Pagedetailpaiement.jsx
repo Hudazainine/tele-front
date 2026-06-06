@@ -1,3 +1,4 @@
+// D:\teleconsultation\frontend\components\Pagedetailpaiement.jsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -5,26 +6,6 @@ import api from "@/lib/api";
 import PaiementBadge from "@/components/PaiementBadge";
 import BoutonPaiement from "@/components/BoutonPaiement";
 
-/**
- * PageDetailPaiement — page complète de détail paiement pour un RDV.
- *
- * Usage dans app/rdv/[rdvId]/paiement/page.jsx :
- *   import PageDetailPaiement from "@/components/PageDetailPaiement";
- *   export default function Page({ params }) {
- *     return <PageDetailPaiement rdvId={params.rdvId} />;
- *   }
- *
- * L'API attendue : GET /paiement/detail/{rdvId}/
- * Réponse :
- *   {
- *     rdv: { id, date, heure, medecin: { nom, specialite } },
- *     paiement: {
- *       statut_avance, statut_restant, est_complet,
- *       montant_avance, montant_restant, montant_total,
- *       konnect_ref_avance?, konnect_ref_restant?
- *     }
- *   }
- */
 export default function PageDetailPaiement({ rdvId }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -173,7 +154,7 @@ export default function PageDetailPaiement({ rdvId }) {
           rel="noopener noreferrer"
           className="underline"
         >
-          Konnect
+          Paymee
         </a>
         . En cas de problème, contactez le support.
       </p>

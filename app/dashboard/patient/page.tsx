@@ -198,7 +198,7 @@ export default function PatientDashboard() {
         }
 
         .light-premium-bg {
-          background-color: #F8FAFC;
+          background-color: #EFF6FF ;
           background-image: 
             radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.08) 0px, transparent 50%),
             radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
@@ -231,7 +231,7 @@ export default function PatientDashboard() {
         }
 
         .icon-gradient-bg {
-          background: linear-gradient(135deg, #8B5CF6, #34D399);
+          background: linear-gradient(135deg, #378ADD, #34D399);
           box-shadow: 0 6px 15px -3px rgba(139, 92, 246, 0.35);
         }
 
@@ -252,7 +252,7 @@ export default function PatientDashboard() {
         }
 
         .rdv-card-light {
-          background: linear-gradient(135deg, #8B5CF6, #059669);
+          background: linear-gradient(135deg, #378ADD, #059669);
           position: relative;
           overflow: hidden;
           border-radius: 28px;
@@ -384,7 +384,7 @@ export default function PatientDashboard() {
                       width: 24,
                       height: 4,
                       borderRadius: 2,
-                      background: "linear-gradient(90deg, #8B5CF6, #10B981)",
+                      background: "linear-gradient(90deg, #378ADD, #10B981)",
                     }}
                   ></div>
                   <p
@@ -793,7 +793,7 @@ export default function PatientDashboard() {
                       <LucideIcon
                         path={iconPaths[a.iconKey]}
                         size={22}
-                        color="#8B5CF6"
+                        color="#378ADD"
                       />
                     </div>
                     <div>
@@ -910,7 +910,7 @@ export default function PatientDashboard() {
                           borderRadius: "50%",
                           background: n.lu
                             ? "#E2E8F0"
-                            : "linear-gradient(135deg, #8B5CF6, #10B981)",
+                            : "linear-gradient(135deg, #378ADD, #10B981)",
                           marginTop: 4,
                           flexShrink: 0,
                           boxShadow: n.lu

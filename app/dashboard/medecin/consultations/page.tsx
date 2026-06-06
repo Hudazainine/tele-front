@@ -1,3 +1,4 @@
+// D:\teleconsultation\frontend\app\dashboard\medecin\consultations\page.tsx
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -7,7 +8,11 @@ import api from "../../../../lib/api";
 import Sidebar from "../../../../components/Sidebar";
 import Navbar from "../../../../components/Navbar";
 
-interface Stats { rendezvous: number; consultations: number; ordonnances: number; }
+interface Stats {
+  rendezvous: number;
+  consultations: number;
+  ordonnances: number;
+}
 interface Consultation {
   id: number;
   patient_name: string;
@@ -20,26 +25,44 @@ export default function Consultations() {
   const { token, isLoading, username } = useAuth();
   const router = useRouter();
 
-  const [stats, setStats]             = useState<Stats>({ rendezvous: 0, consultations: 0, ordonnances: 0 });
-  const [consultations, setConsults]  = useState<Consultation[]>([]);
-  const [search, setSearch]           = useState("");
-  const [loading, setLoading]         = useState(true);
+  const [stats, setStats] = useState<Stats>({
+    rendezvous: 0,
+    consultations: 0,
+    ordonnances: 0,
+  });
+  const [consultations, setConsults] = useState<Consultation[]>([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (isLoading) return;
-    if (!token) { router.push("/login"); return; }
-    Promise.all([api.get("rendezvous/"), api.get("consultations/"), api.get("ordonnances/")])
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+    Promise.all([
+      api.get("rendezvous/"),
+      api.get("consultations/"),
+      api.get("ordonnances/"),
+    ])
       .then(([r, c, o]) => {
-        setStats({ rendezvous: r.data.length, consultations: c.data.length, ordonnances: o.data.length });
+        setStats({
+          rendezvous: r.data.length,
+          consultations: c.data.length,
+          ordonnances: o.data.length,
+        });
         setConsults(c.data);
-      }).catch(() => {}).finally(() => setLoading(false));
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [token, isLoading]);
 
   if (isLoading) return null;
 
-  const filtered = consultations.filter(c =>
-    c.patient_name?.toLowerCase().includes(search.toLowerCase()) ||
-    c.notes?.toLowerCase().includes(search.toLowerCase())
+  const filtered = consultations.filter(
+    (c) =>
+      c.patient_name?.toLowerCase().includes(search.toLowerCase()) ||
+      c.notes?.toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
@@ -100,19 +123,28 @@ export default function Consultations() {
           <div className="page-header">
             <div>
               <div className="page-title">Consultations</div>
-              <div className="page-sub">{consultations.length} consultation{consultations.length !== 1 ? "s" : ""} enregistrée{consultations.length !== 1 ? "s" : ""}</div>
+              <div className="page-sub">
+                {consultations.length} consultation
+                {consultations.length !== 1 ? "s" : ""} enregistrée
+                {consultations.length !== 1 ? "s" : ""}
+              </div>
             </div>
-            <button className="btn-new" onClick={() => router.push("/dashboard/medecin/consultations/nouvelle")}>
+            <button
+              className="btn-new"
+              onClick={() =>
+                router.push("/dashboard/medecin/consultations/nouvelle")
+              }
+            >
               ＋ Nouvelle consultation
             </button>
           </div>
 
           <div className="stats-row">
             {[
-              { icon: "📅", val: stats.rendezvous,    lbl: "Rendez-vous" },
+              { icon: "📅", val: stats.rendezvous, lbl: "Rendez-vous" },
               { icon: "🩺", val: stats.consultations, lbl: "Consultations" },
-              { icon: "📋", val: stats.ordonnances,   lbl: "Ordonnances" },
-            ].map(s => (
+              { icon: "📋", val: stats.ordonnances, lbl: "Ordonnances" },
+            ].map((s) => (
               <div key={s.lbl} className="stat-card">
                 <div className="stat-icon">{s.icon}</div>
                 <div>
@@ -125,8 +157,12 @@ export default function Consultations() {
 
           <div className="search-wrap">
             <span style={{ fontSize: 16, color: "#C4C0D8" }}>🔍</span>
-            <input className="search-input" placeholder="Rechercher par patient ou diagnostic..."
-              value={search} onChange={e => setSearch(e.target.value)} />
+            <input
+              className="search-input"
+              placeholder="Rechercher par patient ou diagnostic..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
 
           <div className="table-card">
@@ -138,8 +174,8 @@ export default function Consultations() {
               <span className="th">Action</span>
             </div>
 
-            {loading
-              ? Array.from({ length: 4 }).map((_, i) => (
+            {loading ? (
+              Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="table-row">
                   <div className="skel" style={{ width: "60%" }} />
                   <div className="skel" style={{ width: "50%" }} />
@@ -148,40 +184,57 @@ export default function Consultations() {
                   <div className="skel" style={{ width: "30%" }} />
                 </div>
               ))
-              : filtered.length === 0
-                ? (
-                  <div className="empty">
-                    <div className="empty-icon">🩺</div>
-                    <div style={{ fontSize: 15, fontWeight: 600 }}>Aucune consultation trouvée</div>
-                    <div style={{ fontSize: 13, marginTop: 4 }}>
-                      {search ? "Essayez un autre terme." : "Créez votre première consultation."}
+            ) : filtered.length === 0 ? (
+              <div className="empty">
+                <div className="empty-icon">🩺</div>
+                <div style={{ fontSize: 15, fontWeight: 600 }}>
+                  Aucune consultation trouvée
+                </div>
+                <div style={{ fontSize: 13, marginTop: 4 }}>
+                  {search
+                    ? "Essayez un autre terme."
+                    : "Créez votre première consultation."}
+                </div>
+              </div>
+            ) : (
+              filtered.map((c) => (
+                <div key={c.id} className="table-row">
+                  <div className="td-name">
+                    <div className="avatar">
+                      {c.patient_name?.charAt(0)?.toUpperCase() || "?"}
                     </div>
+                    {c.patient_name || "—"}
                   </div>
-                )
-                : filtered.map(c => (
-                  <div key={c.id} className="table-row">
-                    <div className="td-name">
-                      <div className="avatar">{c.patient_name?.charAt(0)?.toUpperCase() || "?"}</div>
-                      {c.patient_name || "—"}
-                    </div>
-                    <div className="td-date">
-                      {c.date_heure ? new Date(c.date_heure).toLocaleDateString("fr-FR") : "—"}
-                    </div>
-                    <div className="td-notes">{c.notes || "—"}</div>
-                    <div className="td-dr">Dr. {c.medecin_name || username}</div>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button className="action-btn"
-                        onClick={() => router.push(`/dashboard/medecin/consultations/${c.id}`)}>
-                        👁 Voir
-                      </button>
-                      <button className="action-btn"
-                        onClick={() => router.push(`/dashboard/medecin/consultations/${c.id}/modifier`)}>
-                        ✏️
-                      </button>
-                    </div>
+                  <div className="td-date">
+                    {c.date_heure
+                      ? new Date(c.date_heure).toLocaleDateString("fr-FR")
+                      : "—"}
                   </div>
-                ))
-            }
+                  <div className="td-notes">{c.notes || "—"}</div>
+                  <div className="td-dr">Dr. {c.medecin_name || username}</div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button
+                      className="action-btn"
+                      onClick={() =>
+                        router.push(`/dashboard/medecin/consultations/${c.id}`)
+                      }
+                    >
+                      👁 Voir
+                    </button>
+                    <button
+                      className="action-btn"
+                      onClick={() =>
+                        router.push(
+                          `/dashboard/medecin/consultations/${c.id}/modifier`,
+                        )
+                      }
+                    >
+                      ✏️
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </main>
       </div>

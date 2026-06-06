@@ -1,3 +1,4 @@
+// D:\teleconsultation\frontend\components\PaiementBadage.jsx
 "use client";
 
 const BADGE_CONFIG = {

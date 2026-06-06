@@ -1,3 +1,4 @@
+// D:\teleconsultation\frontend\app\dashboard\medecin\consultations\[id]\page.tsx
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
@@ -7,7 +8,11 @@ import api from "@/lib/api";
 import Sidebar from "@/components/Sidebar";
 import Navbar from "@/components/Navbar";
 
-interface Stats { rendezvous: number; consultations: number; ordonnances: number; }
+interface Stats {
+  rendezvous: number;
+  consultations: number;
+  ordonnances: number;
+}
 interface ConsultationData {
   id: number;
   patient_name: string;
@@ -22,31 +27,54 @@ export default function DetailConsultation() {
   const params = useParams();
   const id = params?.id as string;
 
-  const [stats, setStats] = useState<Stats>({ rendezvous: 0, consultations: 0, ordonnances: 0 });
-  const [consultation, setConsultation] = useState<ConsultationData | null>(null);
+  const [stats, setStats] = useState<Stats>({
+    rendezvous: 0,
+    consultations: 0,
+    ordonnances: 0,
+  });
+  const [consultation, setConsultation] = useState<ConsultationData | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (isLoading) return;
-    if (!token) { router.push("/login"); return; }
-    
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+
     Promise.all([
-      api.get("rendezvous/"), 
-      api.get("consultations/"), 
+      api.get("rendezvous/"),
+      api.get("consultations/"),
       api.get("ordonnances/"),
-      api.get(`consultations/${id}/`)
-    ]).then(([r, c, o, consult]) => {
-      setStats({ rendezvous: r.data.length, consultations: c.data.length, ordonnances: o.data.length });
-      setConsultation(consult.data);
-    }).catch(() => {
-      router.push("/dashboard/medecin/consultations");
-    }).finally(() => setLoading(false));
+      api.get(`consultations/${id}/`),
+    ])
+      .then(([r, c, o, consult]) => {
+        setStats({
+          rendezvous: r.data.length,
+          consultations: c.data.length,
+          ordonnances: o.data.length,
+        });
+        setConsultation(consult.data);
+      })
+      .catch(() => {
+        router.push("/dashboard/medecin/consultations");
+      })
+      .finally(() => setLoading(false));
   }, [token, isLoading, id]);
 
   if (isLoading || loading) return null;
 
-  const formattedDate = consultation?.date_heure 
-    ? new Date(consultation.date_heure).toLocaleDateString("fr-FR", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  const formattedDate = consultation?.date_heure
+    ? new Date(consultation.date_heure).toLocaleDateString("fr-FR", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
     : "—";
 
   return (
@@ -93,11 +121,19 @@ export default function DetailConsultation() {
 
       <div className="root">
         <Sidebar stats={stats} />
-        <Navbar title="Détail de la consultation" subtitle={`Dr. ${username}`} />
+        <Navbar
+          title="Détail de la consultation"
+          subtitle={`Dr. ${username}`}
+        />
 
         <main className="main">
           <div className="topbar">
-            <button className="btn-back" onClick={() => router.push("/dashboard/medecin/consultations")}>←</button>
+            <button
+              className="btn-back"
+              onClick={() => router.push("/dashboard/medecin/consultations")}
+            >
+              ←
+            </button>
             <div>
               <div className="topbar-title">Détail de la consultation</div>
               <div className="topbar-sub">Consultation #{id}</div>
@@ -113,7 +149,12 @@ export default function DetailConsultation() {
                   <div className="card-date">{formattedDate}</div>
                 </div>
               </div>
-              <button className="btn-edit" onClick={() => router.push(`/dashboard/medecin/consultations/${id}/modifier`)}>
+              <button
+                className="btn-edit"
+                onClick={() =>
+                  router.push(`/dashboard/medecin/consultations/${id}/modifier`)
+                }
+              >
                 ✏️ Modifier
               </button>
             </div>
@@ -122,11 +163,16 @@ export default function DetailConsultation() {
               <div>
                 <div className="pt-badge">
                   <div className="pt-avatar">
-                    {consultation?.patient_name?.charAt(0)?.toUpperCase() || "?"}
+                    {consultation?.patient_name?.charAt(0)?.toUpperCase() ||
+                      "?"}
                   </div>
                   <div>
-                    <div className="pt-name">{consultation?.patient_name || "Inconnu"}</div>
-                    <div className="pt-dr">Médecin : Dr. {consultation?.medecin_name || username}</div>
+                    <div className="pt-name">
+                      {consultation?.patient_name || "Inconnu"}
+                    </div>
+                    <div className="pt-dr">
+                      Médecin : Dr. {consultation?.medecin_name || username}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -134,14 +180,27 @@ export default function DetailConsultation() {
               <div>
                 <div className="section-title">📋 Motif & Diagnostic</div>
                 <div className="notes-content">
-                  {consultation?.notes || <span className="empty-notes">Aucune note ou diagnostic enregistré.</span>}
+                  {consultation?.notes || (
+                    <span className="empty-notes">
+                      Aucune note ou diagnostic enregistré.
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
 
             <div className="card-footer">
-              <div style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-                <div style={{ fontSize: 11, color: "#999" }}>Document généré le {new Date().toLocaleDateString("fr-FR")}</div>
+              <div
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-end",
+                }}
+              >
+                <div style={{ fontSize: 11, color: "#999" }}>
+                  Document généré le {new Date().toLocaleDateString("fr-FR")}
+                </div>
                 <div className="sig-area">
                   <div className="sig-line" />
                   <div className="sig-name">Dr. {username}</div>

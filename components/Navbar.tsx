@@ -487,7 +487,8 @@ export default function Navbar({ title, subtitle }: NavbarProps) {
                         width: 48,
                         height: 48,
                         borderRadius: 14,
-                        background: "linear-gradient(135deg, #8B5CF6, #10B981)",
+                        background:
+                          "linear-gradient(135deg, #534AB7 , #10B981)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",

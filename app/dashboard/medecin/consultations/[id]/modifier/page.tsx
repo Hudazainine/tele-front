@@ -1,3 +1,4 @@
+// D:\teleconsultation\frontend\app\dashboard\medecin\consultations\[id]\modifier\page.tsx
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
@@ -7,7 +8,11 @@ import api from "@/lib/api";
 import Sidebar from "@/components/Sidebar";
 import Navbar from "@/components/Navbar";
 
-interface Stats { rendezvous: number; consultations: number; ordonnances: number; }
+interface Stats {
+  rendezvous: number;
+  consultations: number;
+  ordonnances: number;
+}
 
 export default function ModifierConsultation() {
   const { token, isLoading, username } = useAuth();
@@ -15,53 +20,71 @@ export default function ModifierConsultation() {
   const params = useParams();
   const id = params?.id as string;
 
-  const [stats, setStats]     = useState<Stats>({ rendezvous: 0, consultations: 0, ordonnances: 0 });
-  const [notes, setNotes]     = useState("");
+  const [stats, setStats] = useState<Stats>({
+    rendezvous: 0,
+    consultations: 0,
+    ordonnances: 0,
+  });
+  const [notes, setNotes] = useState("");
   const [dateHeure, setDateHeure] = useState("");
   const [patientName, setPatientName] = useState("");
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving]   = useState(false);
+  const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (isLoading) return;
-    if (!token) { router.push("/login"); return; }
-    
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+
     Promise.all([
-      api.get("rendezvous/"), 
-      api.get("consultations/"), 
+      api.get("rendezvous/"),
+      api.get("consultations/"),
       api.get("ordonnances/"),
       api.get(`consultations/${id}/`), // Récupération des données de la consultation à modifier
-    ]).then(([r, c, o, consult]) => {
-      setStats({ rendezvous: r.data.length, consultations: c.data.length, ordonnances: o.data.length });
-      setNotes(consult.data.notes || "");
-      // Formater la date pour l'input datetime-local (format YYYY-MM-DDTHH:mm)
-      setDateHeure(consult.data.date_heure?.slice(0, 16) || "");
-      setPatientName(consult.data.patient_name || "");
-    }).catch(() => {
-      // Rediriger si la consultation n'existe pas
-      router.push("/dashboard/medecin/consultations");
-    }).finally(() => setLoading(false));
+    ])
+      .then(([r, c, o, consult]) => {
+        setStats({
+          rendezvous: r.data.length,
+          consultations: c.data.length,
+          ordonnances: o.data.length,
+        });
+        setNotes(consult.data.notes || "");
+        // Formater la date pour l'input datetime-local (format YYYY-MM-DDTHH:mm)
+        setDateHeure(consult.data.date_heure?.slice(0, 16) || "");
+        setPatientName(consult.data.patient_name || "");
+      })
+      .catch(() => {
+        // Rediriger si la consultation n'existe pas
+        router.push("/dashboard/medecin/consultations");
+      })
+      .finally(() => setLoading(false));
   }, [token, isLoading, id]);
 
   if (isLoading || loading) return null;
 
   const handleSave = async () => {
-    setErrorMsg(null); 
+    setErrorMsg(null);
     setSaving(true);
     try {
       await api.patch(`consultations/${id}/`, {
-        notes:      notes.trim(),
+        notes: notes.trim(),
         date_heure: new Date(dateHeure).toISOString(),
       });
       router.push("/dashboard/medecin/consultations");
     } catch (err: any) {
       const d = err?.response?.data;
-      setErrorMsg(typeof d === "object" && d
-        ? Object.entries(d).map(([k, v]) => `${k} : ${Array.isArray(v) ? v.join(", ") : v}`).join(" | ")
-        : "Erreur serveur.");
-    } finally { 
-      setSaving(false); 
+      setErrorMsg(
+        typeof d === "object" && d
+          ? Object.entries(d)
+              .map(([k, v]) => `${k} : ${Array.isArray(v) ? v.join(", ") : v}`)
+              .join(" | ")
+          : "Erreur serveur.",
+      );
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -103,49 +126,110 @@ export default function ModifierConsultation() {
         <Navbar title="Modifier la consultation" subtitle={`Dr. ${username}`} />
 
         <main className="main">
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-            <button onClick={() => router.back()}
-              style={{ width: 38, height: 38, background: "#fff", border: "1px solid #EAE8F5", borderRadius: 12, cursor: "pointer", fontSize: 18, color: "#8A87A0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              marginBottom: 24,
+            }}
+          >
+            <button
+              onClick={() => router.back()}
+              style={{
+                width: 38,
+                height: 38,
+                background: "#fff",
+                border: "1px solid #EAE8F5",
+                borderRadius: 12,
+                cursor: "pointer",
+                fontSize: 18,
+                color: "#8A87A0",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               ←
             </button>
             <div>
-              <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 22, fontWeight: 800, color: "#1C1040" }}>Modifier la consultation</div>
-              <div style={{ fontSize: 13, color: "#8A87A0", marginTop: 3 }}>Consultation #{id}</div>
+              <div
+                style={{
+                  fontFamily: "'Syne',sans-serif",
+                  fontSize: 22,
+                  fontWeight: 800,
+                  color: "#1C1040",
+                }}
+              >
+                Modifier la consultation
+              </div>
+              <div style={{ fontSize: 13, color: "#8A87A0", marginTop: 3 }}>
+                Consultation #{id}
+              </div>
             </div>
           </div>
 
           <div className="card">
             <div className="card-header">
               <div className="card-icon">🩺</div>
-              <span className="card-title">Informations de la consultation</span>
+              <span className="card-title">
+                Informations de la consultation
+              </span>
             </div>
             <div className="card-body">
               {errorMsg && <div className="err">⚠️ {errorMsg}</div>}
 
               {/* Le patient est affiché mais non modifiable */}
               <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "#8A87A0", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 8 }}>Patient</div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "#8A87A0",
+                    textTransform: "uppercase",
+                    letterSpacing: ".5px",
+                    marginBottom: 8,
+                  }}
+                >
+                  Patient
+                </div>
                 <div className="pt-badge">
-                  <div className="pt-avatar">{patientName?.charAt(0)?.toUpperCase() || "?"}</div>
+                  <div className="pt-avatar">
+                    {patientName?.charAt(0)?.toUpperCase() || "?"}
+                  </div>
                   <span className="pt-name">{patientName || "—"}</span>
                 </div>
               </div>
 
               <div className="field">
                 <label>Date &amp; Heure</label>
-                <input type="datetime-local" value={dateHeure} onChange={e => setDateHeure(e.target.value)} />
+                <input
+                  type="datetime-local"
+                  value={dateHeure}
+                  onChange={(e) => setDateHeure(e.target.value)}
+                />
               </div>
 
               <div className="field">
                 <label>Notes / Diagnostic</label>
-                <textarea rows={5} placeholder="Saisissez le diagnostic ou les notes..."
-                  value={notes} onChange={e => setNotes(e.target.value)} />
+                <textarea
+                  rows={5}
+                  placeholder="Saisissez le diagnostic ou les notes..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
               </div>
             </div>
 
             <div className="actions">
-              <button className="btn-cancel" onClick={() => router.back()}>Annuler</button>
-              <button className="btn-save" onClick={handleSave} disabled={saving}>
+              <button className="btn-cancel" onClick={() => router.back()}>
+                Annuler
+              </button>
+              <button
+                className="btn-save"
+                onClick={handleSave}
+                disabled={saving}
+              >
                 {saving ? "Sauvegarde…" : "✓ Enregistrer les modifications"}
               </button>
             </div>

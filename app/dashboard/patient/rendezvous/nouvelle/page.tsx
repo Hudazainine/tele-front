@@ -1,3 +1,4 @@
+// D:\teleconsultation\frontend\app\dashboard\patient\rendezvous\nouvelle\page.tsx
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -190,7 +191,7 @@ export default function NouveauRendezVous() {
         }
         
         .text-gradient { 
-          background: linear-gradient(135deg, #8B5CF6, #10B981); 
+          background: linear-gradient(135deg, #378ADD, #10B981); 
           -webkit-background-clip: text; 
           -webkit-text-fill-color: transparent; 
         }
@@ -211,7 +212,7 @@ export default function NouveauRendezVous() {
         }
         
         .form-input:focus, .form-select:focus { 
-          border-color: #8B5CF6; 
+          border-color: #378ADD; 
           box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1); 
           background: white; 
         }
@@ -227,7 +228,7 @@ export default function NouveauRendezVous() {
         }
         
         .btn-gradient { 
-          background: linear-gradient(135deg, #8B5CF6, #06C98B); 
+          background: linear-gradient(135deg, #378ADD, #06C98B); 
           color: white; 
           border: none; 
           border-radius: 14px; 

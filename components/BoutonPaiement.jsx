@@ -1,3 +1,4 @@
+// D:\teleconsultation\frontend\components\BoutonPaiement.jsx
 "use client";
 
 import { useState, useTransition, useCallback } from "react";
@@ -28,9 +29,17 @@ export default function BoutonPaiement({
         const { data } = await api.post(endpoint);
 
         if (data.pay_url) {
-          // Micro-tâche : libère le thread avant la navigation
-          await Promise.resolve();
-          window.location.href = data.pay_url;
+          // ✅ Ouvrir dans un popup — Paymee pourra envoyer postMessage au parent
+          const popup = window.open(
+            data.pay_url,
+            "paymee_payment",
+            "width=600,height=700,scrollbars=yes,resizable=yes",
+          );
+
+          if (!popup) {
+            // Popup bloqué par le navigateur — fallback redirection
+            window.location.href = data.pay_url;
+          }
         } else {
           setError("L'URL de paiement n'a pas été retournée.");
         }
@@ -72,7 +81,7 @@ export default function BoutonPaiement({
         {isLoading ? (
           <>
             <SpinnerIcon />
-            Redirection vers Konnect…
+            Redirection vers Paymee...
           </>
         ) : (
           <>

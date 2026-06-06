@@ -1,23 +1,9 @@
+// D:\teleconsultation\frontend\components\Usepaiementkonnect.jsx
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import api from "@/lib/api";
 
-/**
- * useKonnectPaiement — hook de polling du statut Konnect pour un paiement RDV.
- *
- * Règle d'hydration : useState() ne doit JAMAIS avoir une valeur initiale
- * qui diffère entre SSR et client. Ici, loading démarre toujours à false
- * et passe à true dans le premier useEffect (client uniquement).
- *
- * Utilisation :
- *   const { statut, loading, erreur, stop } = useKonnectPaiement(paymentRef, {
- *     intervalMs: 4000,
- *     maxTentatives: 30,
- *     onSuccess: (data) => { ... },
- *     onEchec:   (data) => { ... },
- *   });
- */
 export function useKonnectPaiement(paymentRef, options = {}) {
   const { intervalMs = 4000, maxTentatives = 30, onSuccess, onEchec } = options;
 
@@ -107,18 +93,6 @@ export function useKonnectPaiement(paymentRef, options = {}) {
   return { statut, loading, erreur, stop };
 }
 
-/**
- * PaiementSuccesRetour — composant affiché sur la page de retour Konnect.
- *
- * CORRECTION hydration #418 / #425 :
- * window.location.search est inaccessible côté serveur.
- * On initialise paymentRef à null (valeur SSR-safe) et on le lit
- * dans un useEffect (client uniquement) → rendu SSR et client identiques.
- *
- * Usage dans app/paiement/retour/page.jsx :
- *   import { PaiementSuccesRetour } from "@/components/usePaiementKonnect";
- *   export default function Page() { return <PaiementSuccesRetour />; }
- */
 export function PaiementSuccesRetour({ onSuccess, onEchec }) {
   const [paymentRef, setPaymentRef] = useState(null);
   const [pret, setPret] = useState(false);

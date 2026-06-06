@@ -1,3 +1,4 @@
+// D:\teleconsultation\frontend\components\ResumePaiement.jsx
 "use client";
 
 import PaiementBadge from "../components/PaiementBadage";

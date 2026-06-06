@@ -1,3 +1,4 @@
+// D:\teleconsultation\frontend\app\dashboard\patient\rendezvous\page.tsx
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -7,6 +8,11 @@ import Navbar from "../../../../components/Navbar";
 import api from "../../../../lib/api";
 import PaiementBadge from "@/components/PaiementBadage";
 import BoutonPaiement from "@/components/BoutonPaiement";
+import PaymeeListener from "@/components/PaymeeListener";
+import dynamic from "next/dynamic";
+const VideoCall = dynamic(() => import("@/components/VideoCall"), {
+  ssr: false,
+});
 
 // ─────────────────────────────────────────────────────────────
 // ICONS (SVG Components)
@@ -129,6 +135,7 @@ export default function PatientRendezVous() {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<FilterType>("tous");
   const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const [activeVideoRdvId, setActiveVideoRdvId] = useState<number | null>(null);
   const [stats, setStats] = useState({
     rendezvous: 0,
     consultations: 0,
@@ -253,7 +260,7 @@ export default function PatientRendezVous() {
         }
 
         .main-gradient-bg {
-          background: linear-gradient(135deg, #FDF4FF 0%, #ECFDF5 100%);
+          background: #EFF6FF ;
           min-height: 100vh;
         }
         .glass-card {
@@ -264,12 +271,12 @@ export default function PatientRendezVous() {
           box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
         }
         .text-gradient {
-          background: linear-gradient(135deg, #8B5CF6, #10B981);
+          background: linear-gradient(135deg, #378ADD, #10B981);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
         }
         .btn-gradient {
-          background: linear-gradient(135deg, #8B5CF6, #06C98B);
+          background: linear-gradient(135deg, #378ADD, #06C98B);
           color: white;
           border: none;
           border-radius: 14px;
@@ -309,7 +316,7 @@ export default function PatientRendezVous() {
           border-color: rgba(139, 92, 246, 0.2);
         }
         .filter-btn.active {
-          background: linear-gradient(135deg, #8B5CF6, #10B981);
+          background: linear-gradient(135deg, #378ADD, #10B981);
           color: white;
           border-color: transparent;
           box-shadow: 0 4px 15px rgba(139, 92, 246, 0.35);
@@ -334,7 +341,7 @@ export default function PatientRendezVous() {
           position: absolute;
           left: 0; top: 0; bottom: 0;
           width: 5px;
-          background: linear-gradient(180deg, #8B5CF6, #10B981);
+          background: linear-gradient(180deg, #378ADD, #10B981);
           border-radius: 5px 0 0 5px;
         }
         .action-secondary {
@@ -413,6 +420,24 @@ export default function PatientRendezVous() {
             paddingTop: "100px",
           }}
         >
+          {activeVideoRdvId && (
+            <VideoCall
+              channelName={`rdv-${activeVideoRdvId}`}
+              rdvId={activeVideoRdvId}
+              onEnd={() => setActiveVideoRdvId(null)}
+            />
+          )}
+          {/* PAYMEE LISTENER */}
+          <PaymeeListener
+            rdvId={0} // pas utilisé ici car on recharge tout
+            onPaiementConfirme={() => {
+              // Recharger la liste des RDV pour mettre à jour les statuts
+              api.get("rendezvous/").then((r) => {
+                const results = r.data.results || r.data;
+                setData(results);
+              });
+            }}
+          />
           {/* HEADER */}
           <div
             style={{
@@ -607,7 +632,7 @@ export default function PatientRendezVous() {
                       <div
                         style={{
                           background:
-                            "linear-gradient(135deg, #8B5CF611, #10B98111)",
+                            "linear-gradient(135deg, #378ADD11, #10B98111)",
                           borderRadius: 16,
                           padding: "12px 14px",
                           textAlign: "center",
@@ -620,7 +645,7 @@ export default function PatientRendezVous() {
                             fontFamily: "'Syne', sans-serif",
                             fontSize: 20,
                             fontWeight: 800,
-                            color: "#8B5CF6",
+                            color: "#378ADD",
                             lineHeight: 1,
                             margin: 0,
                           }}
@@ -922,40 +947,14 @@ export default function PatientRendezVous() {
                         </button>
                       )}
 
-                      {!isPast && isOnline && (
+                      {/* Supprime les deux boutons existants et remplace par : */}
+                      {!isPast && rdv.status === "confirme" && (
                         <button
                           className="btn-join"
-                          onClick={() =>
-                            router.push(
-                              `/dashboard/patient/consultations/${rdv.id}`,
-                            )
-                          }
+                          onClick={() => setActiveVideoRdvId(rdv.id)}
                         >
                           <LucideIcon path={iconPaths.video} size={14} />{" "}
                           Rejoindre la visio
-                        </button>
-                      )}
-
-                      {!isPast && !isOnline && (
-                        <button
-                          onClick={() =>
-                            router.push(
-                              `/dashboard/patient/rendezvous/${rdv.id}`,
-                            )
-                          }
-                          style={{
-                            background: "rgba(139, 92, 246, 0.08)",
-                            border: "none",
-                            borderRadius: 10,
-                            padding: "8px 14px",
-                            color: "#8B5CF6",
-                            fontWeight: 600,
-                            fontSize: 12,
-                            cursor: "pointer",
-                            fontFamily: "inherit",
-                          }}
-                        >
-                          Détails
                         </button>
                       )}
                     </div>

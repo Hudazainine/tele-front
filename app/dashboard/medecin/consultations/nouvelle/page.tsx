@@ -1,3 +1,4 @@
+// D:\teleconsultation\frontend\app\dashboard\medecin\consultations\nouvelle\page.tsx
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -7,9 +8,21 @@ import api from "../../../../../lib/api";
 import Sidebar from "../../../../../components/Sidebar";
 import Navbar from "../../../../../components/Navbar";
 
-interface Stats { rendezvous: number; consultations: number; ordonnances: number; }
-interface Patient { id: number; username: string; }
-interface Drug { id: number; nom: string; dose: string; dur: string; }
+interface Stats {
+  rendezvous: number;
+  consultations: number;
+  ordonnances: number;
+}
+interface Patient {
+  id: number;
+  username: string;
+}
+interface Drug {
+  id: number;
+  nom: string;
+  dose: string;
+  dur: string;
+}
 
 let _did = 0;
 const newDrug = (): Drug => ({ id: ++_did, nom: "", dose: "", dur: "" });
@@ -18,58 +31,101 @@ export default function NouvelleConsultation() {
   const { token, isLoading, username } = useAuth();
   const router = useRouter();
 
-  const [stats, setStats]       = useState<Stats>({ rendezvous: 0, consultations: 0, ordonnances: 0 });
+  const [stats, setStats] = useState<Stats>({
+    rendezvous: 0,
+    consultations: 0,
+    ordonnances: 0,
+  });
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientId, setPatientId] = useState("");
   const [dateHeure, setDateHeure] = useState(
-    new Date().toISOString().slice(0, 16)
+    new Date().toISOString().slice(0, 16),
   );
-  const [notes, setNotes]       = useState("");
-  const [drugs, setDrugs]       = useState<Drug[]>([newDrug()]);
+  const [notes, setNotes] = useState("");
+  const [drugs, setDrugs] = useState<Drug[]>([newDrug()]);
   const [newDrugRow, setNewDrugRow] = useState({ nom: "", dose: "", dur: "" });
   const [typeConsult, setTypeConsult] = useState("");
-  const [saving, setSaving]     = useState(false);
+  const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (isLoading) return;
-    if (!token) { router.push("/login"); return; }
-    Promise.all([api.get("rendezvous/"), api.get("consultations/"), api.get("ordonnances/"), api.get("patients/")])
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+    Promise.all([
+      api.get("rendezvous/"),
+      api.get("consultations/"),
+      api.get("ordonnances/"),
+      api.get("patients/"),
+    ])
       .then(([r, c, o, p]) => {
-        setStats({ rendezvous: r.data.length, consultations: c.data.length, ordonnances: o.data.length });
+        setStats({
+          rendezvous: r.data.length,
+          consultations: c.data.length,
+          ordonnances: o.data.length,
+        });
         setPatients(p.data);
-      }).catch(() => {});
+      })
+      .catch(() => {});
   }, [token, isLoading]);
 
   if (isLoading) return null;
 
   const addDrug = () => {
     if (!newDrugRow.nom.trim()) return;
-    setDrugs(p => [...p, { id: ++_did, nom: newDrugRow.nom, dose: newDrugRow.dose || "—", dur: newDrugRow.dur || "—" }]);
+    setDrugs((p) => [
+      ...p,
+      {
+        id: ++_did,
+        nom: newDrugRow.nom,
+        dose: newDrugRow.dose || "—",
+        dur: newDrugRow.dur || "—",
+      },
+    ]);
     setNewDrugRow({ nom: "", dose: "", dur: "" });
   };
-  const removeDrug = (id: number) => setDrugs(p => p.filter(d => d.id !== id));
+  const removeDrug = (id: number) =>
+    setDrugs((p) => p.filter((d) => d.id !== id));
 
-  const selectedPatient = patients.find(p => String(p.id) === patientId);
-  const today = new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+  const selectedPatient = patients.find((p) => String(p.id) === patientId);
+  const today = new Date().toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
   const handleSave = async () => {
-    if (!patientId) { setErrorMsg("Sélectionnez un patient."); return; }
-    if (!dateHeure) { setErrorMsg("Renseignez la date et l'heure."); return; }
-    setErrorMsg(null); setSaving(true);
+    if (!patientId) {
+      setErrorMsg("Sélectionnez un patient.");
+      return;
+    }
+    if (!dateHeure) {
+      setErrorMsg("Renseignez la date et l'heure.");
+      return;
+    }
+    setErrorMsg(null);
+    setSaving(true);
     try {
       await api.post("consultations/", {
-        patient:    parseInt(patientId),
+        patient: parseInt(patientId),
         date_heure: new Date(dateHeure).toISOString(),
-        notes:      notes.trim() || "",
+        notes: notes.trim() || "",
       });
       router.push("/dashboard/medecin/consultations");
     } catch (err: any) {
       const d = err?.response?.data;
-      setErrorMsg(typeof d === "object" && d
-        ? Object.entries(d).map(([k, v]) => `${k} : ${Array.isArray(v) ? v.join(", ") : v}`).join(" | ")
-        : "Erreur serveur.");
-    } finally { setSaving(false); }
+      setErrorMsg(
+        typeof d === "object" && d
+          ? Object.entries(d)
+              .map(([k, v]) => `${k} : ${Array.isArray(v) ? v.join(", ") : v}`)
+              .join(" | ")
+          : "Erreur serveur.",
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -166,18 +222,23 @@ export default function NouvelleConsultation() {
 
         <main className="main">
           <div className="topbar">
-            <button className="btn-back" onClick={() => router.push("/dashboard/medecin/consultations")}>←</button>
+            <button
+              className="btn-back"
+              onClick={() => router.push("/dashboard/medecin/consultations")}
+            >
+              ←
+            </button>
             <div>
               <div className="topbar-title">Nouvelle Consultation</div>
-              <div className="topbar-sub">Dr. {username} · {today}</div>
+              <div className="topbar-sub">
+                Dr. {username} · {today}
+              </div>
             </div>
           </div>
 
           <div className="layout">
-
             {/* ── Formulaire ── */}
             <div className="form-panel">
-
               {/* Patient + Date */}
               <div className="form-section">
                 <div className="sec-header">
@@ -188,21 +249,33 @@ export default function NouvelleConsultation() {
                 <div className="grid2">
                   <div className="field">
                     <label>Patient</label>
-                    <select value={patientId} onChange={e => setPatientId(e.target.value)}>
+                    <select
+                      value={patientId}
+                      onChange={(e) => setPatientId(e.target.value)}
+                    >
                       <option value="">— Sélectionner —</option>
-                      {patients.map(p => (
-                        <option key={p.id} value={p.id}>{p.username}</option>
+                      {patients.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.username}
+                        </option>
                       ))}
                     </select>
                   </div>
                   <div className="field">
                     <label>Date &amp; Heure</label>
-                    <input type="datetime-local" value={dateHeure} onChange={e => setDateHeure(e.target.value)} />
+                    <input
+                      type="datetime-local"
+                      value={dateHeure}
+                      onChange={(e) => setDateHeure(e.target.value)}
+                    />
                   </div>
                 </div>
                 <div className="field" style={{ marginTop: 12 }}>
                   <label>Type de consultation</label>
-                  <select value={typeConsult} onChange={e => setTypeConsult(e.target.value)}>
+                  <select
+                    value={typeConsult}
+                    onChange={(e) => setTypeConsult(e.target.value)}
+                  >
                     <option value="">— Sélectionner —</option>
                     <option>Consultation générale</option>
                     <option>Suivi médical</option>
@@ -221,8 +294,12 @@ export default function NouvelleConsultation() {
                 </div>
                 <div className="field">
                   <label>Motif de consultation</label>
-                  <textarea rows={3} placeholder="Symptômes rapportés par le patient..."
-                    value={notes} onChange={e => setNotes(e.target.value)} />
+                  <textarea
+                    rows={3}
+                    placeholder="Symptômes rapportés par le patient..."
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                  />
                 </div>
               </div>
 
@@ -232,47 +309,87 @@ export default function NouvelleConsultation() {
                   <div className="sec-icon">💊</div>
                   <span className="sec-title">Médicaments prescrits</span>
                 </div>
-                {drugs.filter(d => d.nom !== "").map(d => (
-                  <div key={d.id} className="drug-item">
-                    <span style={{ fontSize: 14, color: "#534AB7" }}>💊</span>
-                    <span className="drug-name">{d.nom}</span>
-                    <span className={`drug-pill drug-pill-dose`}>{d.dose}</span>
-                    <span className={`drug-pill drug-pill-dur`}>{d.dur}</span>
-                    <button className="drug-del" onClick={() => removeDrug(d.id)}>✕</button>
-                  </div>
-                ))}
+                {drugs
+                  .filter((d) => d.nom !== "")
+                  .map((d) => (
+                    <div key={d.id} className="drug-item">
+                      <span style={{ fontSize: 14, color: "#534AB7" }}>💊</span>
+                      <span className="drug-name">{d.nom}</span>
+                      <span className={`drug-pill drug-pill-dose`}>
+                        {d.dose}
+                      </span>
+                      <span className={`drug-pill drug-pill-dur`}>{d.dur}</span>
+                      <button
+                        className="drug-del"
+                        onClick={() => removeDrug(d.id)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
                 <div className="drug-add-row">
                   <div className="field">
                     <label>Médicament</label>
-                    <input placeholder="Amoxicilline 500mg" value={newDrugRow.nom}
-                      onChange={e => setNewDrugRow(p => ({ ...p, nom: e.target.value }))}
-                      onKeyDown={e => e.key === "Enter" && addDrug()} />
+                    <input
+                      placeholder="Amoxicilline 500mg"
+                      value={newDrugRow.nom}
+                      onChange={(e) =>
+                        setNewDrugRow((p) => ({ ...p, nom: e.target.value }))
+                      }
+                      onKeyDown={(e) => e.key === "Enter" && addDrug()}
+                    />
                   </div>
                   <div className="field">
                     <label>Posologie</label>
-                    <input placeholder="1cp × 3/j" value={newDrugRow.dose}
-                      onChange={e => setNewDrugRow(p => ({ ...p, dose: e.target.value }))}
-                      onKeyDown={e => e.key === "Enter" && addDrug()} />
+                    <input
+                      placeholder="1cp × 3/j"
+                      value={newDrugRow.dose}
+                      onChange={(e) =>
+                        setNewDrugRow((p) => ({ ...p, dose: e.target.value }))
+                      }
+                      onKeyDown={(e) => e.key === "Enter" && addDrug()}
+                    />
                   </div>
                   <div className="field">
                     <label>Durée</label>
-                    <input placeholder="7 jours" value={newDrugRow.dur}
-                      onChange={e => setNewDrugRow(p => ({ ...p, dur: e.target.value }))}
-                      onKeyDown={e => e.key === "Enter" && addDrug()} />
+                    <input
+                      placeholder="7 jours"
+                      value={newDrugRow.dur}
+                      onChange={(e) =>
+                        setNewDrugRow((p) => ({ ...p, dur: e.target.value }))
+                      }
+                      onKeyDown={(e) => e.key === "Enter" && addDrug()}
+                    />
                   </div>
-                  <button className="btn-add-drug" onClick={addDrug} aria-label="Ajouter">＋</button>
+                  <button
+                    className="btn-add-drug"
+                    onClick={addDrug}
+                    aria-label="Ajouter"
+                  >
+                    ＋
+                  </button>
                 </div>
                 <p style={{ fontSize: 11, color: "#C4C0D8", marginTop: 8 }}>
-                  Appuyez sur Entrée ou ＋ pour ajouter. Une ordonnance sera générée séparément.
+                  Appuyez sur Entrée ou ＋ pour ajouter. Une ordonnance sera
+                  générée séparément.
                 </p>
               </div>
 
               {/* Actions */}
               <div className="form-actions">
-                <button className="btn-cancel" onClick={() => router.push("/dashboard/medecin/consultations")}>
+                <button
+                  className="btn-cancel"
+                  onClick={() =>
+                    router.push("/dashboard/medecin/consultations")
+                  }
+                >
                   Annuler
                 </button>
-                <button className="btn-save" onClick={handleSave} disabled={saving || !patientId}>
+                <button
+                  className="btn-save"
+                  onClick={handleSave}
+                  disabled={saving || !patientId}
+                >
                   {saving ? "Enregistrement…" : "✓ Enregistrer la consultation"}
                 </button>
               </div>
@@ -281,42 +398,63 @@ export default function NouvelleConsultation() {
             {/* ── Aperçu ── */}
             <div className="preview-panel">
               <div className="preview-top">
-                <span className="preview-lbl"><span className="live-dot" /> Aperçu en direct</span>
+                <span className="preview-lbl">
+                  <span className="live-dot" /> Aperçu en direct
+                </span>
               </div>
 
               <div className="doc">
                 <div className="doc-head">
                   <div>
                     <div className="doc-dr">Dr. {username}</div>
-                    <div className="doc-sub">Médecin Généraliste<br />Tél : +216 71 000 000 · Tunis</div>
+                    <div className="doc-sub">
+                      Médecin Généraliste
+                      <br />
+                      Tél : +216 71 000 000 · Tunis
+                    </div>
                   </div>
                   <div className="doc-seal">⚕</div>
                 </div>
 
                 <div className="doc-ttl">Compte rendu de consultation</div>
 
-                {typeConsult && <div><span className="doc-badge">{typeConsult}</span></div>}
+                {typeConsult && (
+                  <div>
+                    <span className="doc-badge">{typeConsult}</span>
+                  </div>
+                )}
 
                 <div className="doc-patient">
                   <div className="doc-avatar">
                     {selectedPatient?.username?.charAt(0)?.toUpperCase() || "?"}
                   </div>
                   <div>
-                    <div className="doc-pt-name">{selectedPatient?.username || "Patient non sélectionné"}</div>
+                    <div className="doc-pt-name">
+                      {selectedPatient?.username || "Patient non sélectionné"}
+                    </div>
                     <div className="doc-pt-sub">
-                      {dateHeure ? new Date(dateHeure).toLocaleString("fr-FR") : "—"}
+                      {dateHeure
+                        ? new Date(dateHeure).toLocaleString("fr-FR")
+                        : "—"}
                     </div>
                   </div>
                 </div>
 
                 <div className="doc-section-title">📋 Motif / Diagnostic</div>
                 <div className="doc-content" style={{ marginBottom: 16 }}>
-                  {notes || <span className="doc-empty">Le motif apparaîtra ici…</span>}
+                  {notes || (
+                    <span className="doc-empty">Le motif apparaîtra ici…</span>
+                  )}
                 </div>
 
-                {drugs.filter(d => d.nom).length > 0 && (
+                {drugs.filter((d) => d.nom).length > 0 && (
                   <>
-                    <div className="doc-section-title" style={{ marginTop: 12 }}>💊 Médicaments prescrits</div>
+                    <div
+                      className="doc-section-title"
+                      style={{ marginTop: 12 }}
+                    >
+                      💊 Médicaments prescrits
+                    </div>
                     <table className="doc-drug-table">
                       <thead>
                         <tr>
@@ -326,13 +464,20 @@ export default function NouvelleConsultation() {
                         </tr>
                       </thead>
                       <tbody>
-                        {drugs.filter(d => d.nom).map(d => (
-                          <tr key={d.id}>
-                            <td className="doc-drug-td" style={{ fontWeight: 600 }}>{d.nom}</td>
-                            <td className="doc-drug-td">{d.dose}</td>
-                            <td className="doc-drug-td">{d.dur}</td>
-                          </tr>
-                        ))}
+                        {drugs
+                          .filter((d) => d.nom)
+                          .map((d) => (
+                            <tr key={d.id}>
+                              <td
+                                className="doc-drug-td"
+                                style={{ fontWeight: 600 }}
+                              >
+                                {d.nom}
+                              </td>
+                              <td className="doc-drug-td">{d.dose}</td>
+                              <td className="doc-drug-td">{d.dur}</td>
+                            </tr>
+                          ))}
                       </tbody>
                     </table>
                   </>
@@ -349,7 +494,6 @@ export default function NouvelleConsultation() {
                 </div>
               </div>
             </div>
-
           </div>
         </main>
       </div>
