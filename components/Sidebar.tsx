@@ -55,10 +55,8 @@ const icons: Record<string, string> = {
     "<path d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'></path><path d='M9 12l2 2 4-4'></path>",
   home:
     "<path d='M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'></path><polyline points='9 22 9 12 15 12 15 22'></polyline>",
-  // Icône ECG / activité pour les contrôles médicaux
   activity:
     "<polyline points='22 12 18 12 15 21 9 3 6 12 2 12'></polyline>",
-  // ✅ NOUVELLE ICÔNE : Messagerie / Discussion
   messageCircle:
     "<path d='M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z'></path>",
 };
@@ -97,9 +95,9 @@ function getNav(role: string, stats: Record<string, number>): NavGroup[] {
         section: "Gestion",
         items: [
           { iconKey: "dashboard",   label: "Dashboard",     path: "/dashboard/admin" },
-          { iconKey: "users",       label: "Patients",      path: "/dashboard/admin/patients",     badge: stats.patients },
-          { iconKey: "doctor",      label: "Médecins",      path: "/dashboard/admin/medecins",     badge: stats.medecins },
-          { iconKey: "calendar",    label: "Rendez-vous",   path: "/dashboard/admin/rendezvous",   badge: stats.rendezvous },
+          { iconKey: "users",       label: "Patients",      path: "/dashboard/admin/patients",      badge: stats.patients },
+          { iconKey: "doctor",      label: "Médecins",      path: "/dashboard/admin/medecins",      badge: stats.medecins },
+          { iconKey: "calendar",    label: "Rendez-vous",   path: "/dashboard/admin/rendezvous",    badge: stats.rendezvous },
           { iconKey: "stethoscope", label: "Consultations", path: "/dashboard/admin/consultations", badge: stats.consultations },
         ],
       },
@@ -113,7 +111,6 @@ function getNav(role: string, stats: Record<string, number>): NavGroup[] {
           { iconKey: "dashboard",     label: "Dashboard",            path: "/dashboard/medecin" },
           { iconKey: "calendar",      label: "Rendez-vous",          path: "/dashboard/medecin/rendezvous",           badge: stats.rendezvous },
           { iconKey: "stethoscope",   label: "Consultations",        path: "/dashboard/medecin/consultations",        badge: stats.consultations },
-          // ✅ NOUVEAU : Lien vers la messagerie inter-médecins
           { iconKey: "messageCircle", label: "Messagerie",           path: "/dashboard/medecin/messages",             badge: stats.messagesNonLus },
           { iconKey: "folder",        label: "Dossiers Médicaux",    path: "/dashboard/medecin/dossiermedical",       badge: stats.dossiersMedical },
           { iconKey: "clipboard",     label: "Ordonnances",          path: "/dashboard/medecin/ordonnances",          badge: stats.ordonnances },
@@ -126,7 +123,7 @@ function getNav(role: string, stats: Record<string, number>): NavGroup[] {
       },
     ];
 
-  // patient
+  // ── patient ──────────────────────────────────────────────────
   return [
     {
       section: "Navigation",
@@ -138,6 +135,8 @@ function getNav(role: string, stats: Record<string, number>): NavGroup[] {
         { iconKey: "folder",      label: "Dossier Médical",      path: "/dashboard/patient/dossiermedical", highlight: true },
         { iconKey: "certificate", label: "Certificats médicaux", path: "/dashboard/patient/certificats" },
         { iconKey: "activity",    label: "Mes Contrôles",        path: "/dashboard/patient/controles",     badge: stats.controles },
+        // ✅ NOUVEAU : Suivi des paiements patient
+        { iconKey: "creditCard",  label: "Mes Paiements",        path: "/dashboard/patient/paiements",     badge: stats.paiementsEnAttente },
         { iconKey: "robot",       label: "Assistant IA",         path: "/dashboard/patient/ia" },
         { iconKey: "home",        label: "Mon Espace Famille",   path: "/dashboard/patient/famille",       highlight: true },
       ],
@@ -279,6 +278,11 @@ export default function Sidebar({ stats = {} }: SidebarProps) {
           background: rgba(255,255,255,0.8);
           animation: none;
         }
+
+        /* ✅ Badge pulsant pour paiements en attente */
+        .paiement-badge-pulse {
+          animation: pulseGlow 2s ease infinite;
+        }
       `}</style>
 
       <aside
@@ -340,11 +344,11 @@ export default function Sidebar({ stats = {} }: SidebarProps) {
               </p>
 
               {group.items.map((item, index) => {
-                const active    = isActive(pathname, item.path, role ?? "patient");
-                const isBilling = item.path.includes("/facturation");
-                const isCnam    = item.path.includes("/prise-en-charge-cnam");
-                const isFamille = item.path.includes("/famille") || item.path.includes("/familles");
-                const isControles = item.path.includes("/controles");
+                const active      = isActive(pathname, item.path, role ?? "patient");
+                const isBilling   = item.path.includes("/facturation");
+                const isCnam      = item.path.includes("/prise-en-charge-cnam");
+                const isFamille   = item.path.includes("/famille") || item.path.includes("/familles");
+                const isPaiements = item.path.includes("/paiements");
 
                 return (
                   <div
@@ -362,6 +366,10 @@ export default function Sidebar({ stats = {} }: SidebarProps) {
                       ...(isFamille && !active
                         ? { border: `1px dashed ${t.accent1}40`, background: `${t.accent1}08` }
                         : {}),
+                      // ✅ Bordure subtile si paiements en attente
+                      ...(isPaiements && !active && stats.paiementsEnAttente
+                        ? { border: `1px dashed #F59E0B60`, background: "#FFFBEB" }
+                        : {}),
                     }}
                   >
                     <div
@@ -377,8 +385,19 @@ export default function Sidebar({ stats = {} }: SidebarProps) {
 
                     <span style={{ flex: 1 }}>{item.label}</span>
 
+                    {/* Badge / indicateur */}
                     {item.badge && item.badge > 0 ? (
-                      <span className="gradient-badge" style={{ fontSize: 11, padding: "3px 9px", borderRadius: 8, fontWeight: 700, color: "#fff" }}>
+                      <span
+                        className={`gradient-badge${isPaiements ? " paiement-badge-pulse" : ""}`}
+                        style={{
+                          fontSize: 11, padding: "3px 9px", borderRadius: 8,
+                          fontWeight: 700, color: "#fff",
+                          // ✅ Badge orange pour paiements en attente
+                          ...(isPaiements && !active
+                            ? { background: "linear-gradient(135deg, #F59E0B, #EF4444)", boxShadow: "0 2px 6px #F59E0B55" }
+                            : {}),
+                        }}
+                      >
                         {item.badge}
                       </span>
                     ) : isCnam ? (

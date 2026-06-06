@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../../context/AuthContext";
 import PrivateRoute from "../../../../components/PrivateRoute";
@@ -7,17 +7,35 @@ import api from "../../../../lib/api";
 import Sidebar from "../../../../components/Sidebar";
 import Navbar from "../../../../components/Navbar";
 
+/* ═══════════════════ TYPES ═══════════════════ */
+
+interface SavedAttachment {
+  id: number;
+  name: string;
+  type: "image" | "document";
+  url: string;
+}
+
+interface LocalAttachment {
+  name: string;
+  type: "image" | "document";
+  url: string;
+  file: File;
+}
+
 interface DMESection {
   id: string;
   title: string;
   icon: string;
   content: string;
+  attachments?: SavedAttachment[];
 }
 
 interface DMERecord {
   id: number;
   token: string;
-  expires_at: string;
+  expires_at: string | null;
+  is_permanent?: boolean;
   sections: DMESection[];
   created_at: string;
   updated_at: string;
@@ -30,6 +48,8 @@ interface Stats {
   notifications: number;
 }
 
+/* ═══════════════════ CONSTANTES ═══════════════════ */
+
 const DURATION_OPTIONS = [
   { label: "1 heure", hours: 1, color: "#F59E0B" },
   { label: "6 heures", hours: 6, color: "#10B981" },
@@ -37,6 +57,7 @@ const DURATION_OPTIONS = [
   { label: "24 heures", hours: 24, color: "#8B5CF6" },
   { label: "48 heures", hours: 48, color: "#6366F1" },
   { label: "72 heures", hours: 72, color: "#EC4899" },
+  { label: "Permanent", hours: 0, color: "#334155" },
 ];
 
 const SECTION_META: Record<string, { gradient: string; hint: string }> = {
@@ -67,31 +88,11 @@ const SECTION_META: Record<string, { gradient: string; hint: string }> = {
 };
 
 const DEFAULT_SECTIONS = [
-  {
-    id: "antecedents",
-    title: "Antécédents médicaux",
-    icon: "[1]",
-    content: "",
-  },
-  {
-    id: "allergies",
-    title: "Allergies & intolérances",
-    icon: "[2]",
-    content: "",
-  },
-  {
-    id: "traitements",
-    title: "Traitements en cours",
-    icon: "[3]",
-    content: "",
-  },
+  { id: "antecedents", title: "Antécédents médicaux", icon: "[1]", content: "" },
+  { id: "allergies", title: "Allergies & intolérances", icon: "[2]", content: "" },
+  { id: "traitements", title: "Traitements en cours", icon: "[3]", content: "" },
   { id: "vaccins", title: "Vaccinations", icon: "[4]", content: "" },
-  {
-    id: "chirurgies",
-    title: "Chirurgies & hospitalisations",
-    icon: "[5]",
-    content: "",
-  },
+  { id: "chirurgies", title: "Chirurgies & hospitalisations", icon: "[5]", content: "" },
   { id: "notes", title: "Notes personnelles", icon: "[6]", content: "" },
 ];
 
@@ -107,12 +108,21 @@ function resolveIcon(raw: string) {
   return ICON_MAP[raw] ?? raw;
 }
 
-function TimeBar({ expiresAt }: { expiresAt: string }) {
+/* ═══════════════════ COMPOSANTS UTILITAIRES ═══════════════════ */
+
+function TimeBar({
+  expiresAt,
+  isPermanent,
+}: {
+  expiresAt: string | null;
+  isPermanent?: boolean;
+}) {
   const [remaining, setRemaining] = useState("");
   const [percent, setPercent] = useState(100);
   const [expired, setExpired] = useState(false);
 
   useEffect(() => {
+    if (isPermanent || !expiresAt) return;
     const exp = new Date(expiresAt).getTime();
     const created = exp - 86400000;
     const update = () => {
@@ -135,7 +145,34 @@ function TimeBar({ expiresAt }: { expiresAt: string }) {
     update();
     const t = setInterval(update, 1000);
     return () => clearInterval(t);
-  }, [expiresAt]);
+  }, [expiresAt, isPermanent]);
+
+  if (isPermanent || !expiresAt) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "10px 16px",
+          background: "rgba(16,185,129,0.08)",
+          border: "1.5px solid rgba(16,185,129,0.2)",
+          borderRadius: 12,
+          marginBottom: 16,
+        }}
+      >
+        <span style={{ fontSize: 18 }}>♾️</span>
+        <div>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#059669" }}>
+            Conservation permanente
+          </p>
+          <p style={{ margin: 0, fontSize: 11, color: "#64748B" }}>
+            Votre médecin y aura accès à tout moment.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const color = expired
     ? "#EF4444"
@@ -234,12 +271,12 @@ function DurationPicker({
           marginBottom: 10,
         }}
       >
-        Durée d'accès
+        Durée de conservation du dossier
       </p>
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(3,1fr)",
+          gridTemplateColumns: "repeat(4,1fr)",
           gap: 8,
         }}
       >
@@ -269,11 +306,15 @@ function DurationPicker({
         })}
       </div>
       <p style={{ fontSize: 11, color: "#94A3B8", marginTop: 8 }}>
-        Supprimé automatiquement après cette période.
+        {selected === 0
+          ? "Le dossier sera conservé indéfiniment pour votre médecin."
+          : "Supprimé automatiquement après cette période."}
       </p>
     </div>
   );
 }
+
+/* ═══════════════════ PAGE PATIENT ═══════════════════ */
 
 export default function PatientDME() {
   const { token, isLoading } = useAuth();
@@ -288,9 +329,16 @@ export default function PatientDME() {
   const [dme, setDme] = useState<DMERecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
+  const [savingAll, setSavingAll] = useState(false);
   const [saved, setSaved] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState("antecedents");
   const [editValues, setEditValues] = useState<Record<string, string>>({});
+
+  // Pièces jointes locales en attente d'upload
+  const [localAttachments, setLocalAttachments] = useState<Record<string, LocalAttachment[]>>({});
+  const imgInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
+
   const [creating, setCreating] = useState(false);
   const [selectedDuration, setSelectedDuration] = useState(24);
   const [shareModal, setShareModal] = useState(false);
@@ -299,9 +347,11 @@ export default function PatientDME() {
   const [expired, setExpired] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
 
+  /* ─── Vérification expiration ─── */
   useEffect(() => {
-    if (!dme) return;
+    if (!dme || dme.is_permanent) return;
     const check = () => {
+      if (!dme.expires_at) return false;
       const isExp = new Date(dme.expires_at).getTime() < Date.now();
       setExpired(isExp);
       if (isExp) {
@@ -314,6 +364,7 @@ export default function PatientDME() {
     return () => clearInterval(t);
   }, [dme]);
 
+  /* ─── Chargement initial ─── */
   useEffect(() => {
     if (isLoading) return;
     if (!token) {
@@ -335,6 +386,7 @@ export default function PatientDME() {
         }),
       )
       .catch(() => {});
+
     api
       .get("dossier-medical/")
       .then((res) => {
@@ -349,13 +401,22 @@ export default function PatientDME() {
       .finally(() => setLoading(false));
   }, [token, isLoading]);
 
+  /* ─── Création du dossier ─── */
   const createDossier = async () => {
     setCreating(true);
     try {
-      const res = await api.post("dossier-medical/", {
+      const payload: any = {
         sections: DEFAULT_SECTIONS,
-        duration_hours: selectedDuration,
-      });
+      };
+      if (selectedDuration === 0) {
+        payload.is_permanent = true;
+        payload.duration_hours = null;
+      } else {
+        payload.is_permanent = false;
+        payload.duration_hours = selectedDuration;
+      }
+
+      const res = await api.post("dossier-medical/", payload);
       setDme(res.data);
       setExpired(false);
       const vals: Record<string, string> = {};
@@ -363,27 +424,159 @@ export default function PatientDME() {
         vals[s.id] = s.content;
       });
       setEditValues(vals);
-    } catch {}
+    } catch (err) {
+      console.error("Erreur création:", err);
+    }
     setCreating(false);
   };
 
+  /* ═══════════════════════════════════════════════════════════
+     SAUVEGARDE D'UNE SECTION AVEC UPLOAD FICHIERS
+     ═══════════════════════════════════════════════════════════ */
   const saveSection = async (sectionId: string) => {
     if (!dme || expired) return;
     setSaving(sectionId);
     try {
+      const pending = localAttachments[sectionId] || [];
+
+      const formData = new FormData();
+      
+      // Mettre à jour les sections
       const updatedSections = dme.sections.map((s) =>
-        s.id === sectionId ? { ...s, content: editValues[sectionId] || "" } : s,
+        s.id === sectionId
+          ? { ...s, content: editValues[sectionId] || "", attachments: s.attachments || [] }
+          : s,
       );
-      const res = await api.patch("dossier-medical/", {
-        sections: updatedSections,
+      formData.append("sections", JSON.stringify(updatedSections));
+      
+      // Ajouter les fichiers (CORRECTIF IMPORTANT)
+      // Le backend doit pouvoir récupérer ces fichiers via request.FILES
+      pending.forEach((att) => {
+        formData.append(`files_${sectionId}`, att.file, att.name);
       });
+
+      const res = await api.patch("dossier-medical/", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
       setDme(res.data);
+      
+      // Vider les fichiers locaux après succès
+      setLocalAttachments((prev) => {
+        const updated = { ...prev };
+        delete updated[sectionId];
+        return updated;
+      });
+      
+      pending.forEach((att) => URL.revokeObjectURL(att.url));
+
       setSaved(sectionId);
       setTimeout(() => setSaved(null), 2500);
-    } catch {}
+    } catch (err) {
+      console.error("Échec sauvegarde :", err);
+      alert("Erreur lors de la sauvegarde. Veuillez réessayer.");
+    }
     setSaving(null);
   };
 
+  /* ═══════════════════════════════════════════════════════════
+     SAUVEGARDE DE TOUTES LES SECTIONS (BOUTON EN BAS)
+     ═══════════════════════════════════════════════════════════ */
+  const saveAllSections = async () => {
+    if (!dme || expired) return;
+    setSavingAll(true);
+    
+    try {
+      // Récupérer toutes les sections avec les fichiers locaux
+      const allSections = dme.sections.map((section) => ({
+        ...section,
+        content: editValues[section.id] || "",
+      }));
+      
+      // Construire le FormData avec TOUTES les sections
+      const formData = new FormData();
+      formData.append("sections", JSON.stringify(allSections));
+      
+      // Ajouter TOUS les fichiers locaux
+      Object.entries(localAttachments).forEach(([sectionId, files]) => {
+        files.forEach((att) => {
+          formData.append(`files_${sectionId}`, att.file, att.name);
+        });
+      });
+      
+      const res = await api.patch("dossier-medical/", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      
+      setDme(res.data);
+      
+      // Vider tous les fichiers locaux
+      Object.values(localAttachments).forEach(attachments => {
+        attachments.forEach(att => URL.revokeObjectURL(att.url));
+      });
+      setLocalAttachments({});
+      
+      setSaved("all");
+      setTimeout(() => setSaved(null), 2500);
+    } catch (err) {
+      console.error("Échec sauvegarde globale :", err);
+      alert("Erreur lors de la sauvegarde globale. Veuillez réessayer.");
+    }
+    
+    setSavingAll(false);
+  };
+
+  /* ─── Suppression d'une pièce jointe sauvegardée ─── */
+  const deleteSavedAttachment = async (sectionId: string, attachmentId: number) => {
+    if (!dme) return;
+    try {
+      await api.delete(`dossier-medical/attachments/${attachmentId}/`);
+      setDme((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          sections: prev.sections.map((s) =>
+            s.id === sectionId
+              ? { ...s, attachments: (s.attachments || []).filter((a) => a.id !== attachmentId) }
+              : s,
+          ),
+        };
+      });
+    } catch (err) {
+      console.error("Échec suppression pièce jointe :", err);
+    }
+  };
+
+  /* ─── Import de fichiers locaux ─── */
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: "image" | "document") => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const newAttachments: LocalAttachment[] = [];
+    Array.from(files).forEach((file) => {
+      const url = URL.createObjectURL(file);
+      newAttachments.push({ name: file.name, type, url, file });
+    });
+
+    setLocalAttachments((prev) => ({
+      ...prev,
+      [activeSection]: [...(prev[activeSection] || []), ...newAttachments],
+    }));
+
+    if (imgInputRef.current) imgInputRef.current.value = "";
+    if (docInputRef.current) docInputRef.current.value = "";
+  };
+
+  const removeLocalAttachment = (sectionId: string, index: number) => {
+    setLocalAttachments((prev) => {
+      const updated = [...(prev[sectionId] || [])];
+      URL.revokeObjectURL(updated[index].url);
+      updated.splice(index, 1);
+      return { ...prev, [sectionId]: updated };
+    });
+  };
+
+  /* ─── Partage / suppression ─── */
   const generateShareLink = async () => {
     if (!dme || expired) return;
     try {
@@ -391,7 +584,9 @@ export default function PatientDME() {
       setShareLink(res.data.share_url);
       setCopied(false);
       setShareModal(true);
-    } catch {}
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const copyLink = () => {
@@ -405,20 +600,28 @@ export default function PatientDME() {
       await api.delete("dossier-medical/");
       setDme(null);
       setEditValues({});
+      setLocalAttachments({});
       setDeleteConfirm(false);
-    } catch {}
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   if (isLoading || loading) return null;
 
   const currentSection = dme?.sections.find((s) => s.id === activeSection);
   const completionCount =
-    dme?.sections.filter((s) => s.content.trim().length > 0).length ?? 0;
+    dme?.sections.filter(
+      (s) => s.content.trim().length > 0 || (s.attachments && s.attachments.length > 0),
+    ).length ?? 0;
   const totalSections = dme?.sections.length ?? DEFAULT_SECTIONS.length;
   const meta = SECTION_META[activeSection] ?? {
     gradient: "135deg, #8B5CF6, #10B981",
     hint: "",
   };
+
+  const savedAttachments: SavedAttachment[] = currentSection?.attachments || [];
+  const pendingAttachments: LocalAttachment[] = localAttachments[activeSection] || [];
 
   return (
     <PrivateRoute allowedRoles={["patient"]}>
@@ -463,7 +666,7 @@ export default function PatientDME() {
         }
 
         .dme-textarea {
-          width:100%; box-sizing:border-box; min-height:220px; padding:20px;
+          width:100%; box-sizing:border-box; min-height:180px; padding:20px;
           border:1.5px solid #E2E8F0; border-radius:16px;
           font-family:'DM Sans',sans-serif; font-size:15px; line-height:1.75;
           color:#1E293B; background:rgba(255,255,255,0.8);
@@ -486,6 +689,16 @@ export default function PatientDME() {
         }
         .save-btn:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 8px 20px rgba(139,92,246,0.4); }
         .save-btn:disabled { opacity:0.5; cursor:not-allowed; transform:none !important; }
+
+        .save-all-btn {
+          padding:14px 32px; border-radius:16px; border:none;
+          background:linear-gradient(135deg,#10B981,#059669); color:white;
+          font-family:'Syne',sans-serif; font-weight:800; font-size:15px;
+          cursor:pointer; transition:all 0.25s;
+          box-shadow:0 6px 20px rgba(16,185,129,0.35);
+        }
+        .save-all-btn:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 10px 28px rgba(16,185,129,0.45); }
+        .save-all-btn:disabled { opacity:0.5; cursor:not-allowed; }
 
         .share-btn-light {
           display:flex; align-items:center; gap:7px;
@@ -518,10 +731,29 @@ export default function PatientDME() {
           animation:dmeFadeUp 0.3s ease;
         }
 
-        .dur-btn {
-          padding:10px 6px; border-radius:14px; cursor:pointer;
-          font-family:'Syne',sans-serif; font-weight:700; font-size:12px;
-          transition:all 0.2s;
+        .upload-btn {
+          display:flex; align-items:center; gap:8px;
+          padding:10px 16px; border-radius:12px;
+          border:1.5px dashed rgba(139,92,246,0.3);
+          background:rgba(139,92,246,0.04);
+          color:#7C3AED; font-family:'DM Sans',sans-serif; font-weight:600; font-size:13px;
+          cursor:pointer; transition:all 0.2s;
+        }
+        .upload-btn:hover { background:rgba(139,92,246,0.1); border-color:rgba(139,92,246,0.5); }
+
+        .attachment-preview {
+          display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px;
+        }
+        .preview-item {
+          position: relative; border-radius: 12px; overflow: hidden;
+          border: 1px solid rgba(0,0,0,0.05);
+        }
+        .preview-remove {
+          position: absolute; top: 4px; right: 4px;
+          width: 20px; height: 20px; border-radius: 50%;
+          background: rgba(0,0,0,0.6); color: white; border: none;
+          font-size: 10px; cursor: pointer; display: flex;
+          align-items: center; justify-content: center;
         }
       `}</style>
 
@@ -556,7 +788,6 @@ export default function PatientDME() {
                 className="dme-card"
                 style={{ padding: "48px 40px", textAlign: "center" }}
               >
-                {/* Hero */}
                 <div
                   style={{
                     width: 90,
@@ -597,7 +828,7 @@ export default function PatientDME() {
                 >
                   {expired
                     ? "Votre dossier a expiré et a été supprimé automatiquement."
-                    : "Centralisez vos informations de santé. Choisissez la durée d'accès, puis partagez avec votre médecin."}
+                    : "Centralisez vos informations de santé. Choisissez la durée de conservation, puis partagez avec votre médecin."}
                 </p>
 
                 <div style={{ marginBottom: 28, textAlign: "left" }}>
@@ -628,6 +859,8 @@ export default function PatientDME() {
                 >
                   {creating
                     ? "Création en cours…"
+                    : selectedDuration === 0
+                    ? `✦ Créer mon dossier (Permanent)`
                     : `✦ Créer mon dossier (${selectedDuration}h)`}
                 </button>
 
@@ -655,8 +888,10 @@ export default function PatientDME() {
                       lineHeight: 1.6,
                     }}
                   >
-                    Chiffré et supprimé automatiquement à l'expiration. Vous
-                    seul décidez avec qui le partager.
+                    Vous seul contrôlez la visibilité de vos données.{" "}
+                    {selectedDuration === 0
+                      ? "Le médecin y aura accès en permanence."
+                      : "Supprimé automatiquement à l'expiration."}
                   </p>
                 </div>
               </div>
@@ -674,7 +909,6 @@ export default function PatientDME() {
                   overflow: "hidden",
                 }}
               >
-                {/* Orbs décoratifs */}
                 <div
                   style={{
                     position: "absolute",
@@ -685,18 +919,6 @@ export default function PatientDME() {
                     borderRadius: "50%",
                     background:
                       "linear-gradient(135deg,rgba(139,92,246,0.08),rgba(16,185,129,0.08))",
-                    pointerEvents: "none",
-                  }}
-                />
-                <div
-                  style={{
-                    position: "absolute",
-                    bottom: -30,
-                    left: 60,
-                    width: 100,
-                    height: 100,
-                    borderRadius: "50%",
-                    background: "rgba(16,185,129,0.06)",
                     pointerEvents: "none",
                   }}
                 />
@@ -742,20 +964,13 @@ export default function PatientDME() {
                       <span className="text-grad" style={{ fontWeight: 700 }}>
                         {completionCount}/{totalSections} sections
                       </span>
-                      &nbsp;·&nbsp; MAJ{" "}
-                      {new Date(dme.updated_at).toLocaleDateString("fr-FR", {
-                        day: "numeric",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
                     </p>
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <button
                       className="share-btn-light"
                       onClick={generateShareLink}
-                      disabled={expired}
+                      disabled={expired && !dme.is_permanent}
                     >
                       🔗 Partager
                     </button>
@@ -769,10 +984,9 @@ export default function PatientDME() {
                 </div>
 
                 <div style={{ marginTop: 20, position: "relative" }}>
-                  <TimeBar expiresAt={dme.expires_at} />
+                  <TimeBar expiresAt={dme.expires_at} isPermanent={dme.is_permanent} />
                 </div>
 
-                {/* Barre de complétion */}
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <div
                     style={{
@@ -836,7 +1050,9 @@ export default function PatientDME() {
                     style={{ display: "flex", flexDirection: "column", gap: 4 }}
                   >
                     {dme.sections.map((section) => {
-                      const isFilled = section.content.trim().length > 0;
+                      const isFilled =
+                        section.content.trim().length > 0 ||
+                        (section.attachments && section.attachments.length > 0);
                       const isActive = activeSection === section.id;
                       return (
                         <div
@@ -870,7 +1086,6 @@ export default function PatientDME() {
                     })}
                   </div>
 
-                  {/* Résumé */}
                   <div
                     style={{
                       marginTop: 20,
@@ -889,7 +1104,7 @@ export default function PatientDME() {
                         fontWeight: 500,
                       }}
                     >
-                      🔒 Données chiffrées · {completionCount}/{totalSections}{" "}
+                      🔒 Données sécurisées · {completionCount}/{totalSections}{" "}
                       remplies
                     </p>
                   </div>
@@ -943,12 +1158,13 @@ export default function PatientDME() {
                         <p
                           style={{ fontSize: 12, color: "#94A3B8", margin: 0 }}
                         >
-                          {expired
+                          {expired && !dme.is_permanent
                             ? "Modification désactivée — dossier expiré"
                             : meta.hint}
                         </p>
                       </div>
-                      {currentSection.content.trim().length > 0 && (
+                      {(currentSection.content.trim().length > 0 ||
+                        savedAttachments.length > 0) && (
                         <span
                           style={{
                             fontSize: 11,
@@ -965,9 +1181,219 @@ export default function PatientDME() {
                       )}
                     </div>
 
+                    {/* Boutons d'import */}
+                    <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+                      <button
+                        className="upload-btn"
+                        onClick={() => imgInputRef.current?.click()}
+                        disabled={expired && !dme.is_permanent}
+                      >
+                        📷 Ajouter une image
+                      </button>
+                      <button
+                        className="upload-btn"
+                        onClick={() => docInputRef.current?.click()}
+                        disabled={expired && !dme.is_permanent}
+                      >
+                        📄 Ajouter un document
+                      </button>
+
+                      <input
+                        type="file"
+                        ref={imgInputRef}
+                        hidden
+                        accept="image/*"
+                        multiple
+                        onChange={(e) => handleFileUpload(e, "image")}
+                      />
+                      <input
+                        type="file"
+                        ref={docInputRef}
+                        hidden
+                        accept=".pdf,.doc,.docx,.txt"
+                        multiple
+                        onChange={(e) => handleFileUpload(e, "document")}
+                      />
+                    </div>
+
+                    {/* ═══ Pièces jointes sauvegardées sur le serveur ═══ */}
+                    {savedAttachments.length > 0 && (
+                      <div
+                        className="attachment-preview"
+                        style={{ marginBottom: 16 }}
+                      >
+                        {savedAttachments.map((att) => (
+                          <div key={att.id} className="preview-item">
+                            {att.type === "image" ? (
+                              <div style={{ position: "relative" }}>
+                                <img
+                                  src={att.url}
+                                  alt={att.name}
+                                  style={{
+                                    width: 100,
+                                    height: 80,
+                                    objectFit: "cover",
+                                    borderRadius: 10,
+                                  }}
+                                />
+                                <button
+                                  className="preview-remove"
+                                  onClick={() =>
+                                    deleteSavedAttachment(activeSection, att.id)
+                                  }
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ) : (
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 8,
+                                  padding: "10px 14px",
+                                  background: "#F8FAFC",
+                                  border: "1px solid #E2E8F0",
+                                  borderRadius: 10,
+                                }}
+                              >
+                                <span style={{ fontSize: 20 }}>📑</span>
+                                <a
+                                  href={att.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    fontSize: 12,
+                                    color: "#334155",
+                                    fontWeight: 600,
+                                    maxWidth: 120,
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                    textDecoration: "none",
+                                  }}
+                                >
+                                  {att.name}
+                                </a>
+                                <button
+                                  onClick={() =>
+                                    deleteSavedAttachment(activeSection, att.id)
+                                  }
+                                  style={{
+                                    background: "none",
+                                    border: "none",
+                                    color: "#94A3B8",
+                                    cursor: "pointer",
+                                    fontSize: 14,
+                                  }}
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* ═══ Pièces jointes locales (en attente d'upload) ═══ */}
+                    {pendingAttachments.length > 0 && (
+                      <div style={{ marginBottom: 16 }}>
+                        <p
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            color: "#F59E0B",
+                            marginBottom: 8,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                          }}
+                        >
+                          ⏳ En attente de sauvegarde (
+                          {pendingAttachments.length} fichier
+                          {pendingAttachments.length > 1 ? "s" : ""})
+                        </p>
+                        <div className="attachment-preview">
+                          {pendingAttachments.map((att, idx) => (
+                            <div
+                              key={`local-${idx}`}
+                              className="preview-item"
+                            >
+                              {att.type === "image" ? (
+                                <div style={{ position: "relative" }}>
+                                  <img
+                                    src={att.url}
+                                    alt={att.name}
+                                    style={{
+                                      width: 100,
+                                      height: 80,
+                                      objectFit: "cover",
+                                      borderRadius: 10,
+                                      opacity: 0.7,
+                                    }}
+                                  />
+                                  <button
+                                    className="preview-remove"
+                                    onClick={() =>
+                                      removeLocalAttachment(activeSection, idx)
+                                    }
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              ) : (
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 8,
+                                    padding: "10px 14px",
+                                    background: "#FFFBEB",
+                                    border: "1px dashed #F59E0B",
+                                    borderRadius: 10,
+                                  }}
+                                >
+                                  <span style={{ fontSize: 20 }}>📑</span>
+                                  <span
+                                    style={{
+                                      fontSize: 12,
+                                      color: "#334155",
+                                      fontWeight: 600,
+                                      maxWidth: 120,
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    {att.name}
+                                  </span>
+                                  <button
+                                    onClick={() =>
+                                      removeLocalAttachment(activeSection, idx)
+                                    }
+                                    style={{
+                                      background: "none",
+                                      border: "none",
+                                      color: "#94A3B8",
+                                      cursor: "pointer",
+                                      fontSize: 14,
+                                    }}
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Zone de texte - AUCUN CHAMP OBLIGATOIRE */}
                     <textarea
                       className="dme-textarea"
-                      placeholder={`${meta.hint}\n\nSaisissez vos informations ici…`}
+                      placeholder={`${meta.hint}\n\nSaisissez vos informations ici… (champ optionnel)`}
                       value={editValues[currentSection.id] || ""}
                       onChange={(e) =>
                         setEditValues((prev) => ({
@@ -975,9 +1401,10 @@ export default function PatientDME() {
                           [currentSection.id]: e.target.value,
                         }))
                       }
-                      disabled={expired}
+                      disabled={expired && !dme.is_permanent}
                     />
 
+                    {/* Boutons de sauvegarde par section */}
                     <div
                       style={{
                         display: "flex",
@@ -1005,30 +1432,94 @@ export default function PatientDME() {
                       <button
                         className="save-btn"
                         onClick={() => saveSection(currentSection.id)}
-                        disabled={saving === currentSection.id || expired}
+                        disabled={
+                          saving === currentSection.id ||
+                          (expired && !dme.is_permanent)
+                        }
                       >
                         {saving === currentSection.id
                           ? "Sauvegarde…"
-                          : "💾 Sauvegarder"}
+                          : "💾 Sauvegarder cette section"}
                       </button>
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* ═══════════════════════════════════════════════════════════
+                  BOUTON SAUVEGARDER EN BAS DU FORMULAIRE
+                  ═══════════════════════════════════════════════════════════ */}
+              <div
+                style={{
+                  marginTop: 24,
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  alignItems: "center",
+                  gap: 16,
+                  padding: "20px 0",
+                  borderTop: "2px solid rgba(139,92,246,0.1)",
+                }}
+              >
+                <div style={{ flex: 1 }}>
+                  {saved === "all" && (
+                    <span
+                      style={{
+                        fontSize: 14,
+                        color: "#059669",
+                        fontWeight: 700,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        animation: "dmeCheck 0.3s ease",
+                      }}
+                    >
+                      ✓ Toutes vos informations ont été sauvegardées !
+                    </span>
+                  )}
+                  {(Object.keys(localAttachments).length > 0 || 
+                    Object.values(editValues).some(v => v && v.trim().length > 0)) && (
+                    <span
+                      style={{
+                        fontSize: 12,
+                        color: "#F59E0B",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
+                      ⚡ {Object.keys(localAttachments).reduce((acc, key) => acc + (localAttachments[key]?.length || 0), 0)} fichier(s) en attente
+                    </span>
+                  )}
+                </div>
+                <button
+                  className="save-all-btn"
+                  onClick={saveAllSections}
+                  disabled={savingAll || (expired && !dme.is_permanent)}
+                >
+                  {savingAll ? "Sauvegarde en cours…" : "💾 Sauvegarder tout le dossier"}
+                </button>
               </div>
             </>
           )}
 
           {/* ── MODAL PARTAGE ── */}
           {shareModal && (
-            <div className="modal-overlay" onClick={() => setShareModal(false)}>
-              <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div
+              className="modal-overlay"
+              onClick={() => setShareModal(false)}
+            >
+              <div
+                className="modal-card"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <div style={{ textAlign: "center", marginBottom: 28 }}>
                   <div
                     style={{
                       width: 68,
                       height: 68,
                       borderRadius: "50%",
-                      background: "linear-gradient(135deg,#8B5CF6,#10B981)",
+                      background:
+                        "linear-gradient(135deg,#8B5CF6,#10B981)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -1050,11 +1541,22 @@ export default function PatientDME() {
                     Partage sécurisé
                   </h2>
                   <p
-                    style={{ color: "#64748B", fontSize: 14, lineHeight: 1.6 }}
+                    style={{
+                      color: "#64748B",
+                      fontSize: 14,
+                      lineHeight: 1.6,
+                    }}
                   >
                     Accès{" "}
                     <strong style={{ color: "#7C3AED" }}>lecture seule</strong>{" "}
-                    · Valable <strong style={{ color: "#7C3AED" }}>24h</strong>
+                    ·{" "}
+                    {dme?.is_permanent ? (
+                      <strong style={{ color: "#059669" }}>Permanent</strong>
+                    ) : (
+                      <strong style={{ color: "#7C3AED" }}>
+                        Limité dans le temps
+                      </strong>
+                    )}
                   </p>
                 </div>
 
@@ -1183,7 +1685,11 @@ export default function PatientDME() {
                     Supprimer le dossier ?
                   </h3>
                   <p
-                    style={{ fontSize: 14, color: "#64748B", lineHeight: 1.6 }}
+                    style={{
+                      fontSize: 14,
+                      color: "#64748B",
+                      lineHeight: 1.6,
+                    }}
                   >
                     Action irréversible. Toutes vos informations médicales
                     seront définitivement effacées.

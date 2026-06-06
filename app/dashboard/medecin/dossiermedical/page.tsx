@@ -7,12 +7,23 @@ import api from "../../../../lib/api";
 import Sidebar from "../../../../components/Sidebar";
 import Navbar from "../../../../components/Navbar";
 
+/* ═══════════════════ TYPES ═══════════════════ */
+
+interface SavedAttachment {
+  id: number;
+  name: string;
+  type: "image" | "document";
+  url: string;
+}
+
 interface DMESection {
   id: string;
   title: string;
   icon: string;
   content: string;
+  attachments?: SavedAttachment[];
 }
+
 interface SharedDMERecord {
   id: number;
   patient_name: string;
@@ -22,12 +33,15 @@ interface SharedDMERecord {
   created_at: string;
   token: string;
 }
+
 interface Stats {
   rendezvous: number;
   consultations: number;
   ordonnances: number;
   dossiersMedical?: number;
 }
+
+/* ═══════════════════ CONSTANTES ═══════════════════ */
 
 const ICON_MAP: Record<string, string> = {
   "[1]": "🩺",
@@ -46,18 +60,29 @@ const SECTION_META: Record<string, { gradient: string; color: string }> = {
     gradient: "135deg, #8B5CF6 0%, #10B981 100%",
     color: "#8B5CF6",
   },
-  allergies: { gradient: "135deg, #F093FB 0%, #F5576C 100%", color: "#F5576C" },
+  allergies: {
+    gradient: "135deg, #F093FB 0%, #F5576C 100%",
+    color: "#F5576C",
+  },
   traitements: {
     gradient: "135deg, #4FACFE 0%, #00F2FE 100%",
     color: "#4FACFE",
   },
-  vaccins: { gradient: "135deg, #43E97B 0%, #38F9D7 100%", color: "#10B981" },
+  vaccins: {
+    gradient: "135deg, #43E97B 0%, #38F9D7 100%",
+    color: "#10B981",
+  },
   chirurgies: {
     gradient: "135deg, #FA709A 0%, #FEE140 100%",
     color: "#FA709A",
   },
-  notes: { gradient: "135deg, #A18CD1 0%, #FBC2EB 100%", color: "#A18CD1" },
+  notes: {
+    gradient: "135deg, #A18CD1 0%, #FBC2EB 100%",
+    color: "#A18CD1",
+  },
 };
+
+/* ═══════════════════ COMPOSANTS UTILITAIRES ═══════════════════ */
 
 function TimeBar({
   expiresAt,
@@ -72,22 +97,17 @@ function TimeBar({
 
   useEffect(() => {
     const exp = new Date(expiresAt).getTime();
-    const created = exp - 86400000; // Assume 24h total duration for calculation logic
+    const created = exp - 86400000;
     const update = () => {
       const now = Date.now();
       const left = Math.max(0, exp - now);
       const total = exp - created;
-
-      // Avoid division by zero if weird dates
       const safeTotal = total > 0 ? total : 86400000;
-
       setPercent(Math.min(100, Math.round((left / safeTotal) * 100)));
       setExpired(left <= 0);
-
       const h = Math.floor(left / 3600000);
       const m = Math.floor((left % 3600000) / 60000);
       const s = Math.floor((left % 60000) / 1000);
-
       setRemaining(
         left <= 0
           ? "Expiré"
@@ -134,7 +154,12 @@ function TimeBar({
           />
         </div>
         <span
-          style={{ fontSize: 12, fontWeight: 700, color, whiteSpace: "nowrap" }}
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color,
+            whiteSpace: "nowrap",
+          }}
         >
           {remaining}
         </span>
@@ -243,6 +268,64 @@ function Avatar({ name, size = 44 }: { name: string; size?: number }) {
   );
 }
 
+/* ─── Lightbox pour agrandir les images ─── */
+function ImageLightbox({
+  src,
+  alt,
+  onClose,
+}: {
+  src: string;
+  alt: string;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 2000,
+        background: "rgba(0,0,0,0.85)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+      }}
+    >
+      <img
+        src={src}
+        alt={alt}
+        style={{
+          maxWidth: "90vw",
+          maxHeight: "90vh",
+          borderRadius: 12,
+          boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+        }}
+      />
+      <button
+        onClick={onClose}
+        style={{
+          position: "absolute",
+          top: 24,
+          right: 24,
+          width: 44,
+          height: 44,
+          borderRadius: "50%",
+          background: "rgba(255,255,255,0.15)",
+          border: "none",
+          color: "white",
+          fontSize: 20,
+          cursor: "pointer",
+        }}
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
+/* ═══════════════════ PAGE MÉDECIN ═══════════════════ */
+
 export default function MedecinDMEPage() {
   const { token, isLoading, username } = useAuth();
   const router = useRouter();
@@ -261,6 +344,10 @@ export default function MedecinDMEPage() {
   const [tokenError, setTokenError] = useState("");
   const [loadingToken, setLoadingToken] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [lightboxImg, setLightboxImg] = useState<{
+    src: string;
+    alt: string;
+  } | null>(null);
 
   const [nowTs, setNowTs] = useState<number>(() => Date.now());
 
@@ -347,7 +434,9 @@ export default function MedecinDMEPage() {
     (s) => s.id === activeSection,
   );
   const filledSections =
-    selectedDossier?.sections.filter((s) => s.content.trim().length > 0) ?? [];
+    selectedDossier?.sections.filter(
+      (s) => s.content.trim().length > 0 || (s.attachments && s.attachments.length > 0),
+    ) ?? [];
   const activeDossiers = sharedDossiers.filter((d) => !isExpired(d));
   const filtered = searchQuery
     ? sharedDossiers.filter((d) =>
@@ -391,14 +480,14 @@ export default function MedecinDMEPage() {
           background:rgba(255,255,255,0.4);
           margin-bottom:8px;
         }
-        .dossier-row:hover:not(.exp-row) { 
-          border-color:rgba(16,185,129,0.25); 
-          background:rgba(16,185,129,0.06); 
-          transform:translateX(3px); 
+        .dossier-row:hover:not(.exp-row) {
+          border-color:rgba(16,185,129,0.25);
+          background:rgba(16,185,129,0.06);
+          transform:translateX(3px);
         }
-        .dossier-row.sel-row { 
-          border-color:rgba(16,185,129,0.4); 
-          background:rgba(16,185,129,0.1); 
+        .dossier-row.sel-row {
+          border-color:rgba(16,185,129,0.4);
+          background:rgba(16,185,129,0.1);
           box-shadow: 0 4px 12px rgba(16,185,129,0.08);
         }
         .dossier-row.exp-row { opacity:0.5; cursor:not-allowed; filter: grayscale(0.5); }
@@ -411,9 +500,9 @@ export default function MedecinDMEPage() {
           border:1px solid transparent;
         }
         .sec-tab-med:hover { background:rgba(139,92,246,0.05); color:#334155; border-color:rgba(139,92,246,0.1); }
-        .sec-tab-med.active-tab { 
-          background:linear-gradient(135deg,rgba(139,92,246,0.1),rgba(16,185,129,0.08)); 
-          color:#1E293B; border-color:rgba(139,92,246,0.3); 
+        .sec-tab-med.active-tab {
+          background:linear-gradient(135deg,rgba(139,92,246,0.1),rgba(16,185,129,0.08));
+          color:#1E293B; border-color:rgba(139,92,246,0.3);
           box-shadow:0 2px 8px rgba(139,92,246,0.1);
         }
         .sec-tab-med.empty-tab { opacity:0.4; }
@@ -441,7 +530,7 @@ export default function MedecinDMEPage() {
         }
         .stat-icon {
           width:46px; height:46px; border-radius:14px;
-          display:flex; align-items:center; justify-content:center; font-size:20px; flexShrink:0;
+          display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;
         }
 
         .content-area {
@@ -455,6 +544,34 @@ export default function MedecinDMEPage() {
           padding:5px 12px; border-radius:20px;
           background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.2);
           color:#059669; font-size:11px; font-weight:700; letter-spacing:0.5px;
+        }
+
+        .att-img-card {
+          border-radius:12px; overflow:hidden;
+          border:1px solid rgba(0,0,0,0.06);
+          cursor:pointer; transition:all 0.2s;
+        }
+        .att-img-card:hover {
+          transform:scale(1.03);
+          box-shadow:0 6px 20px rgba(0,0,0,0.1);
+        }
+        .att-img-card img {
+          width:100%; height:100px; object-fit:cover; display:block;
+        }
+        .att-img-card .att-label {
+          padding:6px 10px; font-size:11px; color:#334155;
+          font-weight:600; background:white;
+          overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+        }
+
+        .att-doc-card {
+          display:flex; align-items:center; gap:10px;
+          padding:12px 14px; background:#F8FAFC;
+          border:1px solid #E2E8F0; border-radius:12px;
+          transition:all 0.2s; text-decoration:none;
+        }
+        .att-doc-card:hover {
+          background:#EFF6FF; border-color:#93C5FD;
         }
       `}</style>
 
@@ -476,6 +593,15 @@ export default function MedecinDMEPage() {
             paddingTop: "calc(70px + 2rem)",
           }}
         >
+          {/* Lightbox */}
+          {lightboxImg && (
+            <ImageLightbox
+              src={lightboxImg.src}
+              alt={lightboxImg.alt}
+              onClose={() => setLightboxImg(null)}
+            />
+          )}
+
           {/* Token access */}
           <div
             className="dme-card"
@@ -847,7 +973,11 @@ export default function MedecinDMEPage() {
               </div>
             ) : (
               <div
-                style={{ display: "flex", flexDirection: "column", gap: 16 }}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 16,
+                }}
               >
                 {/* Patient header card */}
                 <div className="dme-card" style={{ padding: "24px 28px" }}>
@@ -860,9 +990,16 @@ export default function MedecinDMEPage() {
                     }}
                   >
                     <div
-                      style={{ display: "flex", alignItems: "center", gap: 16 }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 16,
+                      }}
                     >
-                      <Avatar name={selectedDossier.patient_name} size={54} />
+                      <Avatar
+                        name={selectedDossier.patient_name}
+                        size={54}
+                      />
                       <div>
                         <h2
                           style={{
@@ -877,7 +1014,11 @@ export default function MedecinDMEPage() {
                           {selectedDossier.patient_name}
                         </h2>
                         <p
-                          style={{ fontSize: 13, color: "#64748B", margin: 0 }}
+                          style={{
+                            fontSize: 13,
+                            color: "#64748B",
+                            margin: 0,
+                          }}
                         >
                           Partagé le{" "}
                           {new Date(
@@ -915,7 +1056,7 @@ export default function MedecinDMEPage() {
                         color: "#10B981",
                       },
                       {
-                        val: `${Math.max(0, Math.round((new Date(selectedDossier.expires_at).getTime() - Number(new Date().getTime())) / 3600000))}h`,
+                        val: `${Math.max(0, Math.round((new Date(selectedDossier.expires_at).getTime() - Date.now()) / 3600000))}h`,
                         label: "Restantes",
                         color: "#F59E0B",
                       },
@@ -987,7 +1128,10 @@ export default function MedecinDMEPage() {
                         }}
                       >
                         {selectedDossier.sections.map((section) => {
-                          const filled = section.content.trim().length > 0;
+                          const filled =
+                            section.content.trim().length > 0 ||
+                            (section.attachments &&
+                              section.attachments.length > 0);
                           const isAct = activeSection === section.id;
                           return (
                             <div
@@ -998,14 +1142,18 @@ export default function MedecinDMEPage() {
                               <span style={{ fontSize: 15 }}>
                                 {resolveIcon(section.icon)}
                               </span>
-                              <span style={{ flex: 1 }}>{section.title}</span>
+                              <span style={{ flex: 1 }}>
+                                {section.title}
+                              </span>
                               {filled ? (
                                 <span
                                   style={{
                                     width: 6,
                                     height: 6,
                                     borderRadius: "50%",
-                                    background: isAct ? "#8B5CF6" : "#10B981",
+                                    background: isAct
+                                      ? "#8B5CF6"
+                                      : "#10B981",
                                     flexShrink: 0,
                                     boxShadow: isAct
                                       ? "0 0 8px rgba(139,92,246,0.6)"
@@ -1033,7 +1181,7 @@ export default function MedecinDMEPage() {
                       key={activeSection}
                       style={{ animation: "dmeFadeUp 0.25s ease" }}
                     >
-                      {currentSection ? (
+                      {currentSection && (
                         <>
                           <div
                             style={{
@@ -1055,7 +1203,8 @@ export default function MedecinDMEPage() {
                                 alignItems: "center",
                                 justifyContent: "center",
                                 fontSize: 22,
-                                boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
+                                boxShadow:
+                                  "0 8px 24px rgba(0,0,0,0.1)",
                               }}
                             >
                               {resolveIcon(currentSection.icon)}
@@ -1073,10 +1222,11 @@ export default function MedecinDMEPage() {
                             </h3>
                           </div>
 
+                          {/* ═══ Contenu texte ═══ */}
                           <div className="content-area">
                             {currentSection.content.trim() ? (
                               currentSection.content
-                            ) : (
+                            ) : !currentSection.attachments?.length ? (
                               <div
                                 style={{
                                   display: "flex",
@@ -1100,8 +1250,137 @@ export default function MedecinDMEPage() {
                                   Non renseigné par le patient
                                 </p>
                               </div>
-                            )}
+                            ) : null}
                           </div>
+
+                          {/* ═══ PIÈCES JOINTES ENVOYÉES PAR LE PATIENT ═══ */}
+                          {currentSection.attachments &&
+                            currentSection.attachments.length > 0 && (
+                              <div style={{ marginTop: 20 }}>
+                                <p
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    letterSpacing: "1px",
+                                    textTransform: "uppercase",
+                                    color: "#64748B",
+                                    marginBottom: 12,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                  }}
+                                >
+                                  📎 Pièces jointes (
+                                  {currentSection.attachments.length})
+                                </p>
+
+                                {/* Images */}
+                                {currentSection.attachments.filter(
+                                  (a) => a.type === "image",
+                                ).length > 0 && (
+                                  <div
+                                    style={{
+                                      display: "grid",
+                                      gridTemplateColumns:
+                                        "repeat(auto-fill, minmax(140px, 1fr))",
+                                      gap: 12,
+                                      marginBottom: 12,
+                                    }}
+                                  >
+                                    {currentSection.attachments
+                                      .filter((a) => a.type === "image")
+                                      .map((att) => (
+                                        <div
+                                          key={att.id}
+                                          className="att-img-card"
+                                          onClick={() =>
+                                            setLightboxImg({
+                                              src: att.url,
+                                              alt: att.name,
+                                            })
+                                          }
+                                        >
+                                          <img
+                                            src={att.url}
+                                            alt={att.name}
+                                          />
+                                          <div className="att-label">
+                                            {att.name}
+                                          </div>
+                                        </div>
+                                      ))}
+                                  </div>
+                                )}
+
+                                {/* Documents */}
+                                {currentSection.attachments.filter(
+                                  (a) => a.type === "document",
+                                ).length > 0 && (
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      flexDirection: "column",
+                                      gap: 8,
+                                    }}
+                                  >
+                                    {currentSection.attachments
+                                      .filter(
+                                        (a) => a.type === "document",
+                                      )
+                                      .map((att) => (
+                                        <a
+                                          key={att.id}
+                                          href={att.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="att-doc-card"
+                                        >
+                                          <span style={{ fontSize: 24 }}>
+                                            📑
+                                          </span>
+                                          <div
+                                            style={{
+                                              flex: 1,
+                                              minWidth: 0,
+                                            }}
+                                          >
+                                            <p
+                                              style={{
+                                                fontSize: 13,
+                                                fontWeight: 600,
+                                                color: "#1E293B",
+                                                margin: 0,
+                                                overflow: "hidden",
+                                                textOverflow: "ellipsis",
+                                                whiteSpace: "nowrap",
+                                              }}
+                                            >
+                                              {att.name}
+                                            </p>
+                                            <p
+                                              style={{
+                                                fontSize: 11,
+                                                color: "#94A3B8",
+                                                margin: 0,
+                                              }}
+                                            >
+                                              Cliquez pour ouvrir
+                                            </p>
+                                          </div>
+                                          <span
+                                            style={{
+                                              fontSize: 16,
+                                              color: "#6366F1",
+                                            }}
+                                          >
+                                            ↗
+                                          </span>
+                                        </a>
+                                      ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
 
                           <div
                             style={{
@@ -1127,7 +1406,7 @@ export default function MedecinDMEPage() {
                             </span>
                           </div>
                         </>
-                      ) : null}
+                      )}
                     </div>
                   </div>
                 </div>

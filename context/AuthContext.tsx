@@ -27,6 +27,8 @@ interface AuthContextProps {
   logout: () => void;
 }
 
+// ✅ Les console.log orphelins qui causaient l'erreur ont été supprimés
+
 /* ───────────────────────── CONTEXT ───────────────────────── */
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
@@ -60,6 +62,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await authLogin(u, p);
 
     const t = localStorage.getItem("accessToken");
+    const r = localStorage.getItem("refreshToken"); // ✅ vérifier qu'il est sauvegardé
     setToken(t);
 
     const res = await api.get("users/me/");
