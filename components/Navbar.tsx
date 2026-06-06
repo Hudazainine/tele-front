@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
 import api from "../lib/api";
+import MessagesBell from "./MessagesBell";
 
 // ─────────────────────────────────────────────────────────────
 // ICONS (SVG Components)
@@ -12,10 +13,12 @@ const LucideIcon = ({
   path,
   size = 20,
   color = "currentColor",
+  style,
 }: {
   path: string;
   size?: number;
   color?: string;
+  style?: React.CSSProperties;
 }) => (
   <svg
     width={size}
@@ -26,6 +29,7 @@ const LucideIcon = ({
     strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
+    style={style}
     dangerouslySetInnerHTML={{ __html: path }}
   />
 );
@@ -176,7 +180,7 @@ export default function Navbar({ title, subtitle }: NavbarProps) {
           position: "fixed",
           top: 0,
           right: 0,
-          left: 260, // Updated to match the new Sidebar width
+          left: 260,
           height: 70,
           background: isDark
             ? "rgba(15, 12, 26, 0.85)"
@@ -223,6 +227,10 @@ export default function Navbar({ title, subtitle }: NavbarProps) {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          
+          {/* 💬 Messages Bell */}
+          <MessagesBell />
+
           {/* 🔔 Notifications */}
           <div ref={notifRef} style={{ position: "relative" }}>
             <button
