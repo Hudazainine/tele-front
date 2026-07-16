@@ -87,7 +87,7 @@ const statusMeta: Record<
 };
 
 export default function AdminRendezVous() {
-  const { token, isLoading, user } = useAuth();
+  const { token, isLoading, username } = useAuth();
   const router = useRouter();
   const [data, setData] = useState<RendezVous[]>([]);
   const [loading, setLoading] = useState(true);
@@ -517,7 +517,7 @@ export default function AdminRendezVous() {
         >
           <Navbar
             title="Rendez-vous"
-            subtitle={`Bonjour ${user?.username || "Admin"}`}
+            subtitle={`Bonjour ${username || "Admin"}`}
           />
 
           {/* Header */}
@@ -906,3 +906,4 @@ export default function AdminRendezVous() {
     </PrivateRoute>
   );
 }
+

@@ -531,7 +531,7 @@ const statusMeta: Record<
 
 // ─── Main ─────────────────────────────────────────────────────
 export default function AdminDashboard() {
-  const { token, isLoading, user } = useAuth();
+  const { token, isLoading, username } = useAuth();
   const router = useRouter();
 
   const [stats, setStats] = useState({
@@ -862,7 +862,7 @@ export default function AdminDashboard() {
         >
           <Navbar
             title="Tableau de bord"
-            subtitle={`Bonjour ${user?.username || "Admin"}`}
+            subtitle={`Bonjour ${username || "Admin"}`}
           />
 
           {/* Stat Cards */}
@@ -1627,3 +1627,4 @@ export default function AdminDashboard() {
     </PrivateRoute>
   );
 }
+

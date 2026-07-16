@@ -60,7 +60,7 @@ function getIcon(msg: string): string {
 }
 
 export default function AdminNotifications() {
-  const { token, isLoading, user } = useAuth();
+  const { token, isLoading, username } = useAuth();
   const router = useRouter();
 
   const [stats, setStats] = useState<Stats>({
@@ -288,26 +288,75 @@ export default function AdminNotifications() {
         ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 4px; }
       `}</style>
 
-      <div style={{ display: "flex", minHeight: "100vh", background: C.bg, fontFamily: "'Inter', sans-serif" }}>
+      <div
+        style={{
+          display: "flex",
+          minHeight: "100vh",
+          background: C.bg,
+          fontFamily: "'Inter', sans-serif",
+        }}
+      >
         <Sidebar />
-        <main style={{ marginLeft: 260, flex: 1, padding: "5rem 2.4rem 3rem", overflowX: "hidden" }}>
-          <Navbar title="Notifications" subtitle={`Bonjour ${user?.username || "Admin"} 👋`} />
+        <main
+          style={{
+            marginLeft: 260,
+            flex: 1,
+            padding: "5rem 2.4rem 3rem",
+            overflowX: "hidden",
+          }}
+        >
+          <Navbar
+            title="Notifications"
+            subtitle={`Bonjour ${username || "Admin"} 👋`}
+          />
 
           {/* Header */}
-          <div style={{
-            display: "flex", justifyContent: "space-between", alignItems: "flex-start",
-            marginBottom: "1.6rem", animation: "fadeUp 0.35s ease both", flexWrap: "wrap", gap: 16,
-          }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              marginBottom: "1.6rem",
+              animation: "fadeUp 0.35s ease both",
+              flexWrap: "wrap",
+              gap: 16,
+            }}
+          >
             <div>
-              <div style={{ fontSize: 11, color: C.violet, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: C.violet,
+                  fontWeight: 700,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  marginBottom: 6,
+                }}
+              >
                 🔔 Administration
               </div>
-              <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: 0, letterSpacing: "-0.5px" }}>
+              <h1
+                style={{
+                  fontSize: 28,
+                  fontWeight: 800,
+                  color: C.text,
+                  margin: 0,
+                  letterSpacing: "-0.5px",
+                }}
+              >
                 Notifications
               </h1>
-              <p style={{ color: C.textMuted, fontSize: 13, marginTop: 4, marginBottom: 0 }}>
+              <p
+                style={{
+                  color: C.textMuted,
+                  fontSize: 13,
+                  marginTop: 4,
+                  marginBottom: 0,
+                }}
+              >
                 {data.length} notification{data.length !== 1 ? "s" : ""}
-                {unreadCount > 0 && ` · ${unreadCount} non lue${unreadCount !== 1 ? "s" : ""}`}
+                {unreadCount > 0 &&
+                  ` · ${unreadCount} non lue${unreadCount !== 1 ? "s" : ""}`}
               </p>
             </div>
             <div style={{ display: "flex", gap: 10 }}>
@@ -327,15 +376,47 @@ export default function AdminNotifications() {
           {/* Stats */}
           <div className="stats-row">
             {[
-              { icon: "🔔", val: data.length, lbl: "Total", color: C.sky, bg: C.skyLight },
-              { icon: "🟣", val: unreadCount, lbl: "Non lues", color: C.violet, bg: C.violetLight },
-              { icon: "✅", val: data.length - unreadCount, lbl: "Lues", color: C.green, bg: C.greenLight },
-              { icon: "👥", val: stats.patients, lbl: "Patients", color: C.teal, bg: C.tealLight },
+              {
+                icon: "🔔",
+                val: data.length,
+                lbl: "Total",
+                color: C.sky,
+                bg: C.skyLight,
+              },
+              {
+                icon: "🟣",
+                val: unreadCount,
+                lbl: "Non lues",
+                color: C.violet,
+                bg: C.violetLight,
+              },
+              {
+                icon: "✅",
+                val: data.length - unreadCount,
+                lbl: "Lues",
+                color: C.green,
+                bg: C.greenLight,
+              },
+              {
+                icon: "👥",
+                val: stats.patients,
+                lbl: "Patients",
+                color: C.teal,
+                bg: C.tealLight,
+              },
             ].map((s, i) => (
-              <div key={s.lbl} className="panel stat-card-n" style={{ animationDelay: `${i * 0.06}s` }}>
-                <div className="stat-icon-n" style={{ background: s.bg }}>{s.icon}</div>
+              <div
+                key={s.lbl}
+                className="panel stat-card-n"
+                style={{ animationDelay: `${i * 0.06}s` }}
+              >
+                <div className="stat-icon-n" style={{ background: s.bg }}>
+                  {s.icon}
+                </div>
                 <div>
-                  <div className="stat-val-n" style={{ color: s.color }}>{s.val}</div>
+                  <div className="stat-val-n" style={{ color: s.color }}>
+                    {s.val}
+                  </div>
                   <div className="stat-lbl-n">{s.lbl}</div>
                 </div>
               </div>
@@ -343,34 +424,66 @@ export default function AdminNotifications() {
           </div>
 
           {/* Filtres */}
-          <div className="filters" style={{ animation: "fadeUp 0.4s ease both" }}>
+          <div
+            className="filters"
+            style={{ animation: "fadeUp 0.4s ease both" }}
+          >
             {(["all", "unread", "read"] as const).map((f) => (
               <button
                 key={f}
                 className={`filter-btn${filter === f ? " active" : ""}`}
                 onClick={() => setFilter(f)}
               >
-                {f === "all" ? "Toutes" : f === "unread" ? `Non lues (${unreadCount})` : "Lues"}
+                {f === "all"
+                  ? "Toutes"
+                  : f === "unread"
+                    ? `Non lues (${unreadCount})`
+                    : "Lues"}
               </button>
             ))}
           </div>
 
           {/* Liste */}
-          <div className="notif-list" style={{ animation: "fadeUp 0.45s ease both" }}>
+          <div
+            className="notif-list"
+            style={{ animation: "fadeUp 0.45s ease both" }}
+          >
             {loading ? (
               Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="panel" style={{ display: "flex", gap: 16, padding: "16px 20px" }}>
-                  <div className="skeleton" style={{ width: 42, height: 42, borderRadius: 12, flexShrink: 0 }} />
+                <div
+                  key={i}
+                  className="panel"
+                  style={{ display: "flex", gap: 16, padding: "16px 20px" }}
+                >
+                  <div
+                    className="skeleton"
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: 12,
+                      flexShrink: 0,
+                    }}
+                  />
                   <div style={{ flex: 1 }}>
-                    <div className="skeleton" style={{ height: 14, width: "65%", marginBottom: 8 }} />
-                    <div className="skeleton" style={{ height: 11, width: "20%" }} />
+                    <div
+                      className="skeleton"
+                      style={{ height: 14, width: "65%", marginBottom: 8 }}
+                    />
+                    <div
+                      className="skeleton"
+                      style={{ height: 11, width: "20%" }}
+                    />
                   </div>
                 </div>
               ))
             ) : filtered.length === 0 ? (
               <div className="panel empty-state">
-                <div style={{ fontSize: 52, marginBottom: 16, opacity: 0.25 }}>🔔</div>
-                <div style={{ fontSize: 16, fontWeight: 600, color: C.textSub }}>
+                <div style={{ fontSize: 52, marginBottom: 16, opacity: 0.25 }}>
+                  🔔
+                </div>
+                <div
+                  style={{ fontSize: 16, fontWeight: 600, color: C.textSub }}
+                >
                   Aucune notification
                 </div>
                 <div style={{ fontSize: 13, marginTop: 6, color: C.textMuted }}>
@@ -379,14 +492,23 @@ export default function AdminNotifications() {
               </div>
             ) : (
               filtered.map((n) => (
-                <div key={n.id} className={`notif-item${n.lu ? " read" : " unread"}`}>
-                  <div className={`notif-icon-wrap${n.lu ? " read" : " unread"}`}>
+                <div
+                  key={n.id}
+                  className={`notif-item${n.lu ? " read" : " unread"}`}
+                >
+                  <div
+                    className={`notif-icon-wrap${n.lu ? " read" : " unread"}`}
+                  >
                     {getIcon(n.message)}
                   </div>
 
                   <div className="notif-content">
-                    <p className={`notif-msg${n.lu ? " read" : " unread"}`}>{n.message}</p>
-                    <div className={`notif-status${n.lu ? " read" : " unread"}`}>
+                    <p className={`notif-msg${n.lu ? " read" : " unread"}`}>
+                      {n.message}
+                    </p>
+                    <div
+                      className={`notif-status${n.lu ? " read" : " unread"}`}
+                    >
                       {!n.lu && (
                         <div className="ping-dot">
                           <span />
@@ -399,11 +521,19 @@ export default function AdminNotifications() {
 
                   <div className="item-actions">
                     {!n.lu && (
-                      <button className="mark-btn" disabled={marking === n.id} onClick={() => markRead(n.id)}>
+                      <button
+                        className="mark-btn"
+                        disabled={marking === n.id}
+                        onClick={() => markRead(n.id)}
+                      >
                         {marking === n.id ? "…" : "Marquer lu"}
                       </button>
                     )}
-                    <button className="del-btn" disabled={deleting === n.id} onClick={() => deleteNotif(n.id)}>
+                    <button
+                      className="del-btn"
+                      disabled={deleting === n.id}
+                      onClick={() => deleteNotif(n.id)}
+                    >
                       {deleting === n.id ? "…" : "🗑"}
                     </button>
                   </div>
@@ -416,3 +546,4 @@ export default function AdminNotifications() {
     </PrivateRoute>
   );
 }
+

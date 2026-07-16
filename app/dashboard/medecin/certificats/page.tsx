@@ -36,9 +36,10 @@ import {
 } from "lucide-react";
 
 interface Stats {
-  rendezvous: number;
-  consultations: number;
-  ordonnances: number;
+  rendezvous?: number;
+  consultations?: number;
+  ordonnances?: number;
+  [key: string]: number | undefined;
 }
 
 interface Certificat {

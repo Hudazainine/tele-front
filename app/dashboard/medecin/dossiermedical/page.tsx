@@ -11,7 +11,7 @@ import Navbar from "../../../../components/Navbar";
 import {
   Stethoscope,
   Zap,
-  Capsules,
+  Pill,
   Syringe,
   Hospital,
   FileText,
@@ -97,7 +97,7 @@ const ICON_MAP: Record<
 > = {
   "[1]": Stethoscope,
   "[2]": Zap,
-  "[3]": Capsules,
+  "[3]": Pill,
   "[4]": Syringe,
   "[5]": Hospital,
   "[6]": FileText,

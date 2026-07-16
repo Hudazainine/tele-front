@@ -168,7 +168,7 @@ const css = `
 `;
 
 export default function AdminPatients() {
-  const { token, isLoading, user: authUser } = useAuth();
+  const { token, isLoading, username } = useAuth();
   const router = useRouter();
 
   const [data, setData] = useState<Patient[]>([]);
@@ -178,7 +178,6 @@ export default function AdminPatients() {
   const [viewing, setViewing] = useState<Patient | null>(null);
   const [confirm, setConfirm] = useState<Patient | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -200,11 +199,11 @@ export default function AdminPatients() {
       router.push("/login");
       return;
     }
-    setCurrentUser(authUser || { username: "Admin" });
+
     load();
     const t = setInterval(load, 10000);
     return () => clearInterval(t);
-  }, [token, isLoading, authUser]);
+  }, [token, isLoading, username]);
 
   if (isLoading) return null;
 
@@ -521,7 +520,7 @@ export default function AdminPatients() {
         <main style={{ marginLeft: 260, flex: 1, padding: "5rem 2.4rem 3rem" }}>
           <Navbar
             title="Patients"
-            subtitle={`Bonjour ${currentUser?.username || "Admin"}`}
+            subtitle={`Bonjour ${username || "Admin"}`}
           />
 
           {/* Header */}

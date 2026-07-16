@@ -228,7 +228,7 @@ const emptyForm = {
 };
 
 export default function AdminMedecins() {
-  const { token, isLoading, user } = useAuth();
+  const { token, isLoading, username } = useAuth();
   const router = useRouter();
   const [medecins, setMedecins] = useState<Medecin[]>([]);
   const [loading, setLoading] = useState(true);
@@ -375,7 +375,7 @@ export default function AdminMedecins() {
         >
           <Navbar
             title="Médecins"
-            subtitle={`Bonjour ${user?.username || "Admin"}`}
+            subtitle={`Bonjour ${username || "Admin"}`}
           />
 
           {/* Header */}
