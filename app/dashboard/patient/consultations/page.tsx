@@ -1,4 +1,3 @@
-// D:\teleconsultation\frontend\app\dashboard\patient\consultations\page.tsx
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -47,6 +46,7 @@ export default function PatientConsultations() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Consultation | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showDetail, setShowDetail] = useState(false);
 
   useEffect(() => {
     if (isLoading) return;
@@ -68,7 +68,6 @@ export default function PatientConsultations() {
           ordonnances: o.data.length,
           notifications: n.data.length,
         });
-        // Trier par date décroissante
         const sorted = [...c.data].sort(
           (a: Consultation, b: Consultation) =>
             new Date(b.date_heure).getTime() - new Date(a.date_heure).getTime(),
@@ -113,7 +112,7 @@ export default function PatientConsultations() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
 
-        .pg-root { min-height: 100vh; background: #EFF6FF ; font-family: 'DM Sans', sans-serif; display: flex; }
+        .pg-root { min-height: 100vh; background: #EFF6FF; font-family: 'DM Sans', sans-serif; display: flex; }
         .pg-main { margin-left: 260px; flex: 1; padding: 2rem; padding-top: calc(70px + 2rem); }
 
         /* Header */
@@ -122,20 +121,20 @@ export default function PatientConsultations() {
         .pg-sub    { font-size: 13px; color: #94a3b8; margin-top: 2px; }
 
         /* Stats */
-        .stats-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 24px; }
+        .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
         .stat-card { background: rgba(255,255,255,0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.9); border-radius: 20px; padding: 18px 22px; display: flex; align-items: center; gap: 14px; box-shadow: 0 2px 12px rgba(139,92,246,0.04); }
         .stat-icon { width: 42px; height: 42px; border-radius: 13px; background: linear-gradient(135deg, #378ADD, #10B981); display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 4px 10px rgba(139,92,246,0.25); flex-shrink: 0; }
         .stat-val  { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; color: #1e1b4b; line-height: 1; }
         .stat-lbl  { font-size: 12px; color: #94a3b8; margin-top: 3px; }
 
-        /* Layout 2 cols */
-        .split { display: grid; grid-template-columns: 340px minmax(0,1fr); gap: 16px; align-items: start; }
+        /* Split layout */
+        .split { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 16px; align-items: start; }
 
         /* Left list */
         .list-col { display: flex; flex-direction: column; gap: 12px; }
         .search-wrap { background: rgba(255,255,255,0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.9); border-radius: 14px; padding: 10px 14px; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 8px rgba(139,92,246,0.04); }
-        .search-input { flex:1; border:none; background:transparent; font-family:'DM Sans',sans-serif; font-size:13px; color:#334155; outline:none; }
-        .search-input::placeholder { color:#94a3b8; }
+        .search-input { flex: 1; border: none; background: transparent; font-family: 'DM Sans', sans-serif; font-size: 13px; color: #334155; outline: none; }
+        .search-input::placeholder { color: #94a3b8; }
 
         .list-card { background: rgba(255,255,255,0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.9); border-radius: 20px; overflow: hidden; box-shadow: 0 2px 12px rgba(139,92,246,0.04); }
         .list-item { padding: 14px 16px; border-bottom: 0.5px solid rgba(0,0,0,0.05); cursor: pointer; transition: background 0.15s; display: flex; gap: 12px; align-items: flex-start; }
@@ -143,40 +142,106 @@ export default function PatientConsultations() {
         .list-item:hover { background: rgba(139,92,246,0.04); }
         .list-item.active { background: rgba(139,92,246,0.07); border-left: 3px solid #378ADD; }
         .li-avatar { width: 36px; height: 36px; border-radius: 11px; background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(16,185,129,0.15)); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #378ADD; flex-shrink: 0; }
-        .li-dr { font-size: 13px; font-weight: 600; color: #1e293b; }
-        .li-date { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+        .li-dr    { font-size: 13px; font-weight: 600; color: #1e293b; }
+        .li-date  { font-size: 11px; color: #94a3b8; margin-top: 2px; }
         .li-motif { font-size: 11px; color: #64748b; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
 
         /* Right detail */
         .detail-col { position: sticky; top: calc(70px + 2rem); }
         .detail-card { background: rgba(255,255,255,0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.9); border-radius: 24px; padding: 0; overflow: hidden; box-shadow: 0 2px 12px rgba(139,92,246,0.04); }
 
-        /* Detail header */
         .det-hd { padding: 22px 24px; background: linear-gradient(135deg, #378ADD, #10B981); color: white; }
         .det-hd-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
         .det-dr { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; }
         .det-date-badge { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); border-radius: 20px; padding: 5px 12px; font-size: 12px; font-weight: 600; }
         .det-type-badge { display: inline-block; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 600; }
 
-        /* Detail body */
         .det-body { padding: 22px 24px; display: flex; flex-direction: column; gap: 18px; }
         .det-section-title { font-size: 11px; font-weight: 700; color: #378ADD; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
         .det-content { font-size: 13px; color: #334155; line-height: 1.7; background: rgba(139,92,246,0.04); border: 1px solid rgba(139,92,246,0.08); border-radius: 12px; padding: 12px 14px; white-space: pre-wrap; }
         .det-empty { font-size: 12px; color: #94a3b8; font-style: italic; }
         .det-divider { border: none; border-top: 0.5px solid rgba(0,0,0,0.07); margin: 0; }
 
+        /* Back button — hidden on desktop */
+        .detail-overlay-back { display: none; }
+
         /* Empty state */
         .empty-state { text-align: center; padding: 60px 20px; color: #94a3b8; }
         .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: .4; }
 
         /* Skeleton */
-        .skeleton { background: linear-gradient(90deg,rgba(0,0,0,0.05) 25%,rgba(0,0,0,0.08) 50%,rgba(0,0,0,0.05) 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:8px; }
-        @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+        .skeleton { background: linear-gradient(90deg,rgba(0,0,0,0.05) 25%,rgba(0,0,0,0.08) 50%,rgba(0,0,0,0.05) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 8px; }
+        @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+        /* ── MOBILE ── */
+        @media (max-width: 768px) {
+          .pg-main {
+            margin-left: 0;
+            padding: 1rem;
+            padding-top: calc(60px + 1rem);
+            padding-bottom: 80px;
+          }
+
+          .pg-title { font-size: 20px; }
+
+          /* Stats: 2 cols */
+          .stats-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+          .stat-card  { padding: 14px 16px; border-radius: 16px; }
+          .stat-val   { font-size: 18px; }
+
+          /* Single column list */
+          .split { grid-template-columns: 1fr; }
+
+          /* Detail: full-screen overlay */
+          .detail-col {
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+            background: rgba(0, 0, 0, 0.45);
+            display: none;
+            padding-top: 52px;
+          }
+          .detail-col.open { display: block; }
+
+          .detail-card {
+            border-radius: 24px 24px 0 0;
+            height: 100%;
+            overflow-y: auto;
+          }
+
+          /* Back button */
+          .detail-overlay-back {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            position: fixed;
+            top: 12px;
+            left: 16px;
+            z-index: 201;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 20px;
+            color: white;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: 'DM Sans', sans-serif;
+            padding: 6px 14px;
+            cursor: pointer;
+          }
+        }
       `}</style>
 
       <div className="pg-root">
         <Sidebar stats={stats} />
         <Navbar title="Mes Consultations" subtitle={`Bonjour ${username}`} />
+
+        {/* Back button — only visible on mobile when detail is open */}
+        <button
+          className="detail-overlay-back"
+          onClick={() => setShowDetail(false)}
+        >
+          ← Retour
+        </button>
 
         <main className="pg-main">
           {/* Header */}
@@ -263,7 +328,10 @@ export default function PatientConsultations() {
                     <div
                       key={c.id}
                       className={`list-item${selected?.id === c.id ? " active" : ""}`}
-                      onClick={() => setSelected(c)}
+                      onClick={() => {
+                        setSelected(c);
+                        setShowDetail(true);
+                      }}
                     >
                       <div className="li-avatar">
                         {c.medecin_name?.charAt(0)?.toUpperCase() || "?"}
@@ -314,7 +382,7 @@ export default function PatientConsultations() {
             </div>
 
             {/* ── Détail ── */}
-            <div className="detail-col">
+            <div className={`detail-col${showDetail ? " open" : ""}`}>
               {!selected ? (
                 <div className="detail-card">
                   <div className="empty-state" style={{ padding: "80px 20px" }}>
@@ -402,7 +470,7 @@ export default function PatientConsultations() {
                       )}
                     </div>
 
-                    {/* Bouton ordonnances liées */}
+                    {/* Bouton ordonnances */}
                     <div style={{ paddingTop: 4 }}>
                       <button
                         onClick={() =>

@@ -1,6 +1,5 @@
-// D:\teleconsultation\frontend\app\dashboard\patient\rendezvous\page.tsx
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../../context/AuthContext";
 import Sidebar from "../../../../components/Sidebar";
@@ -8,64 +7,195 @@ import Navbar from "../../../../components/Navbar";
 import api from "../../../../lib/api";
 import PaiementBadge from "@/components/PaiementBadage";
 import BoutonPaiement from "@/components/BoutonPaiement";
-import PaymeeListener from "@/components/PaymeeListener";
+import KonnectListener from "@/components/PaymeeListener";
 import dynamic from "next/dynamic";
+
 const VideoCall = dynamic(() => import("@/components/VideoCall"), {
   ssr: false,
 });
 
-// ─────────────────────────────────────────────────────────────
-// ICONS (SVG Components)
-// ─────────────────────────────────────────────────────────────
-const LucideIcon = ({
-  path,
-  size = 20,
-  color = "currentColor",
-}: {
-  path: string;
-  size?: number;
-  color?: string;
-}) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke={color}
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    dangerouslySetInnerHTML={{ __html: path }}
-  />
-);
-
-const iconPaths = {
-  list: "<line x1='8' y1='6' x2='21' y2='6'></line><line x1='8' y1='12' x2='21' y2='12'></line><line x1='8' y1='18' x2='21' y2='18'></line><line x1='3' y1='6' x2='3.01' y2='6'></line><line x1='3' y1='12' x2='3.01' y2='12'></line><line x1='3' y1='18' x2='3.01' y2='18'></line>",
-  calendar:
-    "<rect x='3' y='4' width='18' height='18' rx='2' ry='2'></rect><line x1='16' y1='2' x2='16' y2='6'></line><line x1='8' y1='2' x2='8' y2='6'></line><line x1='3' y1='10' x2='21' y2='10'></line>",
-  clock:
-    "<circle cx='12' cy='12' r='10'></circle><polyline points='12 6 12 12 16 14'></polyline>",
-  xCircle:
-    "<circle cx='12' cy='12' r='10'></circle><line x1='15' y1='9' x2='9' y2='15'></line><line x1='9' y1='9' x2='15' y2='15'></line>",
-  check: "<polyline points='20 6 9 17 4 12'></polyline>",
-  play: "<polygon points='5 3 19 12 5 21 5 3'></polygon>",
-  video:
-    "<polygon points='23 7 16 12 23 17 23 7'></polygon><rect x='1' y='5' width='15' height='14' rx='2' ry='2'></rect>",
-  stethoscope:
-    "<path d='M11 4v4a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2z'></path><path d='M18 8a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2z'></path><path d='M10 12v5a3 3 0 0 0 6 0v-1'></path><path d='M10 12h-1a3 3 0 0 0-3 3v1a3 3 0 0 0 6 0z'></path>",
-  fileText:
-    "<path d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'></path><polyline points='14 2 14 8 20 8'></polyline><line x1='16' y1='13' x2='8' y2='13'></line><line x1='16' y1='17' x2='8' y2='17'></line><polyline points='10 9 9 9 8 9'></polyline>",
-  hourglass:
-    "<path d='M5 22h14'></path><path d='M5 2h14'></path><path d='M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22'></path><path d='M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2'></path>",
-  clockIcon:
-    "<circle cx='12' cy='12' r='10'></circle><polyline points='12 6 12 12 16 14'></polyline>",
-  plus: "<line x1='12' y1='5' x2='12' y2='19'></line><line x1='5' y1='12' x2='19' y2='12'></line>",
+// ─── ICONS — sans dangerouslySetInnerHTML (cause #418) ───────────────────────
+// On utilise des composants SVG directs au lieu d'injecter du HTML
+const Icons = {
+  List: () => (
+    <svg
+      width={20}
+      height={20}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="8" y1="6" x2="21" y2="6" />
+      <line x1="8" y1="12" x2="21" y2="12" />
+      <line x1="8" y1="18" x2="21" y2="18" />
+      <line x1="3" y1="6" x2="3.01" y2="6" />
+      <line x1="3" y1="12" x2="3.01" y2="12" />
+      <line x1="3" y1="18" x2="3.01" y2="18" />
+    </svg>
+  ),
+  Calendar: ({ size = 20, color = "currentColor" }) => (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  ),
+  Clock: ({ size = 20, color = "currentColor" }) => (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  ),
+  XCircle: ({ size = 20, color = "currentColor" }) => (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <line x1="15" y1="9" x2="9" y2="15" />
+      <line x1="9" y1="9" x2="15" y2="15" />
+    </svg>
+  ),
+  Check: ({ size = 12, color = "currentColor" }) => (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  ),
+  Play: ({ size = 12, color = "currentColor" }) => (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polygon points="5 3 19 12 5 21 5 3" />
+    </svg>
+  ),
+  Video: ({ size = 14, color = "currentColor" }) => (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polygon points="23 7 16 12 23 17 23 7" />
+      <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+    </svg>
+  ),
+  Stethoscope: ({ size = 10, color = "currentColor" }) => (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M11 4v4a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2z" />
+      <path d="M18 8a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2z" />
+      <path d="M10 12v5a3 3 0 0 0 6 0v-1" />
+      <path d="M10 12h-1a3 3 0 0 0-3 3v1a3 3 0 0 0 6 0z" />
+    </svg>
+  ),
+  FileText: ({ size = 12, color = "currentColor" }) => (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+    </svg>
+  ),
+  Hourglass: ({ size = 12, color = "currentColor" }) => (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M5 22h14" />
+      <path d="M5 2h14" />
+      <path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22" />
+      <path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2" />
+    </svg>
+  ),
+  Plus: () => (
+    <svg
+      width={18}
+      height={18}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  ),
 };
 
-// ─────────────────────────────────────────────────────────────
-// INTERFACES & CONFIG
-// ─────────────────────────────────────────────────────────────
-
+// ─── INTERFACES & CONFIG ──────────────────────────────────────────────────────
 interface PaiementInfo {
   montant_total: number;
   montant_avance: number;
@@ -74,7 +204,6 @@ interface PaiementInfo {
   statut_restant: string;
   est_complet: boolean;
 }
-
 interface RendezVous {
   id: number;
   medecin_name: string;
@@ -84,50 +213,56 @@ interface RendezVous {
   type?: string;
   paiement_info?: PaiementInfo | null;
 }
-
 type FilterType = "tous" | "avenir" | "passe" | "annule";
 
 const statusConfig: Record<
   string,
-  { label: string; color: string; bg: string; border: string; iconKey: string }
+  {
+    label: string;
+    color: string;
+    bg: string;
+    border: string;
+    Icon: React.FC<any>;
+  }
 > = {
   en_attente: {
     label: "En attente",
     color: "#D97706",
     bg: "#FFFBEB",
     border: "#FDE68A",
-    iconKey: "hourglass",
+    Icon: Icons.Hourglass,
   },
   confirme: {
     label: "Confirmé",
     color: "#059669",
     bg: "#ECFDF5",
     border: "#A7F3D0",
-    iconKey: "check",
+    Icon: Icons.Check,
   },
   annule: {
     label: "Annulé",
     color: "#DC2626",
     bg: "#FEF2F2",
     border: "#FECACA",
-    iconKey: "xCircle",
+    Icon: Icons.XCircle,
   },
   termine: {
     label: "Terminé",
     color: "#475569",
     bg: "#F8FAFC",
     border: "#E2E8F0",
-    iconKey: "check", // Check mark for finished
+    Icon: Icons.Check,
   },
   en_cours: {
     label: "En cours",
     color: "#2563EB",
     bg: "#EFF6FF",
     border: "#BFDBFE",
-    iconKey: "play", // Play icon for active
+    Icon: Icons.Play,
   },
 };
 
+// ─── PAGE ─────────────────────────────────────────────────────────────────────
 export default function PatientRendezVous() {
   const { token, isLoading } = useAuth();
   const router = useRouter();
@@ -142,13 +277,18 @@ export default function PatientRendezVous() {
     ordonnances: 0,
   });
 
+  // ── Fix #418 : now calculé côté client uniquement via useState ───────────
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    setNow(new Date());
+  }, []);
+
   useEffect(() => {
     if (isLoading) return;
     if (!token) {
       router.push("/login");
       return;
     }
-
     const fetchData = () => {
       api
         .get("rendezvous/")
@@ -159,7 +299,6 @@ export default function PatientRendezVous() {
         })
         .catch(() => {})
         .finally(() => setLoading(false));
-
       api
         .get("consultations/")
         .then((r) =>
@@ -169,7 +308,6 @@ export default function PatientRendezVous() {
           })),
         )
         .catch(() => {});
-
       api
         .get("ordonnances/")
         .then((r) =>
@@ -180,7 +318,6 @@ export default function PatientRendezVous() {
         )
         .catch(() => {});
     };
-
     fetchData();
     const interval = setInterval(fetchData, 15000);
     return () => clearInterval(interval);
@@ -203,39 +340,42 @@ export default function PatientRendezVous() {
     }
   };
 
+  // ── Fix #418 : filteredData dépend de `now` (client-only) ───────────────
+  const filteredData = useMemo(() => {
+    if (!now) return []; // SSR : liste vide, pas de mismatch
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    return data
+      .filter((rdv) => {
+        const rdvDate = new Date(rdv.date_heure);
+        rdvDate.setHours(0, 0, 0, 0);
+        if (activeFilter === "avenir")
+          return (
+            rdvDate >= today &&
+            rdv.status !== "termine" &&
+            rdv.status !== "annule"
+          );
+        if (activeFilter === "passe")
+          return rdvDate < today || rdv.status === "termine";
+        if (activeFilter === "annule") return rdv.status === "annule";
+        return true;
+      })
+      .sort((a, b) => {
+        const diff =
+          new Date(a.date_heure).getTime() - new Date(b.date_heure).getTime();
+        return activeFilter === "passe" || activeFilter === "annule"
+          ? -diff
+          : diff;
+      });
+  }, [data, activeFilter, now]);
+
   if (isLoading) return null;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const filteredData = data
-    .filter((rdv) => {
-      const rdvDate = new Date(rdv.date_heure);
-      rdvDate.setHours(0, 0, 0, 0);
-      if (activeFilter === "avenir")
-        return (
-          rdvDate >= today &&
-          rdv.status !== "termine" &&
-          rdv.status !== "annule"
-        );
-      if (activeFilter === "passe")
-        return rdvDate < today || rdv.status === "termine";
-      if (activeFilter === "annule") return rdv.status === "annule";
-      return true;
-    })
-    .sort((a, b) => {
-      const diff =
-        new Date(a.date_heure).getTime() - new Date(b.date_heure).getTime();
-      return activeFilter === "passe" || activeFilter === "annule"
-        ? -diff
-        : diff;
-    });
-
-  const filters: { key: FilterType; label: string; iconKey: string }[] = [
-    { key: "tous", label: "Tous", iconKey: "list" },
-    { key: "avenir", label: "À venir", iconKey: "calendar" },
-    { key: "passe", label: "Passés", iconKey: "clock" },
-    { key: "annule", label: "Annulés", iconKey: "xCircle" },
+  const filters: { key: FilterType; label: string; Icon: React.FC<any> }[] = [
+    { key: "tous", label: "Tous", Icon: Icons.List },
+    { key: "avenir", label: "À venir", Icon: Icons.Calendar },
+    { key: "passe", label: "Passés", Icon: Icons.Clock },
+    { key: "annule", label: "Annulés", Icon: Icons.XCircle },
   ];
 
   const getStatusStyle = (status: string) =>
@@ -245,164 +385,28 @@ export default function PatientRendezVous() {
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
-
-        @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50%       { opacity: 0.5; }
-        }
-        @keyframes skeletonPulse {
-          0%, 100% { opacity: 1; }
-          50%       { opacity: 0.4; }
-        }
-
-        .main-gradient-bg {
-          background: #EFF6FF ;
-          min-height: 100vh;
-        }
-        .glass-card {
-          background: rgba(255, 255, 255, 0.75);
-          backdrop-filter: blur(12px);
-          border: 1px solid rgba(255, 255, 255, 0.9);
-          border-radius: 24px;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
-        }
-        .text-gradient {
-          background: linear-gradient(135deg, #378ADD, #10B981);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-        .btn-gradient {
-          background: linear-gradient(135deg, #378ADD, #06C98B);
-          color: white;
-          border: none;
-          border-radius: 14px;
-          padding: 14px 28px;
-          font-size: 14px;
-          font-weight: 700;
-          cursor: pointer;
-          font-family: 'DM Sans', sans-serif;
-          box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3);
-          transition: all 0.3s ease;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-        .btn-gradient:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 12px 28px rgba(139, 92, 246, 0.45);
-        }
-        .filter-btn {
-          padding: 10px 18px;
-          border-radius: 14px;
-          font-family: 'DM Sans', sans-serif;
-          font-size: 13px;
-          font-weight: 600;
-          border: 1px solid rgba(0,0,0,0.06);
-          background: rgba(255,255,255,0.6);
-          color: #64748b;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-        .filter-btn:hover {
-          background: rgba(139, 92, 246, 0.05);
-          color: #334155;
-          border-color: rgba(139, 92, 246, 0.2);
-        }
-        .filter-btn.active {
-          background: linear-gradient(135deg, #378ADD, #10B981);
-          color: white;
-          border-color: transparent;
-          box-shadow: 0 4px 15px rgba(139, 92, 246, 0.35);
-        }
-        .rdv-card {
-          position: relative;
-          background: rgba(255, 255, 255, 0.85);
-          backdrop-filter: blur(8px);
-          border: 1px solid rgba(0,0,0,0.04);
-          border-radius: 22px;
-          padding: 22px;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          overflow: hidden;
-        }
-        .rdv-card:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 15px 30px -10px rgba(139, 92, 246, 0.2);
-          border-color: rgba(139, 92, 246, 0.2);
-        }
-        .rdv-card::before {
-          content: '';
-          position: absolute;
-          left: 0; top: 0; bottom: 0;
-          width: 5px;
-          background: linear-gradient(180deg, #378ADD, #10B981);
-          border-radius: 5px 0 0 5px;
-        }
-        .action-secondary {
-          background: transparent;
-          border: 1px solid rgba(239, 68, 68, 0.2);
-          border-radius: 10px;
-          color: #EF4444;
-          font-weight: 600;
-          font-size: 12px;
-          cursor: pointer;
-          transition: all 0.2s;
-          font-family: 'DM Sans', sans-serif;
-          padding: 6px 12px;
-        }
-        .action-secondary:hover {
-          background: rgba(239, 68, 68, 0.08);
-          border-color: rgba(239, 68, 68, 0.4);
-        }
-        .action-secondary:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        .type-badge {
-          font-size: 10px;
-          padding: 2px 8px;
-          border-radius: 6px;
-          font-weight: 600;
-          font-family: 'DM Sans', sans-serif;
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-        }
-        .type-online {
-          background: rgba(37, 99, 235, 0.08);
-          color: #2563EB;
-          border: 1px solid rgba(37, 99, 235, 0.15);
-        }
-        .type-offline {
-          background: rgba(16, 185, 129, 0.08);
-          color: #059669;
-          border: 1px solid rgba(16, 185, 129, 0.15);
-        }
-        .btn-join {
-          background: linear-gradient(135deg, #2563EB, #7C3AED);
-          color: white;
-          border: none;
-          border-radius: 10px;
-          padding: 8px 14px;
-          font-size: 12px;
-          font-weight: 600;
-          cursor: pointer;
-          font-family: 'DM Sans', sans-serif;
-          transition: all 0.2s ease;
-          display: flex;
-          align-items: center;
-          gap: 6;
-        }
-        .btn-join:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
-        }
+        @keyframes fadeInUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+        @keyframes skeletonPulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        .main-gradient-bg{background:#EFF6FF;min-height:100vh}
+        .glass-card{background:rgba(255,255,255,0.75);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.9);border-radius:24px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.02)}
+        .text-gradient{background:linear-gradient(135deg,#378ADD,#10B981);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .btn-gradient{background:linear-gradient(135deg,#378ADD,#06C98B);color:white;border:none;border-radius:14px;padding:14px 28px;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;box-shadow:0 8px 20px rgba(139,92,246,0.3);transition:all 0.3s ease;display:flex;align-items:center;gap:10px}
+        .btn-gradient:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(139,92,246,0.45)}
+        .filter-btn{padding:10px 18px;border-radius:14px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;border:1px solid rgba(0,0,0,0.06);background:rgba(255,255,255,0.6);color:#64748b;cursor:pointer;transition:all 0.3s ease;display:flex;align-items:center;gap:8px}
+        .filter-btn:hover{background:rgba(139,92,246,0.05);color:#334155;border-color:rgba(139,92,246,0.2)}
+        .filter-btn.active{background:linear-gradient(135deg,#378ADD,#10B981);color:white;border-color:transparent;box-shadow:0 4px 15px rgba(139,92,246,0.35)}
+        .rdv-card{position:relative;background:rgba(255,255,255,0.85);backdrop-filter:blur(8px);border:1px solid rgba(0,0,0,0.04);border-radius:22px;padding:22px;transition:all 0.3s cubic-bezier(0.4,0,0.2,1);overflow:hidden}
+        .rdv-card:hover{transform:translateY(-4px);box-shadow:0 15px 30px -10px rgba(139,92,246,0.2);border-color:rgba(139,92,246,0.2)}
+        .rdv-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;background:linear-gradient(180deg,#378ADD,#10B981);border-radius:5px 0 0 5px}
+        .action-secondary{background:transparent;border:1px solid rgba(239,68,68,0.2);border-radius:10px;color:#EF4444;font-weight:600;font-size:12px;cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif;padding:6px 12px}
+        .action-secondary:hover{background:rgba(239,68,68,0.08);border-color:rgba(239,68,68,0.4)}
+        .action-secondary:disabled{opacity:0.5;cursor:not-allowed}
+        .type-badge{font-size:10px;padding:2px 8px;border-radius:6px;font-weight:600;font-family:'DM Sans',sans-serif;display:inline-flex;align-items:center;gap:4px}
+        .type-online{background:rgba(37,99,235,0.08);color:#2563EB;border:1px solid rgba(37,99,235,0.15)}
+        .type-offline{background:rgba(16,185,129,0.08);color:#059669;border:1px solid rgba(16,185,129,0.15)}
+        .btn-join{background:linear-gradient(135deg,#2563EB,#7C3AED);color:white;border:none;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s ease;display:flex;align-items:center;gap:6px}
+        .btn-join:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(37,99,235,0.35)}
       `}</style>
 
       <div
@@ -425,19 +429,19 @@ export default function PatientRendezVous() {
               channelName={`rdv-${activeVideoRdvId}`}
               rdvId={activeVideoRdvId}
               onEnd={() => setActiveVideoRdvId(null)}
+              role="patient"
             />
           )}
-          {/* PAYMEE LISTENER */}
-          <PaymeeListener
-            rdvId={0} // pas utilisé ici car on recharge tout
+
+          {/* Fix : KonnectListener remplace PaymeeListener */}
+          <KonnectListener
             onPaiementConfirme={() => {
-              // Recharger la liste des RDV pour mettre à jour les statuts
-              api.get("rendezvous/").then((r) => {
-                const results = r.data.results || r.data;
-                setData(results);
-              });
+              api
+                .get("rendezvous/")
+                .then((r) => setData(r.data.results || r.data));
             }}
           />
+
           {/* HEADER */}
           <div
             style={{
@@ -472,8 +476,7 @@ export default function PatientRendezVous() {
                 router.push("/dashboard/patient/rendezvous/nouvelle")
               }
             >
-              <LucideIcon path={iconPaths.plus} size={18} />
-              Prendre rendez-vous
+              <Icons.Plus /> Prendre rendez-vous
             </button>
           </div>
 
@@ -492,8 +495,7 @@ export default function PatientRendezVous() {
                 className={`filter-btn ${activeFilter === f.key ? "active" : ""}`}
                 onClick={() => setActiveFilter(f.key)}
               >
-                <LucideIcon path={iconPaths[f.iconKey]} size={14} />
-                {f.label}
+                <f.Icon size={14} /> {f.label}
               </button>
             ))}
           </div>
@@ -514,7 +516,7 @@ export default function PatientRendezVous() {
                   style={{
                     padding: 24,
                     animation:
-                      "skeletonPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+                      "skeletonPulse 2s cubic-bezier(0.4,0,0.6,1) infinite",
                   }}
                 >
                   <div style={{ display: "flex", gap: 16 }}>
@@ -567,13 +569,7 @@ export default function PatientRendezVous() {
                 animation: "fadeInUp 0.6s ease",
               }}
             >
-              <div style={{ fontSize: 50, marginBottom: 16, color: "#CBD5E1" }}>
-                <LucideIcon
-                  path={iconPaths.calendar}
-                  size={50}
-                  color="#94a3b8"
-                />
-              </div>
+              <Icons.Calendar size={50} color="#94a3b8" />
               <h3
                 style={{
                   fontFamily: "'Syne', sans-serif",
@@ -608,11 +604,11 @@ export default function PatientRendezVous() {
               {filteredData.map((rdv, i) => {
                 const s = getStatusStyle(rdv.status);
                 const rdvDate = new Date(rdv.date_heure);
+                // now est garanti non-null ici (filteredData est vide si now=null)
                 const isPast =
                   rdv.status === "termine" ||
                   rdv.status === "annule" ||
-                  rdvDate < new Date();
-
+                  rdvDate < now!;
                 const isOnline =
                   rdv.type === "En ligne" || rdv.type === "Vidéo";
                 const isActive = rdv.status === "en_cours";
@@ -632,7 +628,7 @@ export default function PatientRendezVous() {
                       <div
                         style={{
                           background:
-                            "linear-gradient(135deg, #378ADD11, #10B98111)",
+                            "linear-gradient(135deg,#378ADD11,#10B98111)",
                           borderRadius: 16,
                           padding: "12px 14px",
                           textAlign: "center",
@@ -642,7 +638,7 @@ export default function PatientRendezVous() {
                       >
                         <p
                           style={{
-                            fontFamily: "'Syne', sans-serif",
+                            fontFamily: "'Syne',sans-serif",
                             fontSize: 20,
                             fontWeight: 800,
                             color: "#378ADD",
@@ -675,15 +671,15 @@ export default function PatientRendezVous() {
                             fontWeight: 600,
                             marginTop: 6,
                             paddingTop: 6,
-                            borderTop: "1px solid rgba(139, 92, 246, 0.1)",
+                            borderTop: "1px solid rgba(139,92,246,0.1)",
                             marginBottom: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 2,
                           }}
                         >
-                          <LucideIcon
-                            path={iconPaths.clockIcon}
-                            size={11}
-                            color="#64748b"
-                          />{" "}
+                          <Icons.Clock size={11} color="#64748b" />
                           {rdvDate.toLocaleTimeString("fr-FR", {
                             hour: "2-digit",
                             minute: "2-digit",
@@ -716,7 +712,6 @@ export default function PatientRendezVous() {
                           >
                             Dr. {rdv.medecin_name || "Médecin"}
                           </p>
-
                           <div
                             style={{
                               display: "flex",
@@ -728,21 +723,16 @@ export default function PatientRendezVous() {
                             <span
                               className={`type-badge ${isOnline ? "type-online" : "type-offline"}`}
                             >
-                              <LucideIcon
-                                path={
-                                  isOnline
-                                    ? iconPaths.video
-                                    : iconPaths.stethoscope
-                                }
-                                size={10}
-                                color="inherit"
-                              />
+                              {isOnline ? (
+                                <Icons.Video size={10} color="inherit" />
+                              ) : (
+                                <Icons.Stethoscope size={10} color="inherit" />
+                              )}
                               {isOnline ? "Vidéo" : "Cabinet"}
                             </span>
                             <PaiementBadge paiementInfo={p} />
                           </div>
                         </div>
-
                         <p
                           style={{
                             fontSize: 13,
@@ -753,7 +743,6 @@ export default function PatientRendezVous() {
                         >
                           {rdv.motif || "Consultation générale"}
                         </p>
-
                         <div
                           style={{
                             display: "inline-flex",
@@ -780,11 +769,7 @@ export default function PatientRendezVous() {
                               }}
                             />
                           ) : (
-                            <LucideIcon
-                              path={iconPaths[s.iconKey] || iconPaths.check}
-                              size={12}
-                              color={s.color}
-                            />
+                            <s.Icon size={12} color={s.color} />
                           )}
                           {s.label}
                         </div>
@@ -797,9 +782,9 @@ export default function PatientRendezVous() {
                         style={{
                           marginTop: 12,
                           padding: 14,
-                          background: "rgba(139, 92, 246, 0.03)",
+                          background: "rgba(139,92,246,0.03)",
                           borderRadius: 14,
-                          border: "1px dashed rgba(139, 92, 246, 0.15)",
+                          border: "1px dashed rgba(139,92,246,0.15)",
                         }}
                       >
                         {p.statut_avance === "en_attente" && (
@@ -873,7 +858,7 @@ export default function PatientRendezVous() {
                         style={{
                           marginTop: 12,
                           padding: "10px 14px",
-                          background: "rgba(16, 185, 129, 0.05)",
+                          background: "rgba(16,185,129,0.05)",
                           borderRadius: 14,
                           textAlign: "center",
                         }}
@@ -884,15 +869,14 @@ export default function PatientRendezVous() {
                             color: "#059669",
                             fontWeight: 600,
                             margin: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 4,
                           }}
                         >
-                          <LucideIcon
-                            path={iconPaths.check}
-                            size={12}
-                            color="#059669"
-                            style={{ marginRight: 4 }}
-                          />
-                          Paiement complet effectué
+                          <Icons.Check size={12} color="#059669" /> Paiement
+                          complet effectué
                         </p>
                       </div>
                     )}
@@ -919,15 +903,14 @@ export default function PatientRendezVous() {
                             : "Annuler"}
                         </button>
                       )}
-
                       {isPast && rdv.status === "termine" && (
                         <button
                           onClick={() =>
                             router.push("/dashboard/patient/ordonnances")
                           }
                           style={{
-                            background: "rgba(16, 185, 129, 0.08)",
-                            border: "1px solid rgba(16, 185, 129, 0.15)",
+                            background: "rgba(16,185,129,0.08)",
+                            border: "1px solid rgba(16,185,129,0.15)",
                             borderRadius: 10,
                             padding: "8px 14px",
                             color: "#059669",
@@ -935,28 +918,25 @@ export default function PatientRendezVous() {
                             fontSize: 12,
                             cursor: "pointer",
                             fontFamily: "inherit",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
                           }}
                         >
-                          <LucideIcon
-                            path={iconPaths.fileText}
-                            size={12}
-                            color="#059669"
-                            style={{ marginRight: 4 }}
-                          />
+                          <Icons.FileText size={12} color="#059669" />{" "}
                           Compte-rendu
                         </button>
                       )}
-
-                      {/* Supprime les deux boutons existants et remplace par : */}
-                      {!isPast && rdv.status === "confirme" && (
-                        <button
-                          className="btn-join"
-                          onClick={() => setActiveVideoRdvId(rdv.id)}
-                        >
-                          <LucideIcon path={iconPaths.video} size={14} />{" "}
-                          Rejoindre la visio
-                        </button>
-                      )}
+                      {(rdv.status === "confirme" ||
+                        rdv.status === "en_cours") &&
+                        rdv.status !== "annule" && (
+                          <button
+                            className="btn-join"
+                            onClick={() => setActiveVideoRdvId(rdv.id)}
+                          >
+                            <Icons.Video size={14} /> Rejoindre la visio
+                          </button>
+                        )}
                     </div>
                   </div>
                 );

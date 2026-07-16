@@ -1,65 +1,122 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../../context/AuthContext";
 import Sidebar from "../../../../components/Sidebar";
 import Navbar from "../../../../components/Navbar";
 import api from "../../../../lib/api";
+import {
+  Phone,
+  MapPin,
+  Stethoscope,
+  CreditCard,
+  LogOut,
+  ShieldCheck,
+  Camera,
+  Loader2,
+  Save,
+  Pencil,
+  X,
+} from "lucide-react";
 
 interface Profil {
   id: number;
   username: string;
   email: string;
   role: string;
+  photo?: string;
   specialite: string;
-  disponibilites: string;
+  rpps: string;
+  tel: string;
+  ville: string;
 }
 
 interface FormData {
-  username: string;
-  email: string;
   specialite: string;
-  disponibilites: string;
+  rpps: string;
+  tel: string;
+  ville: string;
+  email: string;
 }
 
 export default function MedecinProfil() {
-  const { token, isLoading, logout } = useAuth();
+  const { token, isLoading, username, logout } = useAuth();
   const router = useRouter();
+
   const [profil, setProfil] = useState<Profil | null>(null);
-  const [edit, setEdit] = useState(false);
-  const [form, setForm] = useState<FormData>({ username: "", email: "", specialite: "", disponibilites: "" });
+  const [form, setForm] = useState<FormData>({
+    specialite: "",
+    rpps: "",
+    tel: "",
+    ville: "",
+    email: "",
+  });
+
+  const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [stats] = useState({ rendezvous: 0, consultations: 0, ordonnances: 0 });
 
   useEffect(() => {
     if (isLoading) return;
-    if (!token) { router.push("/login"); return; }
+    if (!token) {
+      router.push("/login");
+      return;
+    }
     api.get("users/me/").then((r) => {
       setProfil(r.data);
+      setPhotoPreview(r.data.photo || null);
       setForm({
-        username: r.data.username || "",
-        email: r.data.email || "",
         specialite: r.data.specialite || "",
-        disponibilites: r.data.disponibilites || "",
+        rpps: r.data.rpps || "",
+        tel: r.data.tel || "",
+        ville: r.data.ville || "",
+        email: r.data.email || "",
       });
     });
   }, [token, isLoading]);
-
-  if (isLoading || !profil) return null;
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
     setTimeout(() => setToast(null), 3000);
   };
 
-  const save = async () => {
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      showToast("L'image est trop lourde (max 2 Mo)", false);
+      return;
+    }
+    setUploadingPhoto(true);
+    try {
+      const fd = new FormData();
+      fd.append("photo", file);
+      await api.post("users/me/photo/", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setPhotoPreview(URL.createObjectURL(file));
+      showToast("Photo mise à jour !");
+    } catch {
+      showToast("Échec du téléchargement", false);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const saveInfos = async () => {
     setSaving(true);
     try {
-      await api.patch(`medecins/${profil.id}/`, form);
-      setProfil({ ...profil, ...form });
-      setEdit(false);
-      showToast("Profil mis à jour avec succès ✓");
+      const res = await api.patch("users/me/", form);
+      setProfil((p) => (p ? { ...p, ...form } : p));
+      setIsEditing(false);
+      showToast("Informations mises à jour");
     } catch {
       showToast("Erreur lors de la sauvegarde", false);
     } finally {
@@ -67,610 +124,452 @@ export default function MedecinProfil() {
     }
   };
 
-  const initials = profil.username?.slice(0, 2).toUpperCase() || "DR";
+  const cancelEdit = () => {
+    if (profil) {
+      setForm({
+        specialite: profil.specialite || "",
+        rpps: profil.rpps || "",
+        tel: profil.tel || "",
+        ville: profil.ville || "",
+        email: profil.email || "",
+      });
+    }
+    setIsEditing(false);
+  };
+
+  if (isLoading || !profil) return null;
 
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700;800&family=Instrument+Sans:wght@400;500;600&display=swap');
-
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        @keyframes fadeUp   { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes fadeIn   { from { opacity:0; } to { opacity:1; } }
-        @keyframes slideIn  { from { opacity:0; transform:translateX(24px); } to { opacity:1; transform:translateX(0); } }
-        @keyframes toastIn  { from { opacity:0; transform:translateY(-12px) scale(.95); } to { opacity:1; transform:translateY(0) scale(1); } }
-        @keyframes spin     { to { transform: rotate(360deg); } }
-        @keyframes pulse    { 0%,100%{transform:scale(1)} 50%{transform:scale(1.04)} }
-        @keyframes shimmer  { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 
-        .profil-root {
-          min-height: 100vh;
-          background: #F4F2F9;
-          font-family: 'Instrument Sans', sans-serif;
-          display: flex;
+        .pr-root { min-height: 100vh; background: linear-gradient(135deg, #FDF4FF 0%, #ECFDF5 100%); font-family: 'DM Sans', sans-serif; display: flex; }
+        .pr-main { margin-left: 260px; flex: 1; padding: 2rem 2.5rem; padding-top: calc(70px + 2rem); }
+
+        /* ── Page grid ── */
+        .pr-grid { display: grid; grid-template-columns: 280px 1fr; gap: 24px; align-items: start; animation: fadeUp .5s ease; }
+
+        /* ── Left card ── */
+        .pr-left { background: #fff; border-radius: 24px; border: 1px solid #EAE8F5; box-shadow: 0 4px 24px rgba(0,0,0,0.06); overflow: hidden; }
+        .pr-banner { height: 90px; background: linear-gradient(135deg, #534AB7 0%, #8B5CF6 55%, #10B981 100%); }
+
+        .pr-avatar-wrap { display: flex; flex-direction: column; align-items: center; padding: 0 24px 24px; margin-top: -36px; }
+        .pr-avatar-btn {
+          width: 72px; height: 72px; border-radius: 20px;
+          background: #E2E8F0; border: 3px solid #fff;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+          cursor: pointer; position: relative; overflow: hidden;
+          display: flex; align-items: center; justify-content: center;
+          transition: all .2s; flex-shrink: 0;
         }
+        .pr-avatar-btn:hover { transform: scale(1.04); box-shadow: 0 6px 20px rgba(0,0,0,0.16); }
+        .pr-avatar-img { width: 100%; height: 100%; object-fit: cover; }
+        .pr-avatar-initials { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; color: #534AB7; }
+        .pr-avatar-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; color: #fff; opacity: 0; transition: opacity .2s; border-radius: 17px; }
+        .pr-avatar-btn:hover .pr-avatar-overlay { opacity: 1; }
 
-        .profil-main {
-          margin-left: 260px;
-          flex: 1;
-          padding: 2rem 2.5rem;
-          padding-top: calc(70px + 2.5rem);
-          max-width: calc(100vw - 260px);
+        .pr-name { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800; color: #0F172A; margin-top: 14px; text-align: center; }
+        .pr-spec-badge { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; padding: 4px 12px; background: linear-gradient(135deg, rgba(83,74,183,.08), rgba(139,92,246,.08)); border: 1px solid rgba(83,74,183,.15); border-radius: 20px; font-size: 12px; font-weight: 600; color: #534AB7; }
+        .pr-hint { font-size: 11px; color: #94A3B8; margin-top: 8px; text-align: center; }
+
+        .pr-divider { height: 1px; background: #F1F5F9; margin: 20px 24px; }
+
+        /* Info list */
+        .pr-info-list { padding: 0 24px; display: flex; flex-direction: column; gap: 12px; }
+        .pr-info-row { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #64748B; }
+        .pr-info-row svg { color: #8B5CF6; flex-shrink: 0; }
+        .pr-info-row span { font-weight: 600; color: #1E293B; }
+        .pr-info-empty { color: #CBD5E1; font-style: italic; font-weight: 400; }
+
+        .pr-logout-btn { margin: 20px 24px 24px; width: calc(100% - 48px); padding: 11px; background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; border-radius: 12px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .2s; display: flex; align-items: center; justify-content: center; gap: 7px; }
+        .pr-logout-btn:hover { background: #FEE2E2; transform: translateY(-1px); }
+
+        /* ── Right panels ── */
+        .pr-right { display: flex; flex-direction: column; gap: 20px; }
+
+        .pr-panel { background: #fff; border-radius: 20px; border: 1px solid #EAE8F5; box-shadow: 0 2px 12px rgba(0,0,0,0.04); overflow: hidden; }
+        .pr-panel-hd { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px 0; }
+        .pr-panel-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 800; color: #1E293B; display: flex; align-items: center; gap: 10px; }
+        .pr-panel-icon { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #EEF2FF, #E0E7FF); display: flex; align-items: center; justify-content: center; color: #6366F1; }
+        .pr-panel-body { padding: 20px 24px 24px; }
+
+        /* Edit button */
+        .pr-edit-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; background: rgba(139,92,246,0.08); border: 1px solid rgba(139,92,246,0.2); border-radius: 10px; font-size: 13px; font-weight: 600; color: #8B5CF6; cursor: pointer; transition: all .2s; }
+        .pr-edit-btn:hover { background: #8B5CF6; color: #fff; }
+
+        /* Info display */
+        .pr-fields-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .pr-display-field { background: #F8FAFC; border: 1px solid #F1F5F9; border-radius: 12px; padding: 12px 16px; }
+        .pr-display-lbl { font-size: 10px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 5px; }
+        .pr-display-val { font-size: 14px; font-weight: 600; color: #1E293B; }
+        .pr-display-empty { font-size: 13px; color: #CBD5E1; font-style: italic; font-weight: 400; }
+
+        /* Form inputs */
+        .pr-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .pr-form-field { display: flex; flex-direction: column; gap: 6px; }
+        .pr-form-lbl { font-size: 11px; font-weight: 700; color: #9CA3AF; text-transform: uppercase; letter-spacing: .6px; }
+        .pr-inp-wrap { position: relative; display: flex; align-items: center; }
+        .pr-inp-icon { position: absolute; left: 12px; color: #94A3B8; pointer-events: none; }
+        .pr-inp {
+          width: 100%; padding: 11px 14px 11px 38px;
+          font-family: 'DM Sans', sans-serif; font-size: 14px; color: #1E293B;
+          background: #F8FAFC; border: 1.5px solid #E5E2F5; border-radius: 10px;
+          outline: none; transition: all .2s;
         }
+        .pr-inp:focus { border-color: #8B5CF6; background: #fff; box-shadow: 0 0 0 3px rgba(139,92,246,.1); }
+        .pr-inp::placeholder { color: #94A3B8; }
 
-        /* ── Toast ── */
-        .toast {
-          position: fixed;
-          top: 24px;
-          right: 28px;
-          z-index: 999;
-          padding: 13px 20px;
-          border-radius: 14px;
-          font-size: 13px;
-          font-weight: 600;
-          display: flex;
-          align-items: center;
-          gap: 9px;
-          animation: toastIn .3s ease;
-          box-shadow: 0 8px 24px rgba(0,0,0,.12);
-        }
-        .toast.ok  { background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }
-        .toast.err { background: #FEF2F2; color: #991B1B; border: 1px solid #FCA5A5; }
+        /* Form actions */
+        .pr-form-actions { display: flex; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #F1F5F9; }
+        .pr-btn-cancel { padding: 10px 20px; background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; color: #64748B; cursor: pointer; transition: all .2s; }
+        .pr-btn-cancel:hover { background: #fff; border-color: #CBD5E1; color: #334155; }
+        .pr-btn-save { flex: 1; padding: 10px 20px; background: linear-gradient(135deg, #8B5CF6, #6366F1); border: none; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px; transition: all .2s; box-shadow: 0 4px 12px rgba(139,92,246,.25); }
+        .pr-btn-save:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(139,92,246,.35); }
+        .pr-btn-save:disabled { opacity: .5; cursor: not-allowed; }
 
-        /* ── Layout deux colonnes ── */
-        .layout {
-          display: grid;
-          grid-template-columns: 340px 1fr;
-          gap: 24px;
-          align-items: start;
-          animation: fadeUp .45s ease;
-        }
+        /* Security panel rows */
+        .pr-sec-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid #F8FAFC; }
+        .pr-sec-row:last-child { border-bottom: none; }
+        .pr-sec-lbl { font-size: 13px; font-weight: 600; color: #1E293B; margin-bottom: 2px; }
+        .pr-sec-sub { font-size: 11px; color: #94A3B8; }
+        .pr-badge { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; }
+        .pr-badge-active { background: #ECFDF5; color: #059669; }
+        .pr-badge-neutral { background: #F1F5F9; color: #64748B; letter-spacing: 2px; }
 
-        /* ── Carte gauche : identité ── */
-        .id-card {
-          background: #fff;
-          border-radius: 24px;
-          border: 1px solid #EAE8F5;
-          overflow: hidden;
-          box-shadow: 0 4px 20px rgba(83,74,183,.06);
-        }
+        /* Toast */
+        .pr-toast { position: fixed; bottom: 28px; right: 28px; z-index: 9999; padding: 12px 20px; border-radius: 12px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); animation: slideIn .25s ease; }
+        .pr-toast-ok { background: #ECFDF5; color: #059669; border: 1px solid rgba(5,150,105,.2); }
+        .pr-toast-err { background: #FEF2F2; color: #DC2626; border: 1px solid rgba(220,38,38,.2); }
 
-        .id-banner {
-          height: 110px;
-          background: linear-gradient(135deg, #534AB7 0%, #8B5CF6 55%, #10B981 100%);
-          position: relative;
-          overflow: hidden;
-        }
-
-        .id-banner::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.06'%3E%3Ccircle cx='30' cy='30' r='20'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-        }
-
-        .id-banner::after {
-          content: '⚕';
-          position: absolute;
-          right: 20px;
-          top: 50%;
-          transform: translateY(-50%);
-          font-size: 52px;
-          opacity: .12;
-        }
-
-        .id-body { padding: 0 24px 28px; }
-
-        .avatar-wrap {
-          position: relative;
-          display: inline-block;
-          margin-top: -36px;
-          margin-bottom: 16px;
-        }
-
-        .avatar {
-          width: 72px;
-          height: 72px;
-          border-radius: 22px;
-          background: linear-gradient(135deg, #534AB7, #8B5CF6);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-family: 'Bricolage Grotesque', sans-serif;
-          font-size: 26px;
-          font-weight: 800;
-          color: #fff;
-          border: 3px solid #fff;
-          box-shadow: 0 4px 16px rgba(83,74,183,.3);
-          letter-spacing: -1px;
-        }
-
-        .online-dot {
-          position: absolute;
-          bottom: 4px;
-          right: 4px;
-          width: 14px;
-          height: 14px;
-          border-radius: 50%;
-          background: #10B981;
-          border: 2px solid #fff;
-          animation: pulse 2s ease infinite;
-        }
-
-        .id-name {
-          font-family: 'Bricolage Grotesque', sans-serif;
-          font-size: 20px;
-          font-weight: 700;
-          color: #0F172A;
-          line-height: 1.2;
-        }
-
-        .id-role {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          margin-top: 6px;
-          padding: 4px 12px;
-          background: linear-gradient(135deg, rgba(83,74,183,.1), rgba(139,92,246,.1));
-          border: 1px solid rgba(83,74,183,.15);
-          border-radius: 20px;
-          font-size: 12px;
-          font-weight: 600;
-          color: #534AB7;
-        }
-
-        .id-info-row {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          margin-top: 20px;
-          padding-top: 20px;
-          border-top: 1px solid #F1F5F9;
-        }
-
-        .id-info-item {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          font-size: 13px;
-          color: #64748B;
-        }
-
-        .id-info-icon {
-          width: 30px;
-          height: 30px;
-          border-radius: 9px;
-          background: #F8FAFC;
-          border: 1px solid #F1F5F9;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 14px;
-          flex-shrink: 0;
-        }
-
-        .id-info-val {
-          font-weight: 600;
-          color: #1E293B;
-          font-size: 13px;
-        }
-
-        .btn-logout {
-          width: 100%;
-          margin-top: 20px;
-          padding: 11px;
-          background: #FEF2F2;
-          color: #DC2626;
-          border: 1px solid #FECACA;
-          border-radius: 13px;
-          font-family: 'Instrument Sans', sans-serif;
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all .2s;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 7px;
-        }
-
-        .btn-logout:hover {
-          background: #FEE2E2;
-          border-color: #FCA5A5;
-          transform: translateY(-1px);
-        }
-
-        /* ── Colonne droite ── */
-        .right-col { display: flex; flex-direction: column; gap: 20px; }
-
-        /* ── Section panel ── */
-        .panel {
-          background: #fff;
-          border-radius: 22px;
-          border: 1px solid #EAE8F5;
-          overflow: hidden;
-          box-shadow: 0 2px 12px rgba(83,74,183,.05);
-          animation: fadeUp .5s ease backwards;
-        }
-
-        .panel-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 20px 24px 18px;
-          border-bottom: 1px solid #F1F5F9;
-        }
-
-        .panel-title {
-          font-family: 'Bricolage Grotesque', sans-serif;
-          font-size: 15px;
-          font-weight: 700;
-          color: #0F172A;
-          display: flex;
-          align-items: center;
-          gap: 9px;
-        }
-
-        .panel-icon {
-          width: 32px;
-          height: 32px;
-          border-radius: 10px;
-          background: linear-gradient(135deg, rgba(83,74,183,.12), rgba(139,92,246,.12));
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 15px;
-        }
-
-        .panel-body { padding: 22px 24px; }
-
-        /* ── Fields grid ── */
-        .fields-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 16px;
-        }
-
-        .field-wrap { display: flex; flex-direction: column; gap: 6px; }
-        .field-wrap.full { grid-column: 1 / -1; }
-
-        .field-label {
-          font-size: 11px;
-          font-weight: 700;
-          color: #94A3B8;
-          text-transform: uppercase;
-          letter-spacing: .7px;
-        }
-
-        .field-value {
-          font-size: 14px;
-          font-weight: 600;
-          color: #1E293B;
-          padding: 10px 14px;
-          background: #F8FAFC;
-          border-radius: 11px;
-          border: 1px solid #F1F5F9;
-          min-height: 42px;
-          display: flex;
-          align-items: center;
-        }
-
-        .field-empty { color: #CBD5E1; font-style: italic; font-weight: 400; }
-
-        .field-input {
-          width: 100%;
-          padding: 10px 14px;
-          font-family: 'Instrument Sans', sans-serif;
-          font-size: 14px;
-          font-weight: 500;
-          color: #1E293B;
-          background: #FAFAFE;
-          border: 1.5px solid #E5E2F5;
-          border-radius: 11px;
-          outline: none;
-          transition: all .2s;
-        }
-
-        .field-input:focus {
-          border-color: #534AB7;
-          background: #fff;
-          box-shadow: 0 0 0 3px rgba(83,74,183,.1);
-        }
-
-        .field-input::placeholder { color: #C4C0D8; }
-
-        /* ── Actions ── */
-        .actions-row {
-          display: flex;
-          gap: 10px;
-          padding: 16px 24px;
-          background: #FAFAFE;
-          border-top: 1px solid #F1F5F9;
-        }
-
-        .btn-edit {
-          flex: 1;
-          padding: 11px;
-          background: rgba(83,74,183,.07);
-          color: #534AB7;
-          border: 1.5px solid rgba(83,74,183,.2);
-          border-radius: 13px;
-          font-family: 'Instrument Sans', sans-serif;
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all .2s;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 7px;
-        }
-
-        .btn-edit:hover { background: rgba(83,74,183,.12); border-color: rgba(83,74,183,.35); transform: translateY(-1px); }
-
-        .btn-save {
-          flex: 2;
-          padding: 11px;
-          background: linear-gradient(135deg, #534AB7, #8B5CF6);
-          color: #fff;
-          border: none;
-          border-radius: 13px;
-          font-family: 'Instrument Sans', sans-serif;
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          box-shadow: 0 4px 14px rgba(83,74,183,.3);
-          transition: all .2s;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 7px;
-        }
-
-        .btn-save:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(83,74,183,.4); }
-        .btn-save:disabled { opacity: .6; cursor: not-allowed; }
-
-        .btn-cancel {
-          flex: 1;
-          padding: 11px;
-          background: #fff;
-          color: #64748B;
-          border: 1.5px solid #E2E8F0;
-          border-radius: 13px;
-          font-family: 'Instrument Sans', sans-serif;
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all .2s;
-        }
-
-        .btn-cancel:hover { background: #F8FAFC; border-color: #CBD5E1; }
-
-        .spinner {
-          width: 14px; height: 14px;
-          border: 2px solid rgba(255,255,255,.3);
-          border-top-color: #fff;
-          border-radius: 50%;
-          animation: spin .6s linear infinite;
-        }
-
-        /* ── Security panel ── */
-        .security-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 14px 0;
-          border-bottom: 1px solid #F8FAFC;
-        }
-
-        .security-row:last-child { border-bottom: none; }
-
-        .security-label {
-          font-size: 13px;
-          font-weight: 600;
-          color: #1E293B;
-          display: flex;
-          align-items: center;
-          gap: 9px;
-        }
-
-        .security-desc { font-size: 11px; color: #94A3B8; margin-top: 2px; font-weight: 400; }
-
-        .security-badge {
-          font-size: 11px;
-          font-weight: 700;
-          padding: 4px 10px;
-          border-radius: 20px;
-        }
-
-        .badge-green { background: #ECFDF5; color: #065F46; }
-        .badge-gray  { background: #F1F5F9; color: #64748B; }
-
-        /* ── Role badge on panel ── */
-        .role-tag {
-          font-size: 11px;
-          font-weight: 700;
-          padding: 4px 10px;
-          border-radius: 20px;
-          background: linear-gradient(135deg, #534AB7, #8B5CF6);
-          color: #fff;
-        }
+        .spin { animation: spin 1s linear infinite; }
       `}</style>
 
-      {toast && (
-        <div className={`toast ${toast.ok ? "ok" : "err"}`}>
-          {toast.ok ? "✓" : "⚠️"} {toast.msg}
-        </div>
-      )}
-
-      <div className="profil-root">
+      <div className="pr-root">
         <Sidebar stats={stats} />
-        <Navbar title="Mon Profil" subtitle={`Dr. ${profil.username}`} />
+        <Navbar title="Mon Profil" subtitle={` ${username}`} />
 
-        <main className="profil-main">
-          <div className="layout">
+        <main className="pr-main">
+          <div className="pr-grid">
+            {/* ── LEFT : carte identité ── */}
+            <div className="pr-left">
+              <div className="pr-banner" />
 
-            {/* ── Colonne gauche : carte identité ── */}
-            <div className="id-card">
-              <div className="id-banner" />
-              <div className="id-body">
-                <div className="avatar-wrap">
-                  <div className="avatar">{initials}</div>
-                  <div className="online-dot" />
-                </div>
-
-                <div className="id-name">Dr. {profil.username}</div>
-                <div>
-                  <span className="id-role">
-                    🩺 {profil.specialite || "Médecin Généraliste"}
-                  </span>
-                </div>
-
-                <div className="id-info-row">
-                  <div className="id-info-item">
-                    <div className="id-info-icon">📧</div>
-                    <div>
-                      <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".5px" }}>Email</div>
-                      <div className="id-info-val">{profil.email || "—"}</div>
-                    </div>
-                  </div>
-                  <div className="id-info-item">
-                    <div className="id-info-icon">🏥</div>
-                    <div>
-                      <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".5px" }}>Spécialité</div>
-                      <div className="id-info-val">{profil.specialite || "—"}</div>
-                    </div>
-                  </div>
-                  <div className="id-info-item">
-                    <div className="id-info-icon">🕐</div>
-                    <div>
-                      <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".5px" }}>Disponibilités</div>
-                      <div className="id-info-val">{profil.disponibilites || "—"}</div>
-                    </div>
-                  </div>
-                  <div className="id-info-item">
-                    <div className="id-info-icon">🔑</div>
-                    <div>
-                      <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".5px" }}>Rôle</div>
-                      <div className="id-info-val" style={{ textTransform: "capitalize" }}>{profil.role}</div>
-                    </div>
-                  </div>
-                </div>
-
-                <button className="btn-logout" onClick={() => { logout(); router.push("/login"); }}>
-                  <span>⎋</span> Déconnexion
-                </button>
-              </div>
-            </div>
-
-            {/* ── Colonne droite ── */}
-            <div className="right-col">
-
-              {/* Informations professionnelles */}
-              <div className="panel" style={{ animationDelay: ".05s" }}>
-                <div className="panel-header">
-                  <div className="panel-title">
-                    <div className="panel-icon">👤</div>
-                    Informations professionnelles
-                  </div>
-                  <span className="role-tag">Médecin</span>
-                </div>
-
-                <div className="panel-body">
-                  <div className="fields-grid">
-
-                    {/* Nom d'utilisateur */}
-                    <div className="field-wrap">
-                      <div className="field-label">Nom d'utilisateur</div>
-                      {edit
-                        ? <input className="field-input" type="text" value={form.username} placeholder="Nom d'utilisateur" onChange={e => setForm(p => ({ ...p, username: e.target.value }))} />
-                        : <div className="field-value">{profil.username || <span className="field-empty">Non renseigné</span>}</div>
-                      }
-                    </div>
-
-                    {/* Email */}
-                    <div className="field-wrap">
-                      <div className="field-label">Email</div>
-                      {edit
-                        ? <input className="field-input" type="email" value={form.email} placeholder="Email" onChange={e => setForm(p => ({ ...p, email: e.target.value }))} />
-                        : <div className="field-value">{profil.email || <span className="field-empty">Non renseigné</span>}</div>
-                      }
-                    </div>
-
-                    {/* Spécialité */}
-                    <div className="field-wrap">
-                      <div className="field-label">Spécialité</div>
-                      {edit
-                        ? <input className="field-input" type="text" value={form.specialite} placeholder="Ex : Cardiologie" onChange={e => setForm(p => ({ ...p, specialite: e.target.value }))} />
-                        : <div className="field-value">{profil.specialite || <span className="field-empty">Non renseignée</span>}</div>
-                      }
-                    </div>
-
-                    {/* Disponibilités */}
-                    <div className="field-wrap">
-                      <div className="field-label">Disponibilités</div>
-                      {edit
-                        ? <input className="field-input" type="text" value={form.disponibilites} placeholder="Ex : Lun–Ven 9h–17h" onChange={e => setForm(p => ({ ...p, disponibilites: e.target.value }))} />
-                        : <div className="field-value">{profil.disponibilites || <span className="field-empty">Non renseignées</span>}</div>
-                      }
-                    </div>
-
-                  </div>
-                </div>
-
-                <div className="actions-row">
-                  {edit ? (
-                    <>
-                      <button className="btn-cancel" onClick={() => setEdit(false)}>Annuler</button>
-                      <button className="btn-save" onClick={save} disabled={saving}>
-                        {saving ? <><div className="spinner" /> Sauvegarde…</> : <>💾 Sauvegarder les modifications</>}
-                      </button>
-                    </>
+              <div className="pr-avatar-wrap">
+                {/* Avatar cliquable */}
+                <div
+                  className="pr-avatar-btn"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {uploadingPhoto ? (
+                    <Loader2
+                      size={28}
+                      className="spin"
+                      style={{ color: "#8B5CF6" }}
+                    />
+                  ) : photoPreview ? (
+                    <img
+                      src={photoPreview}
+                      className="pr-avatar-img"
+                      alt="Photo profil"
+                    />
                   ) : (
-                    <button className="btn-edit" onClick={() => setEdit(true)}>
-                      ✏️ Modifier les informations
-                    </button>
+                    <span className="pr-avatar-initials">
+                      {profil.username?.slice(0, 2).toUpperCase() || ""}
+                    </span>
+                  )}
+                  <div className="pr-avatar-overlay">
+                    <Camera size={20} strokeWidth={2} />
+                  </div>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={handlePhotoChange}
+                />
+
+                <div className="pr-name">{profil.username}</div>
+                <div className="pr-spec-badge">
+                  <Stethoscope size={11} />
+                  {profil.specialite || "Médecin Généraliste"}
+                </div>
+                <div className="pr-hint">
+                  Cliquer sur la photo pour la modifier
+                </div>
+              </div>
+
+              <div className="pr-divider" />
+
+              {/* Info rapide */}
+              <div className="pr-info-list">
+                <div className="pr-info-row">
+                  <Stethoscope size={15} />
+                  {profil.specialite ? (
+                    <span>{profil.specialite}</span>
+                  ) : (
+                    <span className="pr-info-empty">
+                      Spécialité non renseignée
+                    </span>
+                  )}
+                </div>
+                <div className="pr-info-row">
+                  <Phone size={15} />
+                  {profil.tel ? (
+                    <span>{profil.tel}</span>
+                  ) : (
+                    <span className="pr-info-empty">
+                      Téléphone non renseigné
+                    </span>
+                  )}
+                </div>
+                <div className="pr-info-row">
+                  <MapPin size={15} />
+                  {profil.ville ? (
+                    <span>{profil.ville}</span>
+                  ) : (
+                    <span className="pr-info-empty">Ville non renseignée</span>
+                  )}
+                </div>
+                <div className="pr-info-row">
+                  <CreditCard size={15} />
+                  {profil.rpps ? (
+                    <span>{profil.rpps}</span>
+                  ) : (
+                    <span className="pr-info-empty">
+                      Matricule non renseigné
+                    </span>
                   )}
                 </div>
               </div>
 
-              {/* Sécurité */}
-              <div className="panel" style={{ animationDelay: ".1s" }}>
-                <div className="panel-header">
-                  <div className="panel-title">
-                    <div className="panel-icon">🔐</div>
-                    Sécurité du compte
+              <button
+                className="pr-logout-btn"
+                onClick={() => {
+                  logout?.();
+                  router.push("/login");
+                }}
+              >
+                <LogOut size={14} /> Déconnexion
+              </button>
+            </div>
+
+            {/* ── RIGHT : panneaux ── */}
+            <div className="pr-right">
+              {/* ─ Informations personnelles ─ */}
+              <div className="pr-panel">
+                <div className="pr-panel-hd">
+                  <div className="pr-panel-title">
+                    <div className="pr-panel-icon">
+                      <Stethoscope size={18} />
+                    </div>
+                    Informations personnelles
                   </div>
+                  {!isEditing && (
+                    <button
+                      className="pr-edit-btn"
+                      onClick={() => setIsEditing(true)}
+                    >
+                      <Pencil size={13} /> Modifier
+                    </button>
+                  )}
                 </div>
-                <div className="panel-body">
-                  <div className="security-row">
-                    <div>
-                      <div className="security-label">🔑 Mot de passe</div>
-                      <div className="security-desc">Dernière modification inconnue</div>
+
+                <div className="pr-panel-body">
+                  {isEditing ? (
+                    <>
+                      <div className="pr-form-grid">
+                        {/* Spécialité */}
+                        <div className="pr-form-field">
+                          <label className="pr-form-lbl">Spécialité</label>
+                          <div className="pr-inp-wrap">
+                            <Stethoscope size={16} className="pr-inp-icon" />
+                            <input
+                              className="pr-inp"
+                              value={form.specialite}
+                              onChange={(e) =>
+                                setForm({ ...form, specialite: e.target.value })
+                              }
+                              placeholder="Médecin généraliste"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Matricule */}
+                        <div className="pr-form-field">
+                          <label className="pr-form-lbl">Matricule</label>
+                          <div className="pr-inp-wrap">
+                            <CreditCard size={16} className="pr-inp-icon" />
+                            <input
+                              className="pr-inp"
+                              value={form.rpps}
+                              onChange={(e) =>
+                                setForm({ ...form, rpps: e.target.value })
+                              }
+                              placeholder="Numéro d'inscription"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Téléphone */}
+                        <div className="pr-form-field">
+                          <label className="pr-form-lbl">Téléphone</label>
+                          <div className="pr-inp-wrap">
+                            <Phone size={16} className="pr-inp-icon" />
+                            <input
+                              className="pr-inp"
+                              type="tel"
+                              value={form.tel}
+                              onChange={(e) =>
+                                setForm({ ...form, tel: e.target.value })
+                              }
+                              placeholder="+216 XX XXX XXX"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Ville */}
+                        <div className="pr-form-field">
+                          <label className="pr-form-lbl">Ville</label>
+                          <div className="pr-inp-wrap">
+                            <MapPin size={16} className="pr-inp-icon" />
+                            <input
+                              className="pr-inp"
+                              value={form.ville}
+                              onChange={(e) =>
+                                setForm({ ...form, ville: e.target.value })
+                              }
+                              placeholder="Ex : Tunis"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pr-form-actions">
+                        <button className="pr-btn-cancel" onClick={cancelEdit}>
+                          Annuler
+                        </button>
+                        <button
+                          className="pr-btn-save"
+                          onClick={saveInfos}
+                          disabled={saving}
+                        >
+                          {saving ? (
+                            <>
+                              <Loader2 size={15} className="spin" /> Sauvegarde…
+                            </>
+                          ) : (
+                            <>
+                              <Save size={15} /> Enregistrer
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="pr-fields-grid">
+                      <div className="pr-display-field">
+                        <div className="pr-display-lbl">Spécialité</div>
+                        {profil.specialite ? (
+                          <div className="pr-display-val">
+                            {profil.specialite}
+                          </div>
+                        ) : (
+                          <div className="pr-display-empty">Non renseignée</div>
+                        )}
+                      </div>
+                      <div className="pr-display-field">
+                        <div className="pr-display-lbl">Matricule</div>
+                        {profil.rpps ? (
+                          <div className="pr-display-val">{profil.rpps}</div>
+                        ) : (
+                          <div className="pr-display-empty">—</div>
+                        )}
+                      </div>
+                      <div className="pr-display-field">
+                        <div className="pr-display-lbl">Téléphone</div>
+                        {profil.tel ? (
+                          <div className="pr-display-val">{profil.tel}</div>
+                        ) : (
+                          <div className="pr-display-empty">—</div>
+                        )}
+                      </div>
+                      <div className="pr-display-field">
+                        <div className="pr-display-lbl">Ville</div>
+                        {profil.ville ? (
+                          <div className="pr-display-val">{profil.ville}</div>
+                        ) : (
+                          <div className="pr-display-empty">—</div>
+                        )}
+                      </div>
                     </div>
-                    <span className="security-badge badge-gray">••••••••</span>
-                  </div>
-                  <div className="security-row">
-                    <div>
-                      <div className="security-label">✉️ Email vérifié</div>
-                      <div className="security-desc">{profil.email || "Aucun email"}</div>
-                    </div>
-                    <span className="security-badge badge-green">Actif</span>
-                  </div>
-                  <div className="security-row">
-                    <div>
-                      <div className="security-label">🛡️ Authentification JWT</div>
-                      <div className="security-desc">Token sécurisé · Expiration 24h</div>
-                    </div>
-                    <span className="security-badge badge-green">Activée</span>
-                  </div>
+                  )}
                 </div>
               </div>
 
+              {/* ─ Sécurité du compte ─ */}
+              <div className="pr-panel">
+                <div className="pr-panel-hd">
+                  <div className="pr-panel-title">
+                    <div
+                      className="pr-panel-icon"
+                      style={{
+                        background: "linear-gradient(135deg,#ECFDF5,#D1FAE5)",
+                        color: "#059669",
+                      }}
+                    >
+                      <ShieldCheck size={18} />
+                    </div>
+                    Sécurité du compte
+                  </div>
+                </div>
+
+                <div className="pr-panel-body">
+                  <div className="pr-sec-row">
+                    <div>
+                      <div className="pr-sec-lbl">Mot de passe</div>
+                      <div className="pr-sec-sub">
+                        Modifiez votre mot de passe régulièrement
+                      </div>
+                    </div>
+                    <span className="pr-badge pr-badge-neutral">••••••••</span>
+                  </div>
+
+                  <div className="pr-sec-row">
+                    <div>
+                      <div className="pr-sec-lbl">Email</div>
+                      <div className="pr-sec-sub">{profil.email}</div>
+                    </div>
+                    <span className="pr-badge pr-badge-active">Actif</span>
+                  </div>
+
+                  <div className="pr-sec-row">
+                    <div>
+                      <div className="pr-sec-lbl">Rôle</div>
+                      <div className="pr-sec-sub">Accès médecin complet</div>
+                    </div>
+                    <span className="pr-badge pr-badge-active">Médecin</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </main>
+
+        {/* Toast */}
+        {toast && (
+          <div
+            className={`pr-toast ${toast.ok ? "pr-toast-ok" : "pr-toast-err"}`}
+          >
+            {toast.ok ? "✓" : "⚠"} {toast.msg}
+          </div>
+        )}
       </div>
     </>
   );

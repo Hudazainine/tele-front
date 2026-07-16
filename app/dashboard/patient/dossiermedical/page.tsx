@@ -1,8 +1,7 @@
-<<<<<<< HEAD
-=======
 "use client";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 import { useAuth } from "../../../../context/AuthContext";
 import PrivateRoute from "../../../../components/PrivateRoute";
 import api from "../../../../lib/api";
@@ -53,40 +52,22 @@ interface Stats {
 /* ═══════════════════ CONSTANTES ═══════════════════ */
 
 const DURATION_OPTIONS = [
-  { label: "1 heure", hours: 1, color: "#F59E0B" },
-  { label: "6 heures", hours: 6, color: "#10B981" },
-  { label: "12 heures", hours: 12, color: "#10B981" },
-  { label: "24 heures", hours: 24, color: "#8B5CF6" },
-  { label: "48 heures", hours: 48, color: "#6366F1" },
-  { label: "72 heures", hours: 72, color: "#EC4899" },
-  { label: "Permanent", hours: 0, color: "#334155" },
+  { label: "1 heure", hours: 1 },
+  { label: "6 heures", hours: 6 },
+  { label: "12 heures", hours: 12 },
+  { label: "24 heures", hours: 24 },
+  { label: "48 heures", hours: 48 },
+  { label: "72 heures", hours: 72 },
+  { label: "Permanent", hours: 0 },
 ];
 
-const SECTION_META: Record<string, { gradient: string; hint: string }> = {
-  antecedents: {
-    gradient: "135deg, #8B5CF6 0%, #10B981 100%",
-    hint: "Maladies chroniques, hospitalisations passées, antécédents familiaux…",
-  },
-  allergies: {
-    gradient: "135deg, #F093FB 0%, #F5576C 100%",
-    hint: "Médicaments, aliments, substances auxquels vous êtes allergique…",
-  },
-  traitements: {
-    gradient: "135deg, #4FACFE 0%, #00F2FE 100%",
-    hint: "Nom du médicament, dosage, fréquence, médecin prescripteur…",
-  },
-  vaccins: {
-    gradient: "135deg, #43E97B 0%, #38F9D7 100%",
-    hint: "Type de vaccin, date d'administration, rappels à venir…",
-  },
-  chirurgies: {
-    gradient: "135deg, #FA709A 0%, #FEE140 100%",
-    hint: "Type d'intervention, date, établissement, chirurgien…",
-  },
-  notes: {
-    gradient: "135deg, #A18CD1 0%, #FBC2EB 100%",
-    hint: "Observations personnelles, questions pour votre médecin…",
-  },
+const SECTION_META: Record<string, { hint: string }> = {
+  antecedents: { hint: "Maladies chroniques, hospitalisations passées, antécédents familiaux…" },
+  allergies: { hint: "Médicaments, aliments, substances auxquels vous êtes allergique…" },
+  traitements: { hint: "Nom du médicament, dosage, fréquence, médecin prescripteur…" },
+  vaccins: { hint: "Type de vaccin, date d'administration, rappels à venir…" },
+  chirurgies: { hint: "Type d'intervention, date, établissement, chirurgien…" },
+  notes: { hint: "Observations personnelles, questions pour votre médecin…" },
 };
 
 const DEFAULT_SECTIONS = [
@@ -106,19 +87,42 @@ const ICON_MAP: Record<string, string> = {
   "[5]": "🏥",
   "[6]": "📝",
 };
+
 function resolveIcon(raw: string) {
   return ICON_MAP[raw] ?? raw;
 }
 
-/* ═══════════════════ COMPOSANTS UTILITAIRES ═══════════════════ */
+/* ═══════════════════ DESIGN TOKENS ═══════════════════ */
+// Palette from mockup: warm off-white bg, white cards, teal/sage green accent, soft mauve secondary
+const T = {
+  bg: "#F5F3EE",           // warm ivory background
+  surface: "#FFFFFF",      // card surfaces
+  border: "#E8E4DC",       // subtle warm borders
+  borderMid: "#D4CFC6",    // slightly stronger border
+  accent: "#4CAF82",       // teal-green (main accent)
+  accentLight: "#E8F5EE",  // light tint of accent
+  accentDark: "#2E7D55",   // darker green
+  secondary: "#8B7ED8",    // mauve/purple secondary
+  secondaryLight: "#F0EEF9",
+  textPrimary: "#1A1A1A",
+  textMuted: "#6B6560",
+  textLight: "#9E9890",
+  danger: "#E05252",
+  dangerLight: "#FEF0F0",
+  warning: "#E8A020",
+  warningLight: "#FEF7E6",
+  radius: "14px",
+  radiusLg: "18px",
+  radiusSm: "8px",
+  shadow: "0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04)",
+  shadowHover: "0 2px 8px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
+  font: "'DM Sans', -apple-system, sans-serif",
+  fontDisplay: "'Syne', sans-serif",
+};
 
-function TimeBar({
-  expiresAt,
-  isPermanent,
-}: {
-  expiresAt: string | null;
-  isPermanent?: boolean;
-}) {
+/* ═══════════════════ TIME BAR ═══════════════════ */
+
+function TimeBar({ expiresAt, isPermanent }: { expiresAt: string | null; isPermanent?: boolean }) {
   const [remaining, setRemaining] = useState("");
   const [percent, setPercent] = useState(100);
   const [expired, setExpired] = useState(false);
@@ -137,11 +141,9 @@ function TimeBar({
       const m = Math.floor((left % 3600000) / 60000);
       const s = Math.floor((left % 60000) / 1000);
       setRemaining(
-        left <= 0
-          ? "Expiré"
-          : h > 0
-            ? `${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`
-            : `${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`,
+        left <= 0 ? "Expiré"
+          : h > 0 ? `${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`
+          : `${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`
       );
     };
     update();
@@ -151,137 +153,49 @@ function TimeBar({
 
   if (isPermanent || !expiresAt) {
     return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          padding: "10px 16px",
-          background: "rgba(16,185,129,0.08)",
-          border: "1.5px solid rgba(16,185,129,0.2)",
-          borderRadius: 12,
-          marginBottom: 16,
-        }}
-      >
-        <span style={{ fontSize: 18 }}>♾️</span>
-        <div>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#059669" }}>
-            Conservation permanente
-          </p>
-          <p style={{ margin: 0, fontSize: 11, color: "#64748B" }}>
-            Votre médecin y aura accès à tout moment.
-          </p>
-        </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+        <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.accent, flexShrink: 0 }} />
+        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.8px", textTransform: "uppercase" as const, color: T.textMuted }}>
+          Conservation permanente
+        </span>
+        <span style={{ marginLeft: "auto", fontSize: 13, fontWeight: 700, color: T.accentDark }}>♾️</span>
       </div>
     );
   }
 
-  const color = expired
-    ? "#EF4444"
-    : percent > 60
-      ? "#10B981"
-      : percent > 25
-        ? "#F59E0B"
-        : "#EF4444";
+  const barColor = expired ? T.danger : percent > 60 ? T.accent : percent > 25 ? T.warning : T.danger;
 
   return (
     <div style={{ marginBottom: 16 }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 8,
-        }}
-      >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {!expired && (
-            <div
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: color,
-                boxShadow: `0 0 8px ${color}`,
-                animation: "dmeCardPulse 2s ease infinite",
-              }}
-            />
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: barColor, flexShrink: 0 }} />
           )}
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: "0.8px",
-              textTransform: "uppercase",
-              color: expired ? "#EF4444" : "#64748B",
-            }}
-          >
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.8px", textTransform: "uppercase" as const, color: expired ? T.danger : T.textMuted }}>
             {expired ? "Accès expiré" : "Expiration dans"}
           </span>
         </div>
-        <span
-          style={{
-            fontSize: 15,
-            fontWeight: 800,
-            fontFamily: "'Syne', sans-serif",
-            color,
-          }}
-        >
+        <span style={{ fontSize: 15, fontWeight: 700, color: barColor, fontFamily: T.fontDisplay }}>
           {remaining}
         </span>
       </div>
-      <div
-        style={{
-          height: 5,
-          background: "#F1F5F9",
-          borderRadius: 3,
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            height: "100%",
-            width: `${percent}%`,
-            background: expired
-              ? "#EF4444"
-              : `linear-gradient(90deg, ${color}, ${color}aa)`,
-            borderRadius: 3,
-            transition: "width 1s linear, background 0.5s",
-          }}
-        />
+      <div style={{ height: 4, background: T.border, borderRadius: 2, overflow: "hidden" }}>
+        <div style={{ height: "100%", width: `${percent}%`, background: barColor, borderRadius: 2, transition: "width 1s linear" }} />
       </div>
     </div>
   );
 }
 
-function DurationPicker({
-  selected,
-  onChange,
-}: {
-  selected: number;
-  onChange: (h: number) => void;
-}) {
+/* ═══════════════════ DURATION PICKER ═══════════════════ */
+
+function DurationPicker({ selected, onChange }: { selected: number; onChange: (h: number) => void }) {
   return (
     <div>
-      <p
-        style={{
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: "1px",
-          textTransform: "uppercase",
-          color: "#64748B",
-          marginBottom: 10,
-        }}
-      >
+      <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase" as const, color: T.textMuted, marginBottom: 10, margin: "0 0 10px" }}>
         Durée de conservation du dossier
       </p>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4,1fr)",
-          gap: 8,
-        }}
-      >
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
         {DURATION_OPTIONS.map((opt) => {
           const active = selected === opt.hours;
           return (
@@ -290,16 +204,15 @@ function DurationPicker({
               onClick={() => onChange(opt.hours)}
               style={{
                 padding: "10px 6px",
-                borderRadius: 14,
-                border: active ? `2px solid ${opt.color}` : "2px solid #E2E8F0",
-                background: active ? `${opt.color}12` : "rgba(255,255,255,0.8)",
-                color: active ? opt.color : "#94A3B8",
-                fontFamily: "'Syne', sans-serif",
-                fontWeight: 700,
+                borderRadius: T.radiusSm,
+                border: active ? `1.5px solid ${T.accent}` : `1.5px solid ${T.border}`,
+                background: active ? T.accentLight : T.surface,
+                color: active ? T.accentDark : T.textMuted,
+                fontFamily: T.font,
+                fontWeight: active ? 700 : 500,
                 fontSize: 12,
                 cursor: "pointer",
-                transition: "all 0.2s",
-                boxShadow: active ? `0 4px 14px ${opt.color}30` : "none",
+                transition: "all 0.15s",
               }}
             >
               {opt.label}
@@ -307,27 +220,20 @@ function DurationPicker({
           );
         })}
       </div>
-      <p style={{ fontSize: 11, color: "#94A3B8", marginTop: 8 }}>
-        {selected === 0
-          ? "Le dossier sera conservé indéfiniment pour votre médecin."
-          : "Supprimé automatiquement après cette période."}
+      <p style={{ fontSize: 11, color: T.textLight, marginTop: 8 }}>
+        {selected === 0 ? "Le dossier sera conservé indéfiniment." : "Supprimé automatiquement après cette période."}
       </p>
     </div>
   );
 }
 
-/* ═══════════════════ PAGE PATIENT ═══════════════════ */
+/* ═══════════════════ PAGE PRINCIPALE ═══════════════════ */
 
 export default function PatientDME() {
   const { token, isLoading } = useAuth();
   const router = useRouter();
 
-  const [stats, setStats] = useState<Stats>({
-    rendezvous: 0,
-    consultations: 0,
-    ordonnances: 0,
-    notifications: 0,
-  });
+  const [stats, setStats] = useState<Stats>({ rendezvous: 0, consultations: 0, ordonnances: 0, notifications: 0 });
   const [dme, setDme] = useState<DMERecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
@@ -335,12 +241,9 @@ export default function PatientDME() {
   const [saved, setSaved] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState("antecedents");
   const [editValues, setEditValues] = useState<Record<string, string>>({});
-
-  // Pièces jointes locales en attente d'upload
   const [localAttachments, setLocalAttachments] = useState<Record<string, LocalAttachment[]>>({});
   const imgInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
-
   const [creating, setCreating] = useState(false);
   const [selectedDuration, setSelectedDuration] = useState(24);
   const [shareModal, setShareModal] = useState(false);
@@ -349,222 +252,120 @@ export default function PatientDME() {
   const [expired, setExpired] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
 
-  /* ─── Vérification expiration ─── */
   useEffect(() => {
     if (!dme || dme.is_permanent) return;
     const check = () => {
-      if (!dme.expires_at) return false;
+      if (!dme.expires_at) return;
       const isExp = new Date(dme.expires_at).getTime() < Date.now();
       setExpired(isExp);
-      if (isExp) {
-        setDme(null);
-        setEditValues({});
-      }
+      if (isExp) { setDme(null); setEditValues({}); }
     };
     check();
     const t = setInterval(check, 10000);
     return () => clearInterval(t);
   }, [dme]);
 
-  /* ─── Chargement initial ─── */
   useEffect(() => {
     if (isLoading) return;
-    if (!token) {
-      router.push("/login");
-      return;
-    }
+    if (!token) { router.push("/login"); return; }
     Promise.all([
-      api.get("rendezvous/"),
-      api.get("consultations/"),
-      api.get("ordonnances/"),
-      api.get("notifications/"),
-    ])
-      .then(([r, c, o, n]) =>
-        setStats({
-          rendezvous: r.data.length,
-          consultations: c.data.length,
-          ordonnances: o.data.length,
-          notifications: n.data.length,
-        }),
-      )
-      .catch(() => {});
+      api.get("rendezvous/"), api.get("consultations/"), api.get("ordonnances/"), api.get("notifications/"),
+    ]).then(([r, c, o, n]) => setStats({ rendezvous: r.data.length, consultations: c.data.length, ordonnances: o.data.length, notifications: n.data.length })).catch(() => {});
 
-    api
-      .get("dossier-medical/")
+    api.get("dossier-medical/")
       .then((res) => {
         setDme(res.data);
         const vals: Record<string, string> = {};
-        (res.data.sections as DMESection[]).forEach((s) => {
-          vals[s.id] = s.content;
-        });
+        (res.data.sections as DMESection[]).forEach((s) => { vals[s.id] = s.content; });
         setEditValues(vals);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [token, isLoading]);
 
-  /* ─── Création du dossier ─── */
   const createDossier = async () => {
     setCreating(true);
     try {
-      const payload: any = {
-        sections: DEFAULT_SECTIONS,
-      };
-      if (selectedDuration === 0) {
-        payload.is_permanent = true;
-        payload.duration_hours = null;
-      } else {
-        payload.is_permanent = false;
-        payload.duration_hours = selectedDuration;
-      }
-
-      const res = await api.post("dossier-medical/", payload);
+      const payload: Record<string, unknown> = { sections: DEFAULT_SECTIONS };
+      if (selectedDuration === 0) { payload.is_permanent = true; payload.duration_hours = null; }
+      else { payload.is_permanent = false; payload.duration_hours = selectedDuration; }
+      const res = await api.post("dossier-medical/", payload, { headers: { "Content-Type": "application/json" } });
       setDme(res.data);
       setExpired(false);
       const vals: Record<string, string> = {};
-      (res.data.sections as DMESection[]).forEach((s) => {
-        vals[s.id] = s.content;
-      });
+      (res.data.sections as DMESection[]).forEach((s) => { vals[s.id] = s.content; });
       setEditValues(vals);
-    } catch (err) {
-      console.error("Erreur création:", err);
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) alert(`Erreur ${err.response?.status}: ${JSON.stringify(err.response?.data)}`);
+    } finally {
+      setCreating(false);
     }
-    setCreating(false);
   };
 
-  /* ═══════════════════════════════════════════════════════════
-     SAUVEGARDE D'UNE SECTION AVEC UPLOAD FICHIERS
-     ═══════════════════════════════════════════════════════════ */
   const saveSection = async (sectionId: string) => {
     if (!dme || expired) return;
     setSaving(sectionId);
     try {
       const pending = localAttachments[sectionId] || [];
-
       const formData = new FormData();
-      
-      // Mettre à jour les sections
       const updatedSections = dme.sections.map((s) =>
-        s.id === sectionId
-          ? { ...s, content: editValues[sectionId] || "", attachments: s.attachments || [] }
-          : s,
+        s.id === sectionId ? { ...s, content: editValues[sectionId] || "", attachments: s.attachments || [] } : s
       );
       formData.append("sections", JSON.stringify(updatedSections));
-      
-      // Ajouter les fichiers (CORRECTIF IMPORTANT)
-      // Le backend doit pouvoir récupérer ces fichiers via request.FILES
-      pending.forEach((att) => {
-        formData.append(`files_${sectionId}`, att.file, att.name);
-      });
-
-      const res = await api.patch("dossier-medical/", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
+      pending.forEach((att) => { formData.append(`files_${sectionId}`, att.file, att.name); });
+      const res = await api.patch("dossier-medical/", formData, { headers: { "Content-Type": "multipart/form-data" } });
       setDme(res.data);
-      
-      // Vider les fichiers locaux après succès
-      setLocalAttachments((prev) => {
-        const updated = { ...prev };
-        delete updated[sectionId];
-        return updated;
-      });
-      
+      setLocalAttachments((prev) => { const u = { ...prev }; delete u[sectionId]; return u; });
       pending.forEach((att) => URL.revokeObjectURL(att.url));
-
       setSaved(sectionId);
       setTimeout(() => setSaved(null), 2500);
     } catch (err) {
-      console.error("Échec sauvegarde :", err);
-      alert("Erreur lors de la sauvegarde. Veuillez réessayer.");
+      console.error(err);
+      alert("Erreur lors de la sauvegarde.");
     }
     setSaving(null);
   };
 
-  /* ═══════════════════════════════════════════════════════════
-     SAUVEGARDE DE TOUTES LES SECTIONS (BOUTON EN BAS)
-     ═══════════════════════════════════════════════════════════ */
   const saveAllSections = async () => {
     if (!dme || expired) return;
     setSavingAll(true);
-    
     try {
-      // Récupérer toutes les sections avec les fichiers locaux
-      const allSections = dme.sections.map((section) => ({
-        ...section,
-        content: editValues[section.id] || "",
-      }));
-      
-      // Construire le FormData avec TOUTES les sections
       const formData = new FormData();
+      const allSections = dme.sections.map((s) => ({ ...s, content: editValues[s.id] || "" }));
       formData.append("sections", JSON.stringify(allSections));
-      
-      // Ajouter TOUS les fichiers locaux
-      Object.entries(localAttachments).forEach(([sectionId, files]) => {
-        files.forEach((att) => {
-          formData.append(`files_${sectionId}`, att.file, att.name);
-        });
+      Object.entries(localAttachments).forEach(([sId, files]) => {
+        files.forEach((att) => { formData.append(`files_${sId}`, att.file, att.name); });
       });
-      
-      const res = await api.patch("dossier-medical/", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      
+      const res = await api.patch("dossier-medical/", formData, { headers: { "Content-Type": "multipart/form-data" } });
       setDme(res.data);
-      
-      // Vider tous les fichiers locaux
-      Object.values(localAttachments).forEach(attachments => {
-        attachments.forEach(att => URL.revokeObjectURL(att.url));
-      });
+      Object.values(localAttachments).forEach((atts) => atts.forEach((att) => URL.revokeObjectURL(att.url)));
       setLocalAttachments({});
-      
       setSaved("all");
       setTimeout(() => setSaved(null), 2500);
     } catch (err) {
-      console.error("Échec sauvegarde globale :", err);
-      alert("Erreur lors de la sauvegarde globale. Veuillez réessayer.");
+      console.error(err);
+      alert("Erreur lors de la sauvegarde globale.");
     }
-    
     setSavingAll(false);
   };
 
-  /* ─── Suppression d'une pièce jointe sauvegardée ─── */
   const deleteSavedAttachment = async (sectionId: string, attachmentId: number) => {
     if (!dme) return;
     try {
       await api.delete(`dossier-medical/attachments/${attachmentId}/`);
       setDme((prev) => {
         if (!prev) return prev;
-        return {
-          ...prev,
-          sections: prev.sections.map((s) =>
-            s.id === sectionId
-              ? { ...s, attachments: (s.attachments || []).filter((a) => a.id !== attachmentId) }
-              : s,
-          ),
-        };
+        return { ...prev, sections: prev.sections.map((s) => s.id === sectionId ? { ...s, attachments: (s.attachments || []).filter((a) => a.id !== attachmentId) } : s) };
       });
-    } catch (err) {
-      console.error("Échec suppression pièce jointe :", err);
-    }
+    } catch (err) { console.error(err); }
   };
 
-  /* ─── Import de fichiers locaux ─── */
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: "image" | "document") => {
     const files = e.target.files;
     if (!files) return;
-
-    const newAttachments: LocalAttachment[] = [];
-    Array.from(files).forEach((file) => {
-      const url = URL.createObjectURL(file);
-      newAttachments.push({ name: file.name, type, url, file });
-    });
-
-    setLocalAttachments((prev) => ({
-      ...prev,
-      [activeSection]: [...(prev[activeSection] || []), ...newAttachments],
-    }));
-
+    const newAtts: LocalAttachment[] = [];
+    Array.from(files).forEach((file) => { newAtts.push({ name: file.name, type, url: URL.createObjectURL(file), file }); });
+    setLocalAttachments((prev) => ({ ...prev, [activeSection]: [...(prev[activeSection] || []), ...newAtts] }));
     if (imgInputRef.current) imgInputRef.current.value = "";
     if (docInputRef.current) docInputRef.current.value = "";
   };
@@ -578,7 +379,6 @@ export default function PatientDME() {
     });
   };
 
-  /* ─── Partage / suppression ─── */
   const generateShareLink = async () => {
     if (!dme || expired) return;
     try {
@@ -586,9 +386,7 @@ export default function PatientDME() {
       setShareLink(res.data.share_url);
       setCopied(false);
       setShareModal(true);
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const copyLink = () => {
@@ -604,296 +402,207 @@ export default function PatientDME() {
       setEditValues({});
       setLocalAttachments({});
       setDeleteConfirm(false);
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   if (isLoading || loading) return null;
 
   const currentSection = dme?.sections.find((s) => s.id === activeSection);
-  const completionCount =
-    dme?.sections.filter(
-      (s) => s.content.trim().length > 0 || (s.attachments && s.attachments.length > 0),
-    ).length ?? 0;
+  const completionCount = dme?.sections.filter((s) => s.content.trim().length > 0 || (s.attachments && s.attachments.length > 0)).length ?? 0;
   const totalSections = dme?.sections.length ?? DEFAULT_SECTIONS.length;
-  const meta = SECTION_META[activeSection] ?? {
-    gradient: "135deg, #8B5CF6, #10B981",
-    hint: "",
-  };
-
+  const meta = SECTION_META[activeSection] ?? { hint: "" };
   const savedAttachments: SavedAttachment[] = currentSection?.attachments || [];
   const pendingAttachments: LocalAttachment[] = localAttachments[activeSection] || [];
+
+  /* ─── Styles partagés ─── */
+  const cardStyle: React.CSSProperties = {
+    background: T.surface,
+    border: `1px solid ${T.border}`,
+    borderRadius: T.radiusLg,
+    boxShadow: T.shadow,
+  };
+
+  const btnPrimary: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "9px 18px",
+    borderRadius: T.radiusSm,
+    border: `1px solid ${T.border}`,
+    background: T.surface,
+    color: T.textPrimary,
+    fontFamily: T.font,
+    fontWeight: 500,
+    fontSize: 13,
+    cursor: "pointer",
+    transition: "all 0.15s",
+  };
+
+  const btnAccent: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "11px 24px",
+    borderRadius: T.radiusSm,
+    border: `1px solid ${T.border}`,
+    background: T.surface,
+    color: T.textPrimary,
+    fontFamily: T.font,
+    fontWeight: 600,
+    fontSize: 14,
+    cursor: "pointer",
+    transition: "all 0.15s",
+  };
 
   return (
     <PrivateRoute allowedRoles={["patient"]}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
 
-        @keyframes dmeCardPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
-        @keyframes dmeFadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes dmeSlideIn { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
-        @keyframes dmeCheck { from{transform:scale(0);opacity:0} to{transform:scale(1);opacity:1} }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        @keyframes slideIn { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
 
-        .dme-bg {
-          background: linear-gradient(135deg, #FDF4FF 0%, #ECFDF5 100%);
-          min-height: 100vh;
-        }
-
-        .dme-card {
-          background: rgba(255,255,255,0.78);
-          backdrop-filter: blur(12px);
-          border: 1px solid rgba(255,255,255,0.95);
-          border-radius: 24px;
-          box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
-        }
-
-        .text-grad {
-          background: linear-gradient(135deg, #8B5CF6, #10B981);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
+        .dme-root { background: ${T.bg}; min-height: 100vh; font-family: ${T.font}; }
 
         .sec-tab {
-          display:flex; align-items:center; gap:10px;
-          padding:12px 14px; border-radius:14px; cursor:pointer;
-          transition:all 0.2s ease; border:1.5px solid transparent;
-          font-size:13px; font-weight:500; color:#64748B;
+          display: flex; align-items: center; gap: 10px;
+          padding: 10px 12px; border-radius: ${T.radiusSm}; cursor: pointer;
+          transition: all 0.15s; border: 1px solid transparent;
+          font-size: 13px; font-weight: 500; color: ${T.textMuted};
         }
-        .sec-tab:hover { background:rgba(139,92,246,0.06); color:#334155; border-color:rgba(139,92,246,0.15); }
+        .sec-tab:hover { background: ${T.accentLight}; color: ${T.textPrimary}; }
         .sec-tab.active {
-          background:linear-gradient(135deg,rgba(139,92,246,0.1),rgba(16,185,129,0.08));
-          color:#1E293B; border-color:rgba(139,92,246,0.3);
-          box-shadow:0 4px 12px rgba(139,92,246,0.1);
+          background: ${T.accentLight};
+          color: ${T.accentDark};
+          border-color: rgba(76,175,130,0.25);
+          font-weight: 600;
         }
 
         .dme-textarea {
-          width:100%; box-sizing:border-box; min-height:180px; padding:20px;
-          border:1.5px solid #E2E8F0; border-radius:16px;
-          font-family:'DM Sans',sans-serif; font-size:15px; line-height:1.75;
-          color:#1E293B; background:rgba(255,255,255,0.8);
-          resize:vertical; outline:none; transition:all 0.2s;
+          width: 100%; box-sizing: border-box; min-height: 200px;
+          padding: 16px; border: 1px solid ${T.border}; border-radius: ${T.radius};
+          font-family: ${T.font}; font-size: 14px; line-height: 1.7;
+          color: ${T.textPrimary}; background: ${T.bg};
+          resize: vertical; outline: none; transition: border-color 0.15s;
         }
-        .dme-textarea:focus {
-          border-color:rgba(139,92,246,0.5);
-          background:white;
-          box-shadow:0 0 0 4px rgba(139,92,246,0.08);
-        }
-        .dme-textarea:disabled { opacity:0.5; cursor:not-allowed; background:#F8FAFC; }
-        .dme-textarea::placeholder { color:#CBD5E1; }
-
-        .save-btn {
-          padding:12px 28px; border-radius:14px; border:none;
-          background:linear-gradient(135deg,#8B5CF6,#10B981); color:white;
-          font-family:'DM Sans',sans-serif; font-weight:700; font-size:14px;
-          cursor:pointer; transition:all 0.25s;
-          box-shadow:0 4px 14px rgba(139,92,246,0.3);
-        }
-        .save-btn:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 8px 20px rgba(139,92,246,0.4); }
-        .save-btn:disabled { opacity:0.5; cursor:not-allowed; transform:none !important; }
-
-        .save-all-btn {
-          padding:14px 32px; border-radius:16px; border:none;
-          background:linear-gradient(135deg,#10B981,#059669); color:white;
-          font-family:'Syne',sans-serif; font-weight:800; font-size:15px;
-          cursor:pointer; transition:all 0.25s;
-          box-shadow:0 6px 20px rgba(16,185,129,0.35);
-        }
-        .save-all-btn:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 10px 28px rgba(16,185,129,0.45); }
-        .save-all-btn:disabled { opacity:0.5; cursor:not-allowed; }
-
-        .share-btn-light {
-          display:flex; align-items:center; gap:7px;
-          padding:10px 18px; border-radius:12px;
-          background:rgba(139,92,246,0.08); border:1.5px solid rgba(139,92,246,0.2);
-          color:#7C3AED; font-family:'DM Sans',sans-serif; font-weight:600; font-size:13px;
-          cursor:pointer; transition:all 0.2s;
-        }
-        .share-btn-light:hover { background:rgba(139,92,246,0.14); border-color:rgba(139,92,246,0.35); }
-
-        .del-btn-light {
-          display:flex; align-items:center; gap:7px;
-          padding:10px 18px; border-radius:12px;
-          background:rgba(239,68,68,0.06); border:1.5px solid rgba(239,68,68,0.15);
-          color:#DC2626; font-family:'DM Sans',sans-serif; font-weight:600; font-size:13px;
-          cursor:pointer; transition:all 0.2s;
-        }
-        .del-btn-light:hover { background:rgba(239,68,68,0.1); }
-
-        .modal-overlay {
-          position:fixed; inset:0; background:rgba(15,23,42,0.45);
-          backdrop-filter:blur(6px); z-index:1000;
-          display:flex; align-items:center; justify-content:center;
-          animation:dmeFadeUp 0.2s ease;
-        }
-        .modal-card {
-          background:white; border-radius:28px; padding:36px;
-          width:500px; max-width:90vw;
-          box-shadow:0 25px 60px rgba(0,0,0,0.15);
-          animation:dmeFadeUp 0.3s ease;
-        }
+        .dme-textarea:focus { border-color: ${T.accent}; background: ${T.surface}; }
+        .dme-textarea:disabled { opacity: 0.5; cursor: not-allowed; }
+        .dme-textarea::placeholder { color: ${T.textLight}; }
 
         .upload-btn {
-          display:flex; align-items:center; gap:8px;
-          padding:10px 16px; border-radius:12px;
-          border:1.5px dashed rgba(139,92,246,0.3);
-          background:rgba(139,92,246,0.04);
-          color:#7C3AED; font-family:'DM Sans',sans-serif; font-weight:600; font-size:13px;
-          cursor:pointer; transition:all 0.2s;
+          display: inline-flex; align-items: center; gap: 7px;
+          padding: 9px 14px; border-radius: ${T.radiusSm};
+          border: 1px solid ${T.border}; background: ${T.surface};
+          color: ${T.textMuted}; font-family: ${T.font}; font-weight: 500; font-size: 13px;
+          cursor: pointer; transition: all 0.15s;
         }
-        .upload-btn:hover { background:rgba(139,92,246,0.1); border-color:rgba(139,92,246,0.5); }
+        .upload-btn:hover { border-color: ${T.accent}; color: ${T.accentDark}; background: ${T.accentLight}; }
+        .upload-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        .attachment-preview {
-          display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px;
+        .save-btn {
+          display: inline-flex; align-items: center; gap: 7px;
+          padding: 10px 20px; border-radius: ${T.radiusSm};
+          border: 1px solid ${T.border}; background: ${T.surface};
+          color: ${T.textPrimary}; font-family: ${T.font}; font-weight: 600; font-size: 13px;
+          cursor: pointer; transition: all 0.15s;
         }
+        .save-btn:hover:not(:disabled) { border-color: ${T.accent}; background: ${T.accentLight}; color: ${T.accentDark}; }
+        .save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .save-all-btn {
+          display: inline-flex; align-items: center; gap: 8px;
+          padding: 12px 28px; border-radius: ${T.radiusSm};
+          border: 1px solid ${T.border}; background: ${T.surface};
+          color: ${T.textPrimary}; font-family: ${T.font}; font-weight: 600; font-size: 14px;
+          cursor: pointer; transition: all 0.15s;
+        }
+        .save-all-btn:hover:not(:disabled) { border-color: ${T.accent}; background: ${T.accentLight}; color: ${T.accentDark}; }
+        .save-all-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .icon-btn {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 38px; height: 38px; border-radius: ${T.radiusSm};
+          border: 1px solid ${T.border}; background: ${T.surface};
+          color: ${T.textMuted}; cursor: pointer; transition: all 0.15s; font-size: 15px;
+        }
+        .icon-btn:hover { border-color: ${T.borderMid}; background: #F9F7F4; }
+        .icon-btn.danger:hover { border-color: rgba(224,82,82,0.3); background: ${T.dangerLight}; color: ${T.danger}; }
+
+        .modal-overlay {
+          position: fixed; inset: 0; background: rgba(0,0,0,0.3);
+          backdrop-filter: blur(4px); z-index: 1000;
+          display: flex; align-items: center; justify-content: center;
+          animation: fadeIn 0.2s ease;
+        }
+        .modal-card {
+          background: ${T.surface}; border-radius: ${T.radiusLg};
+          border: 1px solid ${T.border}; padding: 32px; width: 480px;
+          max-width: 92vw; box-shadow: 0 8px 40px rgba(0,0,0,0.12);
+          animation: fadeUp 0.25s ease;
+        }
+
+        .progress-bar-track {
+          height: 4px; background: ${T.border}; border-radius: 2px; overflow: hidden;
+        }
+        .progress-bar-fill {
+          height: 100%; border-radius: 2px; transition: width 0.5s ease;
+        }
+
         .preview-item {
-          position: relative; border-radius: 12px; overflow: hidden;
-          border: 1px solid rgba(0,0,0,0.05);
+          position: relative; border-radius: ${T.radiusSm}; overflow: hidden;
+          border: 1px solid ${T.border};
         }
         .preview-remove {
           position: absolute; top: 4px; right: 4px;
-          width: 20px; height: 20px; border-radius: 50%;
-          background: rgba(0,0,0,0.6); color: white; border: none;
-          font-size: 10px; cursor: pointer; display: flex;
+          width: 18px; height: 18px; border-radius: 50%;
+          background: rgba(0,0,0,0.55); color: white; border: none;
+          font-size: 9px; cursor: pointer; display: flex;
           align-items: center; justify-content: center;
         }
       `}</style>
 
-      <div
-        className="dme-bg"
-        style={{ display: "flex", fontFamily: "'DM Sans', sans-serif" }}
-      >
+      <div className="dme-root" style={{ display: "flex" }}>
         <Sidebar stats={stats} />
-        <Navbar
-          title="Dossier Médical Électronique"
-          subtitle="Vos données de santé sécurisées"
-        />
+        <Navbar title="Dossier Médical Électronique" subtitle="Vos données de santé sécurisées" />
 
-        <main
-          style={{
-            marginLeft: 260,
-            flex: 1,
-            padding: "2rem",
-            paddingTop: "calc(70px + 2rem)",
-          }}
-        >
+        <main style={{ marginLeft: 260, flex: 1, padding: "2rem", paddingTop: "calc(70px + 2rem)" }}>
+
           {/* ── ÉTAT VIDE ── */}
           {!dme ? (
-            <div
-              style={{
-                maxWidth: 540,
-                margin: "60px auto",
-                animation: "dmeFadeUp 0.5s ease",
-              }}
-            >
-              <div
-                className="dme-card"
-                style={{ padding: "48px 40px", textAlign: "center" }}
-              >
-                <div
-                  style={{
-                    width: 90,
-                    height: 90,
-                    borderRadius: 28,
-                    margin: "0 auto 24px",
-                    background:
-                      "linear-gradient(135deg,rgba(139,92,246,0.12),rgba(16,185,129,0.12))",
-                    border: "2px dashed rgba(139,92,246,0.25)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 42,
-                  }}
-                >
+            <div style={{ maxWidth: 520, margin: "48px auto", animation: "fadeUp 0.4s ease" }}>
+              <div style={{ ...cardStyle, padding: "40px 36px", textAlign: "center" }}>
+                <div style={{ width: 72, height: 72, borderRadius: 20, margin: "0 auto 20px", background: T.accentLight, border: `1px solid rgba(76,175,130,0.2)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32 }}>
                   🗂️
                 </div>
-
-                <h2
-                  style={{
-                    fontFamily: "'Syne',sans-serif",
-                    fontSize: 26,
-                    fontWeight: 800,
-                    color: "#1E293B",
-                    marginBottom: 10,
-                  }}
-                >
+                <h2 style={{ fontFamily: T.fontDisplay, fontSize: 22, fontWeight: 800, color: T.textPrimary, margin: "0 0 10px" }}>
                   {expired ? "Dossier expiré" : "Créer mon dossier médical"}
                 </h2>
-                <p
-                  style={{
-                    color: "#64748B",
-                    fontSize: 15,
-                    lineHeight: 1.7,
-                    maxWidth: 380,
-                    margin: "0 auto 32px",
-                  }}
-                >
+                <p style={{ color: T.textMuted, fontSize: 14, lineHeight: 1.7, maxWidth: 360, margin: "0 auto 28px" }}>
                   {expired
                     ? "Votre dossier a expiré et a été supprimé automatiquement."
                     : "Centralisez vos informations de santé. Choisissez la durée de conservation, puis partagez avec votre médecin."}
                 </p>
 
-                <div style={{ marginBottom: 28, textAlign: "left" }}>
-                  <DurationPicker
-                    selected={selectedDuration}
-                    onChange={setSelectedDuration}
-                  />
+                <div style={{ marginBottom: 24, textAlign: "left" }}>
+                  <DurationPicker selected={selectedDuration} onChange={setSelectedDuration} />
                 </div>
 
                 <button
                   onClick={createDossier}
                   disabled={creating}
-                  style={{
-                    width: "100%",
-                    padding: "16px",
-                    borderRadius: 18,
-                    border: "none",
-                    background: "linear-gradient(135deg,#8B5CF6,#10B981)",
-                    color: "white",
-                    fontFamily: "'Syne',sans-serif",
-                    fontWeight: 800,
-                    fontSize: 16,
-                    cursor: "pointer",
-                    boxShadow: "0 8px 28px rgba(139,92,246,0.35)",
-                    transition: "all 0.3s",
-                    opacity: creating ? 0.6 : 1,
-                  }}
+                  style={{ width: "100%", padding: "14px", borderRadius: T.radius, border: `1px solid ${T.border}`, background: T.surface, color: T.textPrimary, fontFamily: T.font, fontWeight: 600, fontSize: 15, cursor: "pointer", transition: "all 0.15s" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.background = T.accentLight; e.currentTarget.style.color = T.accentDark; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.background = T.surface; e.currentTarget.style.color = T.textPrimary; }}
                 >
-                  {creating
-                    ? "Création en cours…"
-                    : selectedDuration === 0
-                    ? `✦ Créer mon dossier (Permanent)`
-                    : `✦ Créer mon dossier (${selectedDuration}h)`}
+                  {creating ? "Création en cours…" : selectedDuration === 0 ? `✦ Créer mon dossier (Permanent)` : `✦ Créer mon dossier (${selectedDuration}h)`}
                 </button>
 
-                <div
-                  style={{
-                    marginTop: 20,
-                    padding: "14px 16px",
-                    borderRadius: 14,
-                    background: "rgba(139,92,246,0.05)",
-                    border: "1px solid rgba(139,92,246,0.12)",
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: 10,
-                    textAlign: "left",
-                  }}
-                >
-                  <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>
-                    🔐
-                  </span>
-                  <p
-                    style={{
-                      fontSize: 12,
-                      color: "#64748B",
-                      margin: 0,
-                      lineHeight: 1.6,
-                    }}
-                  >
+                <div style={{ marginTop: 16, padding: "12px 14px", borderRadius: T.radiusSm, background: "#F9F7F2", border: `1px solid ${T.border}`, display: "flex", alignItems: "flex-start", gap: 8, textAlign: "left" }}>
+                  <span style={{ fontSize: 14, flexShrink: 0 }}>🔐</span>
+                  <p style={{ fontSize: 12, color: T.textMuted, margin: 0, lineHeight: 1.6 }}>
                     Vous seul contrôlez la visibilité de vos données.{" "}
-                    {selectedDuration === 0
-                      ? "Le médecin y aura accès en permanence."
-                      : "Supprimé automatiquement à l'expiration."}
+                    {selectedDuration === 0 ? "Le médecin y aura accès en permanence." : "Supprimé automatiquement à l'expiration."}
                   </p>
                 </div>
               </div>
@@ -901,396 +610,136 @@ export default function PatientDME() {
           ) : (
             <>
               {/* ── HEADER CARD ── */}
-              <div
-                className="dme-card"
-                style={{
-                  padding: "24px 28px",
-                  marginBottom: 20,
-                  animation: "dmeFadeUp 0.4s ease",
-                  position: "relative",
-                  overflow: "hidden",
-                }}
-              >
-                <div
-                  style={{
-                    position: "absolute",
-                    top: -40,
-                    right: -40,
-                    width: 160,
-                    height: 160,
-                    borderRadius: "50%",
-                    background:
-                      "linear-gradient(135deg,rgba(139,92,246,0.08),rgba(16,185,129,0.08))",
-                    pointerEvents: "none",
-                  }}
-                />
-
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                    position: "relative",
-                  }}
-                >
-                  <div>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        marginBottom: 6,
-                      }}
-                    >
-                      <span style={{ fontSize: 24 }}>🗂️</span>
-                      <h1
-                        style={{
-                          fontFamily: "'Syne',sans-serif",
-                          fontSize: 22,
-                          fontWeight: 800,
-                          color: "#1E293B",
-                          margin: 0,
-                        }}
-                      >
-                        Mon Dossier Médical
-                      </h1>
+              <div style={{ ...cardStyle, padding: "20px 24px", marginBottom: 16, animation: "fadeUp 0.3s ease" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: T.accentLight, border: `1px solid rgba(76,175,130,0.2)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
+                      🗂️
                     </div>
-                    <p style={{ fontSize: 13, color: "#94A3B8", margin: 0 }}>
-                      Créé le{" "}
-                      {new Date(dme.created_at).toLocaleDateString("fr-FR", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
-                      &nbsp;·&nbsp;
-                      <span className="text-grad" style={{ fontWeight: 700 }}>
-                        {completionCount}/{totalSections} sections
-                      </span>
-                    </p>
+                    <div>
+                      <h1 style={{ fontFamily: T.fontDisplay, fontSize: 18, fontWeight: 800, color: T.textPrimary, margin: 0, marginBottom: 2 }}>
+                        Mon dossier médical
+                      </h1>
+                      <p style={{ fontSize: 12, color: T.textMuted, margin: 0 }}>
+                        Créé le {new Date(dme.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                        {" · "}
+                        <span style={{ color: T.accent, fontWeight: 600 }}>{completionCount}/{totalSections} sections</span>
+                      </p>
+                    </div>
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <button
-                      className="share-btn-light"
                       onClick={generateShareLink}
-                      disabled={expired && !dme.is_permanent}
+                      style={btnPrimary}
+                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = T.borderMid; e.currentTarget.style.background = "#F9F7F4"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.background = T.surface; }}
                     >
                       🔗 Partager
                     </button>
                     <button
-                      className="del-btn-light"
+                      className="icon-btn danger"
                       onClick={() => setDeleteConfirm(true)}
+                      title="Supprimer le dossier"
                     >
                       🗑️
                     </button>
                   </div>
                 </div>
 
-                <div style={{ marginTop: 20, position: "relative" }}>
-                  <TimeBar expiresAt={dme.expires_at} isPermanent={dme.is_permanent} />
-                </div>
+                <TimeBar expiresAt={dme.expires_at} isPermanent={dme.is_permanent} />
 
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div
-                    style={{
-                      flex: 1,
-                      height: 6,
-                      background: "#F1F5F9",
-                      borderRadius: 3,
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        height: "100%",
-                        width: `${(completionCount / totalSections) * 100}%`,
-                        background: "linear-gradient(90deg,#8B5CF6,#10B981)",
-                        borderRadius: 3,
-                        transition: "width 0.6s ease",
-                      }}
-                    />
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: T.textLight, whiteSpace: "nowrap" }}>Complétion</span>
+                  <div className="progress-bar-track" style={{ flex: 1 }}>
+                    <div className="progress-bar-fill" style={{ width: `${(completionCount / totalSections) * 100}%`, background: T.accent }} />
                   </div>
-                  <span
-                    className="text-grad"
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 700,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {Math.round((completionCount / totalSections) * 100)}%
-                    complété
+                  <span style={{ fontSize: 13, fontWeight: 700, color: T.accent, whiteSpace: "nowrap" }}>
+                    {Math.round((completionCount / totalSections) * 100)}% complété
                   </span>
                 </div>
               </div>
 
-              {/* ── CORPS ── */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "260px 1fr",
-                  gap: 16,
-                }}
-              >
+              {/* ── CORPS : SIDEBAR + ÉDITEUR ── */}
+              <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 16 }}>
+
                 {/* Nav sections */}
-                <div
-                  className="dme-card"
-                  style={{ padding: 18, alignSelf: "start" }}
-                >
-                  <p
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 700,
-                      letterSpacing: "1.5px",
-                      textTransform: "uppercase",
-                      color: "#94A3B8",
-                      marginBottom: 12,
-                    }}
-                  >
+                <div style={{ ...cardStyle, padding: 14, alignSelf: "start" }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "1.2px", textTransform: "uppercase" as const, color: T.textLight, margin: "0 0 10px", padding: "0 2px" }}>
                     Sections
                   </p>
-                  <div
-                    style={{ display: "flex", flexDirection: "column", gap: 4 }}
-                  >
+                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                     {dme.sections.map((section) => {
-                      const isFilled =
-                        section.content.trim().length > 0 ||
-                        (section.attachments && section.attachments.length > 0);
+                      const isFilled = section.content.trim().length > 0 || (section.attachments && section.attachments.length > 0);
                       const isActive = activeSection === section.id;
                       return (
                         <div
                           key={section.id}
-                          className={`sec-tab ${isActive ? "active" : ""}`}
+                          className={`sec-tab${isActive ? " active" : ""}`}
                           onClick={() => setActiveSection(section.id)}
-                          style={{
-                            animation: "dmeSlideIn 0.3s ease backwards",
-                          }}
                         >
-                          <span style={{ fontSize: 16 }}>
-                            {resolveIcon(section.icon)}
-                          </span>
-                          <span style={{ flex: 1 }}>{section.title}</span>
+                          <span style={{ fontSize: 15 }}>{resolveIcon(section.icon)}</span>
+                          <span style={{ flex: 1, fontSize: 13 }}>{section.title}</span>
                           {isFilled && (
-                            <span
-                              style={{
-                                width: 7,
-                                height: 7,
-                                borderRadius: "50%",
-                                flexShrink: 0,
-                                background: isActive ? "#8B5CF6" : "#10B981",
-                                boxShadow: isActive
-                                  ? "0 0 8px rgba(139,92,246,0.6)"
-                                  : "0 0 6px rgba(16,185,129,0.6)",
-                              }}
-                            />
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: isActive ? T.accent : T.accent, opacity: isActive ? 1 : 0.5 }} />
                           )}
                         </div>
                       );
                     })}
                   </div>
 
-                  <div
-                    style={{
-                      marginTop: 20,
-                      padding: "12px 14px",
-                      background: "rgba(139,92,246,0.05)",
-                      border: "1px solid rgba(139,92,246,0.12)",
-                      borderRadius: 14,
-                    }}
-                  >
-                    <p
-                      style={{
-                        fontSize: 11,
-                        color: "#7C3AED",
-                        margin: 0,
-                        lineHeight: 1.6,
-                        fontWeight: 500,
-                      }}
-                    >
-                      🔒 Données sécurisées · {completionCount}/{totalSections}{" "}
-                      remplies
+                  <div style={{ marginTop: 16, padding: "10px 12px", background: T.bg, border: `1px solid ${T.border}`, borderRadius: T.radiusSm }}>
+                    <p style={{ fontSize: 11, color: T.textMuted, margin: 0, lineHeight: 1.5 }}>
+                      🔒 Données sécurisées · {completionCount}/{totalSections} remplies
                     </p>
                   </div>
                 </div>
 
                 {/* Éditeur */}
                 {currentSection && (
-                  <div
-                    className="dme-card"
-                    style={{ padding: 28, animation: "dmeFadeUp 0.3s ease" }}
-                    key={activeSection}
-                  >
+                  <div style={{ ...cardStyle, padding: 24, animation: "fadeUp 0.25s ease" }} key={activeSection}>
                     {/* En-tête section */}
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 16,
-                        marginBottom: 24,
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 52,
-                          height: 52,
-                          borderRadius: 16,
-                          flexShrink: 0,
-                          background: `linear-gradient(${meta.gradient})`,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: 24,
-                          boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-                        }}
-                      >
-                        {resolveIcon(currentSection.icon)}
-                      </div>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 20 }}>
+                      <div style={{ fontSize: 28, lineHeight: 1 }}>{resolveIcon(currentSection.icon)}</div>
                       <div style={{ flex: 1 }}>
-                        <h2
-                          style={{
-                            fontFamily: "'Syne',sans-serif",
-                            fontSize: 20,
-                            fontWeight: 800,
-                            color: "#1E293B",
-                            margin: 0,
-                            marginBottom: 4,
-                          }}
-                        >
+                        <h2 style={{ fontFamily: T.fontDisplay, fontSize: 17, fontWeight: 800, color: T.textPrimary, margin: "0 0 3px" }}>
                           {currentSection.title}
                         </h2>
-                        <p
-                          style={{ fontSize: 12, color: "#94A3B8", margin: 0 }}
-                        >
-                          {expired && !dme.is_permanent
-                            ? "Modification désactivée — dossier expiré"
-                            : meta.hint}
-                        </p>
+                        <p style={{ fontSize: 12, color: T.textMuted, margin: 0 }}>{meta.hint}</p>
                       </div>
-                      {(currentSection.content.trim().length > 0 ||
-                        savedAttachments.length > 0) && (
-                        <span
-                          style={{
-                            fontSize: 11,
-                            padding: "5px 12px",
-                            borderRadius: 20,
-                            fontWeight: 700,
-                            background: "rgba(16,185,129,0.1)",
-                            border: "1px solid rgba(16,185,129,0.25)",
-                            color: "#059669",
-                          }}
-                        >
+                      {(currentSection.content.trim().length > 0 || savedAttachments.length > 0) && (
+                        <span style={{ fontSize: 11, padding: "4px 10px", borderRadius: 20, fontWeight: 600, background: T.accentLight, color: T.accentDark, border: `1px solid rgba(76,175,130,0.2)`, whiteSpace: "nowrap" }}>
                           ✓ Renseigné
                         </span>
                       )}
                     </div>
 
-                    {/* Boutons d'import */}
-                    <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-                      <button
-                        className="upload-btn"
-                        onClick={() => imgInputRef.current?.click()}
-                        disabled={expired && !dme.is_permanent}
-                      >
+                    {/* Boutons d'ajout */}
+                    <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                      <button className="upload-btn" onClick={() => imgInputRef.current?.click()} disabled={expired && !dme.is_permanent}>
                         📷 Ajouter une image
                       </button>
-                      <button
-                        className="upload-btn"
-                        onClick={() => docInputRef.current?.click()}
-                        disabled={expired && !dme.is_permanent}
-                      >
+                      <button className="upload-btn" onClick={() => docInputRef.current?.click()} disabled={expired && !dme.is_permanent}>
                         📄 Ajouter un document
                       </button>
-
-                      <input
-                        type="file"
-                        ref={imgInputRef}
-                        hidden
-                        accept="image/*"
-                        multiple
-                        onChange={(e) => handleFileUpload(e, "image")}
-                      />
-                      <input
-                        type="file"
-                        ref={docInputRef}
-                        hidden
-                        accept=".pdf,.doc,.docx,.txt"
-                        multiple
-                        onChange={(e) => handleFileUpload(e, "document")}
-                      />
+                      <input type="file" ref={imgInputRef} hidden accept="image/*" multiple onChange={(e) => handleFileUpload(e, "image")} />
+                      <input type="file" ref={docInputRef} hidden accept=".pdf,.doc,.docx,.txt" multiple onChange={(e) => handleFileUpload(e, "document")} />
                     </div>
 
-                    {/* ═══ Pièces jointes sauvegardées sur le serveur ═══ */}
+                    {/* Pièces jointes sauvegardées */}
                     {savedAttachments.length > 0 && (
-                      <div
-                        className="attachment-preview"
-                        style={{ marginBottom: 16 }}
-                      >
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
                         {savedAttachments.map((att) => (
                           <div key={att.id} className="preview-item">
                             {att.type === "image" ? (
                               <div style={{ position: "relative" }}>
-                                <img
-                                  src={att.url}
-                                  alt={att.name}
-                                  style={{
-                                    width: 100,
-                                    height: 80,
-                                    objectFit: "cover",
-                                    borderRadius: 10,
-                                  }}
-                                />
-                                <button
-                                  className="preview-remove"
-                                  onClick={() =>
-                                    deleteSavedAttachment(activeSection, att.id)
-                                  }
-                                >
-                                  ✕
-                                </button>
+                                <img src={att.url} alt={att.name} style={{ width: 90, height: 70, objectFit: "cover", borderRadius: 8 }} />
+                                <button className="preview-remove" onClick={() => deleteSavedAttachment(activeSection, att.id)}>✕</button>
                               </div>
                             ) : (
-                              <div
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 8,
-                                  padding: "10px 14px",
-                                  background: "#F8FAFC",
-                                  border: "1px solid #E2E8F0",
-                                  borderRadius: 10,
-                                }}
-                              >
-                                <span style={{ fontSize: 20 }}>📑</span>
-                                <a
-                                  href={att.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  style={{
-                                    fontSize: 12,
-                                    color: "#334155",
-                                    fontWeight: 600,
-                                    maxWidth: 120,
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    whiteSpace: "nowrap",
-                                    textDecoration: "none",
-                                  }}
-                                >
-                                  {att.name}
-                                </a>
-                                <button
-                                  onClick={() =>
-                                    deleteSavedAttachment(activeSection, att.id)
-                                  }
-                                  style={{
-                                    background: "none",
-                                    border: "none",
-                                    color: "#94A3B8",
-                                    cursor: "pointer",
-                                    fontSize: 14,
-                                  }}
-                                >
-                                  ✕
-                                </button>
+                              <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "8px 12px", background: T.bg, borderRadius: 8 }}>
+                                <span style={{ fontSize: 16 }}>📑</span>
+                                <a href={att.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: T.textPrimary, fontWeight: 500, maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: "none" }}>{att.name}</a>
+                                <button onClick={() => deleteSavedAttachment(activeSection, att.id)} style={{ background: "none", border: "none", color: T.textLight, cursor: "pointer", fontSize: 13, padding: 0 }}>✕</button>
                               </div>
                             )}
                           </div>
@@ -1298,92 +747,25 @@ export default function PatientDME() {
                       </div>
                     )}
 
-                    {/* ═══ Pièces jointes locales (en attente d'upload) ═══ */}
+                    {/* Fichiers locaux en attente */}
                     {pendingAttachments.length > 0 && (
-                      <div style={{ marginBottom: 16 }}>
-                        <p
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 600,
-                            color: "#F59E0B",
-                            marginBottom: 8,
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 6,
-                          }}
-                        >
-                          ⏳ En attente de sauvegarde (
-                          {pendingAttachments.length} fichier
-                          {pendingAttachments.length > 1 ? "s" : ""})
+                      <div style={{ marginBottom: 14 }}>
+                        <p style={{ fontSize: 11, fontWeight: 600, color: T.warning, margin: "0 0 8px", display: "flex", alignItems: "center", gap: 5 }}>
+                          ⏳ En attente ({pendingAttachments.length} fichier{pendingAttachments.length > 1 ? "s" : ""})
                         </p>
-                        <div className="attachment-preview">
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                           {pendingAttachments.map((att, idx) => (
-                            <div
-                              key={`local-${idx}`}
-                              className="preview-item"
-                            >
+                            <div key={`local-${idx}`} className="preview-item" style={{ borderStyle: "dashed", borderColor: T.warning }}>
                               {att.type === "image" ? (
                                 <div style={{ position: "relative" }}>
-                                  <img
-                                    src={att.url}
-                                    alt={att.name}
-                                    style={{
-                                      width: 100,
-                                      height: 80,
-                                      objectFit: "cover",
-                                      borderRadius: 10,
-                                      opacity: 0.7,
-                                    }}
-                                  />
-                                  <button
-                                    className="preview-remove"
-                                    onClick={() =>
-                                      removeLocalAttachment(activeSection, idx)
-                                    }
-                                  >
-                                    ✕
-                                  </button>
+                                  <img src={att.url} alt={att.name} style={{ width: 90, height: 70, objectFit: "cover", borderRadius: 8, opacity: 0.75 }} />
+                                  <button className="preview-remove" onClick={() => removeLocalAttachment(activeSection, idx)}>✕</button>
                                 </div>
                               ) : (
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 8,
-                                    padding: "10px 14px",
-                                    background: "#FFFBEB",
-                                    border: "1px dashed #F59E0B",
-                                    borderRadius: 10,
-                                  }}
-                                >
-                                  <span style={{ fontSize: 20 }}>📑</span>
-                                  <span
-                                    style={{
-                                      fontSize: 12,
-                                      color: "#334155",
-                                      fontWeight: 600,
-                                      maxWidth: 120,
-                                      overflow: "hidden",
-                                      textOverflow: "ellipsis",
-                                      whiteSpace: "nowrap",
-                                    }}
-                                  >
-                                    {att.name}
-                                  </span>
-                                  <button
-                                    onClick={() =>
-                                      removeLocalAttachment(activeSection, idx)
-                                    }
-                                    style={{
-                                      background: "none",
-                                      border: "none",
-                                      color: "#94A3B8",
-                                      cursor: "pointer",
-                                      fontSize: 14,
-                                    }}
-                                  >
-                                    ✕
-                                  </button>
+                                <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "8px 12px", background: T.warningLight, borderRadius: 8 }}>
+                                  <span style={{ fontSize: 16 }}>📑</span>
+                                  <span style={{ fontSize: 12, color: T.textPrimary, fontWeight: 500, maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{att.name}</span>
+                                  <button onClick={() => removeLocalAttachment(activeSection, idx)} style={{ background: "none", border: "none", color: T.textLight, cursor: "pointer", fontSize: 13, padding: 0 }}>✕</button>
                                 </div>
                               )}
                             </div>
@@ -1392,105 +774,45 @@ export default function PatientDME() {
                       </div>
                     )}
 
-                    {/* Zone de texte - AUCUN CHAMP OBLIGATOIRE */}
+                    {/* Zone de texte */}
                     <textarea
                       className="dme-textarea"
                       placeholder={`${meta.hint}\n\nSaisissez vos informations ici… (champ optionnel)`}
                       value={editValues[currentSection.id] || ""}
-                      onChange={(e) =>
-                        setEditValues((prev) => ({
-                          ...prev,
-                          [currentSection.id]: e.target.value,
-                        }))
-                      }
+                      onChange={(e) => setEditValues((prev) => ({ ...prev, [currentSection.id]: e.target.value }))}
                       disabled={expired && !dme.is_permanent}
                     />
 
-                    {/* Boutons de sauvegarde par section */}
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "flex-end",
-                        alignItems: "center",
-                        gap: 12,
-                        marginTop: 16,
-                      }}
-                    >
+                    {/* Bouton sauvegarder cette section */}
+                    <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10, marginTop: 14 }}>
                       {saved === currentSection.id && (
-                        <span
-                          style={{
-                            fontSize: 13,
-                            color: "#059669",
-                            fontWeight: 700,
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 6,
-                            animation: "dmeCheck 0.3s ease",
-                          }}
-                        >
-                          ✓ Sauvegardé !
-                        </span>
+                        <span style={{ fontSize: 13, color: T.accentDark, fontWeight: 600 }}>✓ Sauvegardé !</span>
                       )}
                       <button
                         className="save-btn"
                         onClick={() => saveSection(currentSection.id)}
-                        disabled={
-                          saving === currentSection.id ||
-                          (expired && !dme.is_permanent)
-                        }
+                        disabled={saving === currentSection.id || (expired && !dme.is_permanent)}
                       >
-                        {saving === currentSection.id
-                          ? "Sauvegarde…"
-                          : "💾 Sauvegarder cette section"}
+                        🗸 {saving === currentSection.id ? "Sauvegarde…" : "Sauvegarder cette section"}
                       </button>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* ═══════════════════════════════════════════════════════════
-                  BOUTON SAUVEGARDER EN BAS DU FORMULAIRE
-                  ═══════════════════════════════════════════════════════════ */}
-              <div
-                style={{
-                  marginTop: 24,
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  alignItems: "center",
-                  gap: 16,
-                  padding: "20px 0",
-                  borderTop: "2px solid rgba(139,92,246,0.1)",
-                }}
-              >
-                <div style={{ flex: 1 }}>
+              {/* ── BARRE DU BAS ── */}
+              <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 0", borderTop: `1px solid ${T.border}` }}>
+                <div>
                   {saved === "all" && (
-                    <span
-                      style={{
-                        fontSize: 14,
-                        color: "#059669",
-                        fontWeight: 700,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        animation: "dmeCheck 0.3s ease",
-                      }}
-                    >
-                      ✓ Toutes vos informations ont été sauvegardées !
-                    </span>
+                    <span style={{ fontSize: 13, color: T.accentDark, fontWeight: 600 }}>✓ Toutes vos informations ont été sauvegardées !</span>
                   )}
-                  {(Object.keys(localAttachments).length > 0 || 
-                    Object.values(editValues).some(v => v && v.trim().length > 0)) && (
-                    <span
-                      style={{
-                        fontSize: 12,
-                        color: "#F59E0B",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                      }}
-                    >
+                  {saved !== "all" && Object.keys(localAttachments).length > 0 && (
+                    <span style={{ fontSize: 12, color: T.textMuted }}>
                       ⚡ {Object.keys(localAttachments).reduce((acc, key) => acc + (localAttachments[key]?.length || 0), 0)} fichier(s) en attente
                     </span>
+                  )}
+                  {saved !== "all" && Object.keys(localAttachments).length === 0 && (
+                    <span style={{ fontSize: 12, color: T.textLight }}>Modifiez une section puis sauvegardez</span>
                   )}
                 </div>
                 <button
@@ -1498,7 +820,7 @@ export default function PatientDME() {
                   onClick={saveAllSections}
                   disabled={savingAll || (expired && !dme.is_permanent)}
                 >
-                  {savingAll ? "Sauvegarde en cours…" : "💾 Sauvegarder tout le dossier"}
+                  🗸 {savingAll ? "Sauvegarde en cours…" : "Sauvegarder tout le dossier"}
                 </button>
               </div>
             </>
@@ -1506,141 +828,32 @@ export default function PatientDME() {
 
           {/* ── MODAL PARTAGE ── */}
           {shareModal && (
-            <div
-              className="modal-overlay"
-              onClick={() => setShareModal(false)}
-            >
-              <div
-                className="modal-card"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div style={{ textAlign: "center", marginBottom: 28 }}>
-                  <div
-                    style={{
-                      width: 68,
-                      height: 68,
-                      borderRadius: "50%",
-                      background:
-                        "linear-gradient(135deg,#8B5CF6,#10B981)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 30,
-                      margin: "0 auto 16px",
-                    }}
-                  >
-                    🔗
-                  </div>
-                  <h2
-                    style={{
-                      fontFamily: "'Syne',sans-serif",
-                      fontSize: 22,
-                      fontWeight: 800,
-                      color: "#1E293B",
-                      marginBottom: 8,
-                    }}
-                  >
-                    Partage sécurisé
-                  </h2>
-                  <p
-                    style={{
-                      color: "#64748B",
-                      fontSize: 14,
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    Accès{" "}
-                    <strong style={{ color: "#7C3AED" }}>lecture seule</strong>{" "}
-                    ·{" "}
-                    {dme?.is_permanent ? (
-                      <strong style={{ color: "#059669" }}>Permanent</strong>
-                    ) : (
-                      <strong style={{ color: "#7C3AED" }}>
-                        Limité dans le temps
-                      </strong>
-                    )}
+            <div className="modal-overlay" onClick={() => setShareModal(false)}>
+              <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+                <div style={{ textAlign: "center", marginBottom: 24 }}>
+                  <div style={{ width: 56, height: 56, borderRadius: "50%", background: T.accentLight, border: `1px solid rgba(76,175,130,0.2)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, margin: "0 auto 14px" }}>🔗</div>
+                  <h2 style={{ fontFamily: T.fontDisplay, fontSize: 19, fontWeight: 800, color: T.textPrimary, margin: "0 0 6px" }}>Partage sécurisé</h2>
+                  <p style={{ color: T.textMuted, fontSize: 13, lineHeight: 1.6, margin: 0 }}>
+                    Accès lecture seule · {dme?.is_permanent ? "Permanent" : "Limité dans le temps"}
                   </p>
                 </div>
 
-                <div
-                  style={{
-                    background: "#F8FAFC",
-                    border: "1.5px solid #E2E8F0",
-                    borderRadius: 14,
-                    padding: "14px 18px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    marginBottom: 16,
-                  }}
-                >
-                  <span
-                    style={{
-                      flex: 1,
-                      fontSize: 13,
-                      color: "#334155",
-                      wordBreak: "break-all",
-                    }}
-                  >
-                    {shareLink || "Génération…"}
-                  </span>
+                <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                  <span style={{ flex: 1, fontSize: 12, color: T.textPrimary, wordBreak: "break-all" }}>{shareLink || "Génération…"}</span>
                   <button
                     onClick={copyLink}
-                    style={{
-                      padding: "8px 16px",
-                      borderRadius: 10,
-                      border: "none",
-                      background: copied
-                        ? "#10B981"
-                        : "linear-gradient(135deg,#8B5CF6,#10B981)",
-                      color: "white",
-                      fontWeight: 700,
-                      fontSize: 12,
-                      cursor: "pointer",
-                      whiteSpace: "nowrap",
-                      transition: "all 0.2s",
-                      flexShrink: 0,
-                    }}
+                    style={{ padding: "7px 14px", borderRadius: T.radiusSm, border: `1px solid ${copied ? T.accent : T.border}`, background: copied ? T.accentLight : T.surface, color: copied ? T.accentDark : T.textPrimary, fontWeight: 600, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.2s", flexShrink: 0 }}
                   >
                     {copied ? "✓ Copié !" : "📋 Copier"}
                   </button>
                 </div>
 
-                <div
-                  style={{
-                    padding: "12px 16px",
-                    background: "rgba(245,158,11,0.06)",
-                    border: "1px solid rgba(245,158,11,0.2)",
-                    borderRadius: 12,
-                    fontSize: 12,
-                    color: "#92400E",
-                    marginBottom: 20,
-                    display: "flex",
-                    gap: 8,
-                  }}
-                >
+                <div style={{ padding: "10px 14px", background: T.warningLight, border: `1px solid rgba(232,160,32,0.2)`, borderRadius: T.radiusSm, fontSize: 12, color: "#7A5A0A", marginBottom: 20, display: "flex", gap: 7 }}>
                   <span>⚠️</span>
-                  <span>
-                    Ne partagez ce lien qu'avec votre médecin. Toute personne
-                    possédant ce lien peut consulter votre dossier.
-                  </span>
+                  <span>Ne partagez ce lien qu'avec votre médecin. Toute personne possédant ce lien peut consulter votre dossier.</span>
                 </div>
 
-                <button
-                  onClick={() => setShareModal(false)}
-                  style={{
-                    width: "100%",
-                    padding: 14,
-                    borderRadius: 14,
-                    background: "#F1F5F9",
-                    border: "none",
-                    fontFamily: "'DM Sans',sans-serif",
-                    fontWeight: 600,
-                    fontSize: 14,
-                    color: "#334155",
-                    cursor: "pointer",
-                  }}
-                >
+                <button onClick={() => setShareModal(false)} style={{ width: "100%", padding: 12, borderRadius: T.radiusSm, background: T.bg, border: `1px solid ${T.border}`, fontFamily: T.font, fontWeight: 600, fontSize: 14, color: T.textMuted, cursor: "pointer" }}>
                   Fermer
                 </button>
               </div>
@@ -1649,85 +862,20 @@ export default function PatientDME() {
 
           {/* ── MODAL SUPPRESSION ── */}
           {deleteConfirm && (
-            <div
-              className="modal-overlay"
-              onClick={() => setDeleteConfirm(false)}
-            >
-              <div
-                className="modal-card"
-                onClick={(e) => e.stopPropagation()}
-                style={{ maxWidth: 420 }}
-              >
-                <div style={{ textAlign: "center", marginBottom: 24 }}>
-                  <div
-                    style={{
-                      width: 62,
-                      height: 62,
-                      borderRadius: "50%",
-                      background: "rgba(239,68,68,0.08)",
-                      border: "1.5px solid rgba(239,68,68,0.2)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 28,
-                      margin: "0 auto 16px",
-                    }}
-                  >
-                    🗑️
-                  </div>
-                  <h3
-                    style={{
-                      fontFamily: "'Syne',sans-serif",
-                      fontSize: 20,
-                      fontWeight: 800,
-                      color: "#DC2626",
-                      marginBottom: 8,
-                    }}
-                  >
-                    Supprimer le dossier ?
-                  </h3>
-                  <p
-                    style={{
-                      fontSize: 14,
-                      color: "#64748B",
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    Action irréversible. Toutes vos informations médicales
-                    seront définitivement effacées.
+            <div className="modal-overlay" onClick={() => setDeleteConfirm(false)}>
+              <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400 }}>
+                <div style={{ textAlign: "center", marginBottom: 22 }}>
+                  <div style={{ width: 52, height: 52, borderRadius: "50%", background: T.dangerLight, border: `1px solid rgba(224,82,82,0.2)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, margin: "0 auto 14px" }}>🗑️</div>
+                  <h3 style={{ fontFamily: T.fontDisplay, fontSize: 18, fontWeight: 800, color: T.danger, margin: "0 0 8px" }}>Supprimer le dossier ?</h3>
+                  <p style={{ fontSize: 13, color: T.textMuted, lineHeight: 1.6, margin: 0 }}>
+                    Action irréversible. Toutes vos informations médicales seront définitivement effacées.
                   </p>
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
-                  <button
-                    onClick={() => setDeleteConfirm(false)}
-                    style={{
-                      flex: 1,
-                      padding: 14,
-                      borderRadius: 14,
-                      background: "#F1F5F9",
-                      border: "none",
-                      color: "#64748B",
-                      fontFamily: "'DM Sans',sans-serif",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                    }}
-                  >
+                  <button onClick={() => setDeleteConfirm(false)} style={{ flex: 1, padding: 12, borderRadius: T.radiusSm, background: T.bg, border: `1px solid ${T.border}`, color: T.textMuted, fontFamily: T.font, fontWeight: 600, cursor: "pointer" }}>
                     Annuler
                   </button>
-                  <button
-                    onClick={deleteDossier}
-                    style={{
-                      flex: 1,
-                      padding: 14,
-                      borderRadius: 14,
-                      background: "rgba(239,68,68,0.1)",
-                      border: "1.5px solid rgba(239,68,68,0.25)",
-                      color: "#DC2626",
-                      fontFamily: "'DM Sans',sans-serif",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                    }}
-                  >
+                  <button onClick={deleteDossier} style={{ flex: 1, padding: 12, borderRadius: T.radiusSm, background: T.dangerLight, border: `1px solid rgba(224,82,82,0.25)`, color: T.danger, fontFamily: T.font, fontWeight: 700, cursor: "pointer" }}>
                     Supprimer
                   </button>
                 </div>
@@ -1739,4 +887,3 @@ export default function PatientDME() {
     </PrivateRoute>
   );
 }
->>>>>>> 796b3dadf14987e05ba52c2df74edd28a6437504

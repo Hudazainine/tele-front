@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../../context/AuthContext";
@@ -6,6 +7,27 @@ import Sidebar from "../../../../components/Sidebar";
 import Navbar from "../../../../components/Navbar";
 import PrivateRoute from "../../../../components/PrivateRoute";
 import api from "../../../../lib/api";
+
+// ─────────────────────────────────────────────────────────────
+// IMPORTS LUCIDE ICONS
+// ─────────────────────────────────────────────────────────────
+import {
+  Search,
+  X,
+  Calendar,
+  Activity,
+  List,
+  Clock,
+  CheckCircle,
+  XCircle,
+  Plus,
+  Loader2,
+  Save,
+  Stethoscope,
+  FileText,
+  Edit,
+  Eye,
+} from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────
 // TYPES
@@ -30,57 +52,82 @@ interface Controle {
 }
 
 type FilterType = "tous" | "paye" | "non_paye";
+type ModalType = "view" | "edit" | "new" | null;
 
 // ─────────────────────────────────────────────────────────────
 // CONFIG
 // ─────────────────────────────────────────────────────────────
 
 const TYPES_CONTROLE = [
-  { value: "tension_arterielle", label: "Tension artérielle", icon: "🩺" },
-  { value: "glycemie", label: "Glycémie", icon: "🩸" },
-  { value: "poids_taille", label: "Poids & Taille", icon: "⚖️" },
-  { value: "electrocardiogramme", label: "Électrocardiogramme", icon: "💓" },
-  { value: "bilan_sanguin", label: "Bilan sanguin", icon: "🔬" },
-  { value: "radiologie", label: "Radiologie", icon: "🩻" },
-  { value: "echographie", label: "Échographie", icon: "📡" },
-  { value: "spirometrie", label: "Spirométrie", icon: "🫁" },
-  { value: "fond_oeil", label: "Fond d'œil", icon: "👁️" },
-  { value: "autre", label: "Autre", icon: "📋" },
+  {
+    value: "tension_arterielle",
+    label: "Tension artérielle",
+    icon: Stethoscope,
+  },
+  { value: "glycemie", label: "Glycémie", icon: Activity },
+  { value: "poids_taille", label: "Poids & Taille", icon: Activity }, // Approximation icône
+  {
+    value: "electrocardiogramme",
+    label: "Électrocardiogramme",
+    icon: Activity,
+  },
+  { value: "bilan_sanguin", label: "Bilan sanguin", icon: Activity },
+  { value: "radiologie", label: "Radiologie", icon: FileText },
+  { value: "echographie", label: "Échographie", icon: FileText },
+  { value: "spirometrie", label: "Spirométrie", icon: Activity },
+  { value: "fond_oeil", label: "Fond d'œil", icon: Eye },
+  { value: "autre", label: "Autre", icon: FileText },
 ];
 
-// ─────────────────────────────────────────────────────────────
-// MODAL CRÉATION
-// ─────────────────────────────────────────────────────────────
+const typeConfig: Record<
+  string,
+  { label: string; color: string; bg: string; icon: any }
+> = TYPES_CONTROLE.reduce(
+  (acc, curr) => {
+    acc[curr.value] = {
+      label: curr.label,
+      color: "#64748b",
+      bg: "#F1F5F9",
+      icon: curr.icon,
+    };
+    return acc;
+  },
+  {} as Record<string, any>,
+);
 
-function ModalCreerControle({
+// ─────────────────────────────────────────────────────────────
+// MODALE NOUVEAU (Style Centré Fichier Certificats)
+// ─────────────────────────────────────────────────────────────
+function NewControleModal({
   patients,
   onClose,
-  onCreated,
+  onSave,
 }: {
   patients: Patient[];
   onClose: () => void;
-  onCreated: (c: Controle) => void;
+  onSave: (c: Controle) => void;
 }) {
   const [patientId, setPatientId] = useState("");
   const [typeControle, setTypeControle] = useState("");
   const [dateControle, setDateControle] = useState(
-    new Date().toISOString().split("T")[0]
+    new Date().toISOString().split("T")[0],
   );
   const [statutPaiement, setStatutPaiement] = useState<"paye" | "non_paye">(
-    "non_paye"
+    "non_paye",
   );
   const [notes, setNotes] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
     if (!patientId || !typeControle || !dateControle) {
-      setError("Veuillez remplir tous les champs obligatoires.");
+      setErrorMsg("Veuillez remplir tous les champs obligatoires.");
+      setSaving(false);
       return;
     }
-    setIsSubmitting(true);
-    setError("");
+    setSaving(true);
     try {
       const res = await api.post("controles/", {
         patient: parseInt(patientId),
@@ -89,18 +136,15 @@ function ModalCreerControle({
         statut_paiement: statutPaiement,
         notes: notes.trim() || undefined,
       });
-      onCreated(res.data);
+      onSave(res.data);
       onClose();
     } catch (err: any) {
-      setError(
-        err.response?.data
-          ? typeof err.response.data === "object"
-            ? JSON.stringify(err.response.data)
-            : err.response.data
-          : "Erreur de connexion au serveur."
+      const d = err?.response?.data;
+      setErrorMsg(
+        typeof d === "object" ? JSON.stringify(d) : "Erreur serveur.",
       );
     } finally {
-      setIsSubmitting(false);
+      setSaving(false);
     }
   };
 
@@ -108,90 +152,32 @@ function ModalCreerControle({
     `${p.first_name || ""} ${p.last_name || ""}`.trim() || p.username;
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(15, 10, 40, 0.55)",
-        backdropFilter: "blur(6px)",
-        zIndex: 1000,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 24,
-        animation: "fadeIn 0.2s ease",
-      }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div
-        style={{
-          background: "white",
-          borderRadius: 28,
-          padding: 36,
-          width: "100%",
-          maxWidth: 560,
-          maxHeight: "90vh",
-          overflowY: "auto",
-          boxShadow: "0 25px 60px rgba(139, 92, 246, 0.25)",
-          animation: "slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
-        }}
-      >
-        {/* En-tête modal */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 28,
-          }}
-        >
+    <div className="overlay" onClick={onClose}>
+      <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
           <div>
-            <h2
-              style={{
-                fontFamily: "'Syne', sans-serif",
-                fontSize: 22,
-                fontWeight: 800,
-                color: "#1e1b4b",
-                margin: 0,
-              }}
-            >
-              Nouveau Contrôle
-            </h2>
-            <p style={{ color: "#94a3b8", fontSize: 13, marginTop: 4 }}>
-              Créer un contrôle pour un patient
-            </p>
+            <div className="modal-title">Nouveau Contrôle</div>
+            <div className="modal-sub">Enregistrer un examen</div>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 10,
-              border: "1px solid #e2e8f0",
-              background: "#f8fafc",
-              cursor: "pointer",
-              fontSize: 18,
-              color: "#64748b",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            ×
+          <button className="modal-close" onClick={onClose}>
+            <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          {/* Patient */}
-          <div style={{ marginBottom: 20 }}>
-            <label className="form-label">
-              Patient <span style={{ color: "#EF4444" }}>*</span>
-            </label>
+        <form onSubmit={handleSave} className="modal-body">
+          {errorMsg && (
+            <div className="error-box">
+              <X size={16} />
+              {errorMsg}
+            </div>
+          )}
+
+          <div className="form-group">
+            <label className="form-label">Patient</label>
             <select
               className="form-select"
               value={patientId}
               onChange={(e) => setPatientId(e.target.value)}
-              required
             >
               <option value="">Sélectionner un patient...</option>
               {patients.map((p) => (
@@ -202,209 +188,325 @@ function ModalCreerControle({
             </select>
           </div>
 
-          {/* Type de contrôle */}
-          <div style={{ marginBottom: 20 }}>
-            <label className="form-label">
-              Type de contrôle <span style={{ color: "#EF4444" }}>*</span>
-            </label>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(2, 1fr)",
-                gap: 10,
-              }}
+          <div className="form-group">
+            <label className="form-label">Type de contrôle</label>
+            <select
+              className="form-select"
+              value={typeControle}
+              onChange={(e) => setTypeControle(e.target.value)}
             >
+              <option value="">Sélectionner le type...</option>
               {TYPES_CONTROLE.map((t) => (
-                <button
-                  key={t.value}
-                  type="button"
-                  onClick={() => setTypeControle(t.value)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    padding: "10px 14px",
-                    borderRadius: 12,
-                    border:
-                      typeControle === t.value
-                        ? "2px solid #8B5CF6"
-                        : "1px solid rgba(0,0,0,0.07)",
-                    background:
-                      typeControle === t.value
-                        ? "rgba(139, 92, 246, 0.07)"
-                        : "rgba(248, 250, 252, 0.8)",
-                    cursor: "pointer",
-                    fontSize: 13,
-                    fontWeight: typeControle === t.value ? 700 : 500,
-                    color: typeControle === t.value ? "#7c3aed" : "#475569",
-                    fontFamily: "inherit",
-                    transition: "all 0.2s",
-                    textAlign: "left",
-                  }}
-                >
-                  <span style={{ fontSize: 16 }}>{t.icon}</span>
-                  <span style={{ lineHeight: 1.3 }}>{t.label}</span>
-                </button>
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
               ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Date</label>
+            <div style={{ position: "relative" }}>
+              <Calendar
+                size={18}
+                color="#94a3b8"
+                style={{
+                  position: "absolute",
+                  left: 12,
+                  top: 12,
+                  pointerEvents: "none",
+                }}
+              />
+              <input
+                type="date"
+                className="form-input"
+                style={{ paddingLeft: "40px" }}
+                value={dateControle}
+                onChange={(e) => setDateControle(e.target.value)}
+              />
             </div>
           </div>
 
-          {/* Date */}
-          <div style={{ marginBottom: 20 }}>
-            <label className="form-label">
-              Date du contrôle <span style={{ color: "#EF4444" }}>*</span>
-            </label>
-            <input
-              type="date"
-              className="form-input"
-              value={dateControle}
-              onChange={(e) => setDateControle(e.target.value)}
-              required
-            />
-          </div>
-
-          {/* Statut Paiement */}
-          <div style={{ marginBottom: 20 }}>
-            <label className="form-label">Statut du paiement</label>
-            <div style={{ display: "flex", gap: 12 }}>
-              {[
-                {
-                  val: "non_paye" as const,
-                  label: "Non payé",
-                  color: "#D97706",
-                  bg: "#FFFBEB",
-                  border: "#FDE68A",
-                  icon: "⏳",
-                },
-                {
-                  val: "paye" as const,
-                  label: "Payé",
-                  color: "#059669",
-                  bg: "#ECFDF5",
-                  border: "#A7F3D0",
-                  icon: "✅",
-                },
-              ].map((opt) => (
-                <button
-                  key={opt.val}
-                  type="button"
-                  onClick={() => setStatutPaiement(opt.val)}
-                  style={{
-                    flex: 1,
-                    padding: "12px",
-                    borderRadius: 14,
-                    border:
-                      statutPaiement === opt.val
-                        ? `2px solid ${opt.color}`
-                        : `1px solid ${opt.border}`,
-                    background:
-                      statutPaiement === opt.val ? opt.bg : "transparent",
-                    color: opt.color,
-                    fontWeight: 700,
-                    fontSize: 14,
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                    transition: "all 0.2s",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                    boxShadow:
-                      statutPaiement === opt.val
-                        ? `0 4px 12px ${opt.color}22`
-                        : "none",
-                  }}
-                >
-                  <span>{opt.icon}</span> {opt.label}
-                </button>
-              ))}
+          <div className="form-group">
+            <label className="form-label">Statut Paiement</label>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => setStatutPaiement("non_paye")}
+                className={`paye-btn ${statutPaiement === "non_paye" ? "active" : ""}`}
+              >
+                <XCircle size={16} /> Non payé
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatutPaiement("paye")}
+                className={`paye-btn ${statutPaiement === "paye" ? "active" : ""}`}
+              >
+                <CheckCircle size={16} /> Payé
+              </button>
             </div>
           </div>
 
-          {/* Notes */}
-          <div style={{ marginBottom: 24 }}>
-            <label className="form-label">Notes (optionnel)</label>
+          <div className="form-group">
+            <label className="form-label">Notes</label>
             <textarea
-              className="form-input"
+              className="form-textarea"
+              placeholder="Observations..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Observations, résultats, remarques..."
-              rows={3}
-              maxLength={500}
-              style={{ resize: "vertical", minHeight: 80 }}
             />
           </div>
-
-          {error && (
-            <div
-              style={{
-                background: "rgba(239, 68, 68, 0.08)",
-                border: "1px solid rgba(239, 68, 68, 0.2)",
-                borderRadius: 12,
-                padding: "12px 16px",
-                color: "#DC2626",
-                fontSize: 13,
-                fontWeight: 600,
-                marginBottom: 20,
-              }}
-            >
-              {error}
-            </div>
-          )}
-
-          {/* Actions */}
-          <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                padding: "12px 24px",
-                borderRadius: 14,
-                border: "1px solid #e2e8f0",
-                background: "white",
-                color: "#64748b",
-                fontWeight: 600,
-                fontSize: 14,
-                cursor: "pointer",
-                fontFamily: "inherit",
-              }}
-            >
-              Annuler
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              style={{
-                padding: "12px 28px",
-                borderRadius: 14,
-                border: "none",
-                background: isSubmitting
-                  ? "#c4b5fd"
-                  : "linear-gradient(135deg, #8B5CF6, #06C98B)",
-                color: "white",
-                fontWeight: 700,
-                fontSize: 14,
-                cursor: isSubmitting ? "not-allowed" : "pointer",
-                fontFamily: "inherit",
-                boxShadow: isSubmitting
-                  ? "none"
-                  : "0 8px 20px rgba(139, 92, 246, 0.3)",
-                transition: "all 0.2s",
-              }}
-            >
-              {isSubmitting ? "Enregistrement..." : "Créer le contrôle"}
-            </button>
-          </div>
         </form>
+
+        <div className="modal-footer">
+          <button
+            type="button"
+            className="btn-cancel"
+            onClick={onClose}
+            disabled={saving}
+          >
+            Annuler
+          </button>
+          <button
+            type="submit"
+            className="btn-save"
+            disabled={saving}
+            onClick={(e) => {
+              const form = document.querySelector("form") as HTMLFormElement;
+              if (form) form.requestSubmit();
+            }}
+          >
+            {saving ? (
+              <>
+                <Loader2 size={18} className="spin" /> Enregistrement...
+              </>
+            ) : (
+              <>
+                <Save size={18} /> Créer
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────
+// PANEL VISUALISATION (Style Fichier Certificats)
+// ─────────────────────────────────────────────────────────────
+function ViewPanel({
+  controle,
+  onClose,
+  onEdit,
+}: {
+  controle: Controle;
+  onClose: () => void;
+  onEdit: () => void;
+}) {
+  const config = typeConfig[controle.type_controle] || {
+    label: controle.type_controle,
+    color: "#64748b",
+    bg: "#F1F5F9",
+    icon: Activity,
+  };
+  const IconComponent = config.icon;
+  const isPaye = controle.statut_paiement === "paye";
+
+  return (
+    <>
+      <div className="panel-header">
+        <div>
+          <div className="panel-title">Détail du Contrôle</div>
+          <div className="panel-sub">Référence #{controle.id}</div>
+        </div>
+        <button className="panel-close" onClick={onClose}>
+          ✕
+        </button>
+      </div>
+      <div className="panel-body">
+        <div
+          className="pt-badge"
+          style={{ background: config.bg, border: `1px solid ${config.bg}` }}
+        >
+          <div
+            className="pt-avatar"
+            style={{ background: "#8B5CF6", color: "#fff" }}
+          >
+            <IconComponent size={20} />
+          </div>
+          <div>
+            <div className="pt-name">{controle.patient_name || "Inconnu"}</div>
+            <div
+              className="pt-dr"
+              style={{ color: "#8B5CF6", fontWeight: 600 }}
+            >
+              {config.label}
+            </div>
+          </div>
+        </div>
+        <div className="info-row">
+          <span className="info-key">📅 Date</span>
+          <span className="info-val">
+            {new Date(controle.date_controle).toLocaleDateString("fr-FR")}
+          </span>
+        </div>
+        <div className="info-row">
+          <span className="info-key">💰 Paiement</span>
+          <span
+            className="info-val"
+            style={{ color: isPaye ? "#059669" : "#D97706", fontWeight: 700 }}
+          >
+            {isPaye ? "Payé" : "Non payé"}
+          </span>
+        </div>
+        <div>
+          <div className="section-label">📋 Notes</div>
+          <div className="notes-content">
+            {controle.notes || (
+              <span className="empty-notes">Aucune note.</span>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="panel-footer">
+        <button className="btn-panel-cancel" onClick={onClose}>
+          Fermer
+        </button>
+        <button className="btn-panel-edit" onClick={onEdit}>
+          ✏️ Modifier
+        </button>
+      </div>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// PANEL MODIFICATION
+// ─────────────────────────────────────────────────────────────
+function EditPanel({
+  controle,
+  onClose,
+  onSave,
+}: {
+  controle: Controle;
+  onClose: () => void;
+  onSave: (updated: Controle) => void;
+}) {
+  const [notes, setNotes] = useState(controle.notes || "");
+  const [dateControle, setDateControle] = useState(
+    controle.date_controle?.slice(0, 10) || "",
+  );
+  const [statutPaiement, setStatutPaiement] = useState<"paye" | "non_paye">(
+    controle.statut_paiement,
+  );
+  const [saving, setSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    setErrorMsg(null);
+    setSaving(true);
+    try {
+      await api.patch(`controles/${controle.id}/`, {
+        notes: notes.trim(),
+        date_controle: dateControle,
+        statut_paiement: statutPaiement,
+      });
+      onSave({
+        ...controle,
+        notes: notes.trim(),
+        date_controle: dateControle,
+        statut_paiement: statutPaiement,
+      });
+    } catch (err: any) {
+      const d = err?.response?.data;
+      setErrorMsg(
+        typeof d === "object" ? JSON.stringify(d) : "Erreur serveur.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="panel-header">
+        <div>
+          <div className="panel-title">Modifier le contrôle</div>
+          <div className="panel-sub">Référence #{controle.id}</div>
+        </div>
+        <button className="panel-close" onClick={onClose}>
+          ✕
+        </button>
+      </div>
+      <div className="panel-body">
+        {errorMsg && <div className="panel-err">⚠️ {errorMsg}</div>}
+        <div className="pt-badge">
+          <div className="pt-avatar">
+            {controle.patient_name?.charAt(0)?.toUpperCase() || "?"}
+          </div>
+          <span className="pt-name">{controle.patient_name || "—"}</span>
+        </div>
+
+        <div className="panel-field">
+          <label>Date du contrôle</label>
+          <input
+            type="date"
+            value={dateControle}
+            onChange={(e) => setDateControle(e.target.value)}
+          />
+        </div>
+
+        <div className="panel-field">
+          <label>Statut Paiement</label>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              type="button"
+              onClick={() => setStatutPaiement("non_paye")}
+              className={`paye-btn ${statutPaiement === "non_paye" ? "active" : ""}`}
+              style={{ flex: 1, padding: 10 }}
+            >
+              <XCircle size={16} /> Non payé
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatutPaiement("paye")}
+              className={`paye-btn ${statutPaiement === "paye" ? "active" : ""}`}
+              style={{ flex: 1, padding: 10 }}
+            >
+              <CheckCircle size={16} /> Payé
+            </button>
+          </div>
+        </div>
+
+        <div className="panel-field">
+          <label>Notes</label>
+          <textarea
+            rows={6}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="panel-footer">
+        <button className="btn-panel-cancel" onClick={onClose}>
+          Annuler
+        </button>
+        <button
+          className="btn-panel-save"
+          onClick={handleSave}
+          disabled={saving}
+        >
+          {saving ? "Sauvegarde…" : "✓ Enregistrer"}
+        </button>
+      </div>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // PAGE PRINCIPALE
 // ─────────────────────────────────────────────────────────────
-
 export default function MedecinControles() {
   const { token, isLoading } = useAuth();
   const router = useRouter();
@@ -420,33 +522,45 @@ export default function MedecinControles() {
     ordonnances: 0,
   });
 
+  const [panelType, setPanelType] = useState<ModalType>(null);
+  const [selectedControle, setSelectedControle] = useState<Controle | null>(
+    null,
+  );
+
+  const fetchData = () => {
+    setLoading(true);
+    api
+      .get("controles/")
+      .then((r) => setControles(r.data.results || r.data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+
+    api
+      .get("patients/")
+      .then((r) => setPatients(r.data.results || r.data))
+      .catch(() => {});
+
+    Promise.all([
+      api.get("rendezvous/").catch(() => ({ data: [] })),
+      api.get("consultations/").catch(() => ({ data: [] })),
+      api.get("ordonnances/").catch(() => ({ data: [] })),
+    ]).then(([rv, co, or]) =>
+      setStats({
+        rendezvous: rv.data.results?.length ?? rv.data.length ?? 0,
+        consultations: co.data.results?.length ?? co.data.length ?? 0,
+        ordonnances: or.data.results?.length ?? or.data.length ?? 0,
+      }),
+    );
+  };
+
   useEffect(() => {
     if (isLoading) return;
-    if (!token) { router.push("/login"); return; }
-
-    const fetchAll = () => {
-      api.get("controles/")
-        .then((r) => setControles(r.data.results || r.data))
-        .catch(() => {})
-        .finally(() => setLoading(false));
-
-      api.get("patients/").then((r) => setPatients(r.data.results || r.data)).catch(() => {});
-
-      Promise.all([
-        api.get("rendezvous/").catch(() => ({ data: [] })),
-        api.get("consultations/").catch(() => ({ data: [] })),
-        api.get("ordonnances/").catch(() => ({ data: [] })),
-      ]).then(([rv, co, or]) =>
-        setStats({
-          rendezvous: rv.data.results?.length ?? rv.data.length ?? 0,
-          consultations: co.data.results?.length ?? co.data.length ?? 0,
-          ordonnances: or.data.results?.length ?? or.data.length ?? 0,
-        })
-      );
-    };
-
-    fetchAll();
-    const interval = setInterval(fetchAll, 15000);
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+    fetchData();
+    const interval = setInterval(fetchData, 15000);
     return () => clearInterval(interval);
   }, [token, isLoading]);
 
@@ -461,326 +575,324 @@ export default function MedecinControles() {
     .sort(
       (a, b) =>
         new Date(b.date_controle).getTime() -
-        new Date(a.date_controle).getTime()
+        new Date(a.date_controle).getTime(),
     );
 
   const getTypeLabel = (val: string) =>
     TYPES_CONTROLE.find((t) => t.value === val)?.label ?? val;
-  const getTypeIcon = (val: string) =>
-    TYPES_CONTROLE.find((t) => t.value === val)?.icon ?? "📋";
 
-  const totalPaye = controles.filter((c) => c.statut_paiement === "paye").length;
-  const totalNonPaye = controles.filter((c) => c.statut_paiement === "non_paye").length;
+  const openNew = () => {
+    setPanelType("new");
+    setShowModal(true);
+  };
+  const openView = (c: Controle) => {
+    setSelectedControle(c);
+    setPanelType("view");
+  };
+  const openEdit = (c: Controle) => {
+    setSelectedControle(c);
+    setPanelType("edit");
+  };
+  const closeAll = () => {
+    setPanelType(null);
+    setSelectedControle(null);
+    setShowModal(false);
+  };
 
-  const filters: { key: FilterType; label: string; count: number }[] = [
-    { key: "tous", label: "Tous", count: controles.length },
-    { key: "paye", label: "Payés", count: totalPaye },
-    { key: "non_paye", label: "Non payés", count: totalNonPaye },
+  const filters: { key: FilterType; label: string; icon: any }[] = [
+    { key: "tous", label: "Tous", icon: List },
+    { key: "paye", label: "Payés", icon: CheckCircle },
+    { key: "non_paye", label: "Non payés", icon: XCircle },
   ];
 
   return (
     <PrivateRoute allowedRoles={["medecin"]}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght:700;800&family=DM+Sans:wght:400;500;600&display=swap');
+        *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+        
+        @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
 
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(30px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .root  { min-height:100vh; background:#F4F2F9; font-family:'DM Sans',sans-serif; display:flex; }
+        .main  { margin-left:260px; flex:1; padding:2rem 2.5rem; padding-top:calc(70px + 2.5rem); animation:fadeUp .4s ease; }
 
-        .main-gradient-bg {
-          background: linear-gradient(135deg, #FDF4FF 0%, #ECFDF5 100%);
-          min-height: 100vh;
-        }
-        .text-gradient {
-          background: linear-gradient(135deg, #8B5CF6, #10B981);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-        .glass-card {
-          background: rgba(255, 255, 255, 0.75);
-          backdrop-filter: blur(12px);
-          border: 1px solid rgba(255, 255, 255, 0.9);
-          border-radius: 24px;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
-        }
-        .filter-btn {
-          padding: 9px 18px;
-          border-radius: 14px;
-          font-family: 'DM Sans', sans-serif;
-          font-size: 13px;
-          font-weight: 600;
-          border: 1px solid rgba(0,0,0,0.06);
-          background: rgba(255,255,255,0.6);
-          color: #64748b;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-        .filter-btn:hover { background: rgba(139, 92, 246, 0.05); color: #334155; border-color: rgba(139, 92, 246, 0.2); }
+        .page-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:28px; }
+        .page-title  { font-family:'Syne',sans-serif; font-size:28px; font-weight:800; background: linear-gradient(135deg, #8B5CF6, #10B981); -webkit-background-clip: text; color: transparent; }
+        .page-sub    { font-size:13px; color:#64748b; margin-top:6px; }
+
+        .btn-new { background:linear-gradient(135deg, #8B5CF6, #7C3AED); border:none; border-radius:14px; color:#fff; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; padding:12px 22px; cursor:pointer; transition:all .2s; display:flex; align-items:center; gap:8px; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25); }
+        .btn-new:hover { transform:translateY(-2px); box-shadow: 0 6px 16px rgba(124, 58, 237, 0.35); }
+
+        /* Search & Filters */
+        .search-container { background: white; border: 1px solid #EAE8F5; border-radius: 14px; padding: 8px 16px; display: flex; align-items: center; gap: 12px; transition: all 0.2s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+        .search-container:focus-within { border-color: #8B5CF6; box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1); }
+        .search-input { flex: 1; border: none; background: transparent; font-family: 'DM Sans', sans-serif; font-size: 14px; color: #1e1b4b; outline: none; }
+        
+        .filter-btn { padding: 10px 18px; border-radius: 14px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; border: 1px solid rgba(0,0,0,0.06); background: rgba(255,255,255,0.6); color: #64748b; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; gap: 8px; }
+        .filter-btn:hover { background: rgba(139, 92, 246, 0.05); color: #334155; border-color: rgba(139, 92, 246, 0.2); transform: translateY(-1px); }
         .filter-btn.active { background: linear-gradient(135deg, #8B5CF6, #10B981); color: white; border-color: transparent; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.35); }
 
-        .controle-card {
-          position: relative;
-          background: rgba(255, 255, 255, 0.88);
-          backdrop-filter: blur(8px);
-          border: 1px solid rgba(0,0,0,0.05);
-          border-radius: 22px;
-          padding: 22px;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          overflow: hidden;
-        }
-        .controle-card:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 16px 32px -10px rgba(139, 92, 246, 0.18);
-          border-color: rgba(139, 92, 246, 0.18);
-        }
-        .controle-card::before {
-          content: '';
-          position: absolute;
-          left: 0; top: 0; bottom: 0;
-          width: 5px;
-          background: linear-gradient(180deg, #8B5CF6, #10B981);
-          border-radius: 5px 0 0 5px;
-        }
+        /* Table Style */
+        .table-card { background:#fff; border-radius:20px; border:1px solid #EAE8F5; overflow:hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+        .table-head { display:grid; grid-template-columns:2fr 1.5fr 1.2fr 2fr 1fr; padding:14px 24px; background:#FAFAFE; border-bottom:1px solid #EAE8F5; }
+        .th { font-size:11px; font-weight:700; color:#8B5CF6; text-transform:uppercase; letter-spacing:.6px; }
+        .table-row { display:grid; grid-template-columns:2fr 1.5fr 1.2fr 2fr 1fr; padding:16px 24px; border-bottom:1px solid #F4F2F9; align-items:center; transition:background .15s; }
+        .table-row:last-child { border-bottom:none; }
+        .table-row:hover { background:#F8FAFC; }
 
-        .form-label {
-          display: block;
-          font-size: 12px;
-          font-weight: 700;
-          color: #334155;
-          margin-bottom: 8px;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-        .form-input, .form-select {
-          width: 100%;
-          padding: 11px 16px;
-          background: rgba(248, 250, 252, 0.9);
-          border: 1px solid rgba(0,0,0,0.07);
-          border-radius: 12px;
-          font-size: 14px;
-          font-family: 'DM Sans', sans-serif;
-          color: #334155;
-          outline: none;
-          transition: all 0.3s ease;
-          box-sizing: border-box;
-          appearance: none;
-        }
-        .form-input:focus, .form-select:focus {
-          border-color: #8B5CF6;
-          box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.08);
-          background: white;
-        }
+        .td-name { display:flex; align-items:center; gap:12px; font-size:14px; font-weight:600; color:#1e1b4b; }
+        .avatar  { width:36px; height:36px; border-radius:12px; background:linear-gradient(135deg, #F3E8FF, #D1FAE5); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color: #7C3AED; flex-shrink:0; }
+        .td-date { font-size:13px; color:#64748b; font-weight: 500; }
+        .td-objet { font-size:12px; color:#8A87A0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-right:12px; }
+        
+        .type-badge { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:12px; font-size:11px; font-weight:700; background:#F1F5F9; color:#64748b; }
+        .paye-badge { display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:12px; font-size:11px; font-weight:700; }
+        .paye-badge.paye { background:#ECFDF5; color:#047857; }
+        .paye-badge.non { background:#FFFBEB; color:#D97706; }
 
-        .stat-mini {
-          background: rgba(255, 255, 255, 0.8);
-          border: 1px solid rgba(255, 255, 255, 0.95);
-          border-radius: 20px;
-          padding: 20px 24px;
-          display: flex;
-          align-items: center;
-          gap: 16px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-        }
+        .action-btn { display:inline-flex; align-items:center; gap:6px; background:#F0EEF9; color:#7C3AED; font-size:11px; font-weight:700; padding:6px 12px; border-radius:20px; cursor:pointer; transition:all .2s; border:none; font-family:'DM Sans',sans-serif; }
+        .action-btn:hover { background:#8B5CF6; color: white; transform: translateY(-1px); }
+
+        .empty { text-align:center; padding:60px 20px; color:#8A87A0; }
+
+        /* Panel / Modal Styles (From Certificats) */
+        .overlay { position:fixed; inset:0; background:rgba(0,0,0,0.35); display:flex; align-items:center; justify-content:center; z-index:200; }
+        .panel   { width:520px; height:90vh; background:#fff; border:1px solid #EAE8F5; display:flex; flex-direction:column; overflow-y:auto; animation:slideIn .25s ease; border-radius:20px; }
+        @keyframes slideIn { from{transform:translateX(60px);opacity:0} to{transform:translateX(0);opacity:1} }
+
+        .modal-panel { width: 100%; max-width: 480px; background:#fff; border-radius: 24px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); display:flex; flex-direction:column; max-height: 90vh; overflow: hidden; animation: popIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes popIn { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+        .panel-header, .modal-header { padding:18px 22px; border-bottom:1px solid #F0EEF9; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; background:#fff; z-index:1; }
+        .modal-header { padding:24px 28px; }
+        .panel-title, .modal-title  { font-family:'Syne',sans-serif; font-size:16px; font-weight:800; color:#1C1040; }
+        .modal-title  { font-size:20px; background: linear-gradient(135deg, #8B5CF6, #6366f1); -webkit-background-clip: text; color: transparent; }
+        .panel-sub, .modal-sub    { font-size:12px; color:#8A87A0; margin-top:2px; }
+        .panel-close, .modal-close  { width:32px; height:32px; border-radius:50%; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#F1F5F9; color:#64748b; transition:all .2s; }
+        .panel-close:hover, .modal-close:hover { background:#E2E8F0; color:#EF4444; }
+
+        .panel-body, .modal-body   { padding:22px; flex:1; display:flex; flex-direction:column; gap:18px; overflow-y:auto; }
+        .modal-body { padding:24px 28px; gap:20px; }
+
+        .pt-badge     { display:flex; align-items:center; gap:10px; border-radius:12px; padding:12px 16px; }
+        .pt-avatar    { width:40px; height:40px; border-radius:50%; color:#fff; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:700; flex-shrink:0; }
+        .pt-name      { font-size:15px; font-weight:700; color:#3C3489; }
+        .pt-dr        { font-size:12px; color:#8A87A0; margin-top:2px; }
+        
+        .section-label{ font-size:11px; font-weight:700; color:#8A87A0; text-transform:uppercase; letter-spacing:.7px; margin-bottom:6px; }
+        .notes-content{ background:#FAFAFE; border:1px solid #EAE8F5; border-radius:12px; padding:14px; font-size:14px; line-height:1.7; color:#1C1040; white-space:pre-wrap; }
+        .empty-notes  { color:#C4C0D8; font-style:italic; }
+        .info-row     { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #F4F2F9; font-size:13px; }
+        .info-key     { color:#8A87A0; }
+        .info-val     { font-weight:600; color:#1C1040; text-align:right; max-width:60%; }
+
+        .panel-field  { display:flex; flex-direction:column; gap:5px; }
+        .form-group { display:flex; flex-direction:column; gap:8px; }
+        .form-label  { font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-left: 2px; }
+        .form-input, .form-select, .form-textarea, .panel-field input, .panel-field textarea { width:100%; padding:10px 12px; font-family:'DM Sans',sans-serif; font-size:13px; color:#1C1040; background:#FAFAFE; border:1px solid #E5E2F5; border-radius:10px; outline:none; transition:all .2s; }
+        .form-input, .form-select, .form-textarea { background:#F8FAFC; border-color: #E2E8F0; font-size: 14px; padding: 12px 14px; }
+        
+        .form-input:focus, .form-select:focus, .form-textarea:focus, .panel-field input:focus, .panel-field textarea:focus { border-color:#534AB7; background:#fff; box-shadow:0 0 0 3px rgba(83,74,183,.1); }
+        .panel-field textarea, .form-textarea { resize:vertical; line-height:1.6; }
+
+        .paye-btn { flex:1; padding:10px; border-radius:12px; border:1px solid #E2E8F0; background: white; color:#64748b; cursor:pointer; font-weight:600; display:flex; align-items:center; justify-content:center; gap:6px; transition:all .2s; font-family:'DM Sans',sans-serif; font-size:13px; }
+        .paye-btn.active { border-color: #8B5CF6; background: #F5F3FF; color: #7C3AED; box-shadow: 0 0 0 2px rgba(139,92,246,0.1); }
+
+        .panel-err, .error-box { background:#FEF2F2; border:1px solid #FCA5A5; border-radius:10px; padding:10px 14px; color:#DC2626; font-size:12px; font-weight:600; display:flex; align-items:center; gap:8px; }
+        .error-box { font-size: 13px; padding: 12px 14px; }
+
+        .panel-footer, .modal-footer { padding:14px 22px; background:#FAFAFE; border-top:1px solid #F0EEF9; display:flex; gap:10px; position:sticky; bottom:0; }
+        .modal-footer { padding:20px 28px; }
+        
+        .btn-panel-cancel, .btn-cancel { flex:1; padding:10px; background:#fff; border:1px solid #E5E2F5; border-radius:12px; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; color:#8A87A0; cursor:pointer; }
+        .btn-cancel { padding:12px; border-color:#E2E8F0; color:#64748b; }
+        .btn-panel-cancel:hover, .btn-cancel:hover { border-color:#C4C0D8; color:#1C1040; }
+        
+        .btn-panel-edit, .btn-save { flex:2; padding:10px; background:#F0EEF9; border:none; border-radius:12px; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; color:#7C3AED; cursor:pointer; }
+        .btn-save { padding:12px; background:linear-gradient(135deg, #8B5CF6, #6366F1); color: white; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25); }
+        .btn-panel-edit:hover, .btn-save:hover { background:#8B5CF6; color:#fff; }
+        .btn-panel-save  { flex:2; padding:10px; background:#1C1040; border:none; border-radius:12px; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; color:#fff; cursor:pointer; }
+        .btn-panel-save:hover  { background:#2D1A6B; }
+        .btn-panel-save:disabled, .btn-save:disabled { opacity:.5; cursor:not-allowed; }
+        
+        .spin { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
 
-      <div className="main-gradient-bg" style={{ display: "flex", fontFamily: "'DM Sans', sans-serif" }}>
+      <div className="root">
         <Sidebar stats={stats} />
-        <Navbar title="Contrôles" subtitle="Gestion des contrôles médicaux" />
+        <Navbar title="Contrôles Médicaux" subtitle="Gestion des examens" />
 
-        <main style={{ marginLeft: 240, flex: 1, padding: "2rem", paddingTop: "100px" }}>
-
-          {/* HEADER */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28, flexWrap: "wrap", gap: 16 }}>
+        <main className="main">
+          <div className="page-header">
             <div>
-              <h1 className="text-gradient" style={{ fontFamily: "'Syne', sans-serif", fontSize: 32, fontWeight: 800, margin: 0 }}>
-                Contrôles Médicaux
-              </h1>
-              <p style={{ color: "#64748b", fontSize: 14, marginTop: 4 }}>
-                {filteredControles.length} contrôle{filteredControles.length !== 1 ? "s" : ""}
-              </p>
+              <div className="page-title">Contrôles Médicaux</div>
+              <div className="page-sub">
+                {filteredControles.length} contrôle
+                {filteredControles.length !== 1 ? "s" : ""} affiché
+                {filteredControles.length > 1 ? "s" : ""}
+              </div>
             </div>
-            <button
-              onClick={() => setShowModal(true)}
-              style={{
-                background: "linear-gradient(135deg, #8B5CF6, #06C98B)",
-                color: "white",
-                border: "none",
-                borderRadius: 14,
-                padding: "13px 24px",
-                fontSize: 14,
-                fontWeight: 700,
-                cursor: "pointer",
-                fontFamily: "'DM Sans', sans-serif",
-                boxShadow: "0 8px 20px rgba(139, 92, 246, 0.3)",
-                transition: "all 0.3s ease",
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 12px 28px rgba(139, 92, 246, 0.45)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(139, 92, 246, 0.3)"; }}
-            >
-              <span style={{ fontSize: 18 }}>＋</span> Nouveau contrôle
+            <button className="btn-new" onClick={openNew}>
+              <Plus size={18} /> Nouveau contrôle
             </button>
           </div>
 
-          {/* STATS RÉSUMÉ */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 28 }}>
-            {[
-              { label: "Total contrôles", value: controles.length, icon: "🩺", color: "#8B5CF6", bg: "rgba(139,92,246,0.07)" },
-              { label: "Payés", value: totalPaye, icon: "✅", color: "#059669", bg: "rgba(5,150,105,0.07)" },
-              { label: "Non payés", value: totalNonPaye, icon: "⏳", color: "#D97706", bg: "rgba(217,119,6,0.07)" },
-            ].map((s, i) => (
-              <div key={s.label} className="stat-mini" style={{ animation: `fadeInUp 0.5s ease ${i * 0.08}s backwards` }}>
-                <div style={{ width: 48, height: 48, borderRadius: 14, background: s.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>
-                  {s.icon}
-                </div>
-                <div>
-                  <p style={{ fontSize: 11, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", margin: 0 }}>{s.label}</p>
-                  <p style={{ fontFamily: "'Syne', sans-serif", fontSize: 28, fontWeight: 800, color: s.color, margin: 0, lineHeight: 1.1 }}>{s.value}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* FILTRES */}
-          <div style={{ display: "flex", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>
-            {filters.map((f) => (
-              <button key={f.key} className={`filter-btn ${activeFilter === f.key ? "active" : ""}`} onClick={() => setActiveFilter(f.key)}>
-                {f.label}
-                <span style={{
-                  background: activeFilter === f.key ? "rgba(255,255,255,0.25)" : "rgba(139,92,246,0.1)",
-                  color: activeFilter === f.key ? "white" : "#8B5CF6",
-                  borderRadius: 6, padding: "1px 7px", fontSize: 11, fontWeight: 800,
-                }}>
-                  {f.count}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          {/* CONTENU */}
-          {loading ? (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 16 }}>
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="glass-card" style={{ padding: 22, animation: "pulse 1.8s infinite" }}>
-                  <div style={{ height: 14, background: "#e2e8f0", borderRadius: 8, width: "55%", marginBottom: 12 }} />
-                  <div style={{ height: 11, background: "#f1f5f9", borderRadius: 6, width: "35%", marginBottom: 18 }} />
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <div style={{ height: 28, background: "#f1f5f9", borderRadius: 8, width: 80 }} />
-                    <div style={{ height: 28, background: "#f1f5f9", borderRadius: 8, width: 60 }} />
-                  </div>
-                </div>
-              ))}
+          {/* Search & Filters */}
+          <div
+            style={{
+              display: "flex",
+              gap: 16,
+              alignItems: "center",
+              marginBottom: 24,
+              flexWrap: "wrap",
+            }}
+          >
+            <div
+              className="search-container"
+              style={{ flex: 1, minWidth: "280px" }}
+            >
+              <Search size={18} color="#94a3b8" />
+              <input
+                className="search-input"
+                placeholder="Rechercher patient, type..."
+              />
             </div>
-          ) : filteredControles.length === 0 ? (
-            <div className="glass-card" style={{ textAlign: "center", padding: "4rem 2rem", animation: "fadeInUp 0.6s ease" }}>
-              <div style={{ fontSize: 50, marginBottom: 16 }}>🩺</div>
-              <h3 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, color: "#334155", marginBottom: 8 }}>
-                Aucun contrôle
-              </h3>
-              <p style={{ color: "#94a3b8", fontSize: 14, maxWidth: 300, margin: "0 auto" }}>
-                {activeFilter === "tous"
-                  ? "Aucun contrôle enregistré pour le moment."
-                  : `Aucun contrôle ${activeFilter === "paye" ? "payé" : "non payé"}.`}
-              </p>
-            </div>
-          ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 16 }}>
-              {filteredControles.map((controle, i) => {
-                const isPaye = controle.statut_paiement === "paye";
-                const dateStr = new Date(controle.date_controle).toLocaleDateString("fr-FR", {
-                  day: "numeric", month: "long", year: "numeric",
-                });
-
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {filters.map((f) => {
+                const IconComponent = f.icon;
                 return (
-                  <div
-                    key={controle.id}
-                    className="controle-card"
-                    style={{ animation: "fadeInUp 0.5s ease backwards", animationDelay: `${i * 0.06}s` }}
+                  <button
+                    key={f.key}
+                    className={`filter-btn ${activeFilter === f.key ? "active" : ""}`}
+                    onClick={() => setActiveFilter(f.key)}
                   >
-                    {/* En-tête carte */}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <div style={{
-                          width: 46, height: 46, borderRadius: 14,
-                          background: "linear-gradient(135deg, rgba(139,92,246,0.1), rgba(16,185,129,0.1))",
-                          display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0,
-                        }}>
-                          {getTypeIcon(controle.type_controle)}
-                        </div>
-                        <div>
-                          <p style={{ fontSize: 15, fontWeight: 700, color: "#1e1b4b", margin: 0 }}>
-                            {getTypeLabel(controle.type_controle)}
-                          </p>
-                          <p style={{ fontSize: 12, color: "#64748b", marginTop: 2, fontWeight: 500 }}>
-                            👤 {controle.patient_name || "Patient"}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Badge paiement */}
-                      <span style={{
-                        display: "inline-flex", alignItems: "center", gap: 5,
-                        fontSize: 12, fontWeight: 700,
-                        color: isPaye ? "#059669" : "#D97706",
-                        background: isPaye ? "#ECFDF5" : "#FFFBEB",
-                        border: `1px solid ${isPaye ? "#A7F3D0" : "#FDE68A"}`,
-                        padding: "5px 12px", borderRadius: 10,
-                        flexShrink: 0,
-                      }}>
-                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: isPaye ? "#059669" : "#D97706" }} />
-                        {isPaye ? "Payé" : "Non payé"}
-                      </span>
-                    </div>
-
-                    {/* Date */}
-                    <div style={{
-                      display: "flex", alignItems: "center", gap: 8,
-                      padding: "8px 12px",
-                      background: "rgba(139, 92, 246, 0.04)",
-                      borderRadius: 10,
-                      marginBottom: controle.notes ? 12 : 0,
-                    }}>
-                      <span style={{ fontSize: 13 }}>📅</span>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>{dateStr}</span>
-                    </div>
-
-                    {/* Notes */}
-                    {controle.notes && (
-                      <div style={{
-                        marginTop: 12,
-                        padding: "10px 14px",
-                        background: "rgba(241, 245, 249, 0.8)",
-                        borderRadius: 10,
-                        fontSize: 13,
-                        color: "#64748b",
-                        lineHeight: 1.5,
-                        borderLeft: "3px solid rgba(139, 92, 246, 0.3)",
-                      }}>
-                        {controle.notes}
-                      </div>
-                    )}
-                  </div>
+                    <IconComponent size={16} strokeWidth={2.5} /> {f.label}
+                  </button>
                 );
               })}
             </div>
-          )}
-        </main>
-      </div>
+          </div>
 
-      {/* MODAL */}
-      {showModal && (
-        <ModalCreerControle
-          patients={patients}
-          onClose={() => setShowModal(false)}
-          onCreated={(newC) => setControles((prev) => [newC, ...prev])}
-        />
-      )}
+          {/* Table Grid */}
+          <div className="table-card">
+            <div className="table-head">
+              <span className="th">Patient</span>
+              <span className="th">Type de contrôle</span>
+              <span className="th">Statut</span>
+              <span className="th">Date</span>
+              <span className="th">Action</span>
+            </div>
+
+            {loading ? (
+              <div
+                style={{ padding: 40, textAlign: "center", color: "#94a3b8" }}
+              >
+                Chargement...
+              </div>
+            ) : filteredControles.length === 0 ? (
+              <div className="empty">Aucun contrôle trouvé.</div>
+            ) : (
+              filteredControles.map((c) => {
+                const config =
+                  typeConfig[c.type_controle] || typeConfig["autre"];
+                const IconComp = config.icon;
+
+                return (
+                  <div key={c.id} className="table-row">
+                    <div className="td-name">
+                      <div className="avatar">
+                        {c.patient_name?.charAt(0) || "?"}
+                      </div>
+                      {c.patient_name || "—"}
+                    </div>
+                    <div>
+                      <span className="type-badge">
+                        <IconComp size={12} strokeWidth={2.5} /> {config.label}
+                      </span>
+                    </div>
+                    <div>
+                      <span
+                        className={`paye-badge ${c.statut_paiement === "paye" ? "paye" : "non"}`}
+                      >
+                        {c.statut_paiement === "paye" ? (
+                          <CheckCircle size={10} />
+                        ) : (
+                          <XCircle size={10} />
+                        )}
+                        {c.statut_paiement === "paye" ? "Payé" : "Non payé"}
+                      </span>
+                    </div>
+                    <div className="td-date">
+                      {new Date(c.date_controle).toLocaleDateString("fr-FR")}
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button
+                        className="action-btn"
+                        onClick={() => openView(c)}
+                      >
+                        <Eye size={13} />
+                      </button>
+                      <button
+                        className="action-btn"
+                        onClick={() => openEdit(c)}
+                      >
+                        <Edit size={13} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </main>
+
+        {/* Modale Nouveau */}
+        {showModal && (
+          <NewControleModal
+            patients={patients}
+            onClose={() => {
+              setShowModal(false);
+              closeAll();
+            }}
+            onCreated={(newC) => setControles((prev) => [newC, ...prev])}
+          />
+        )}
+
+        {/* Panels Latéraux */}
+        {panelType &&
+          selectedControle &&
+          (panelType === "view" || panelType === "edit") && (
+            <div
+              className="overlay"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) closeAll();
+              }}
+            >
+              <div className="panel">
+                {panelType === "view" && (
+                  <ViewPanel
+                    controle={selectedControle}
+                    onClose={closeAll}
+                    onEdit={() => setPanelType("edit")}
+                  />
+                )}
+                {panelType === "edit" && (
+                  <EditPanel
+                    controle={selectedControle}
+                    onClose={closeAll}
+                    onSave={(updated) => {
+                      setControles((prev) =>
+                        prev.map((c) => (c.id === updated.id ? updated : c)),
+                      );
+                      closeAll();
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+          )}
+      </div>
     </PrivateRoute>
   );
 }

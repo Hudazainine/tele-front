@@ -21,6 +21,30 @@ interface Stats {
   consultations: number;
 }
 
+const C = {
+  bg: "#F7F8FC",
+  surface: "#FFFFFF",
+  surfaceAlt: "#F0F2FA",
+  border: "#E4E8F0",
+  borderStrong: "#CBD2E0",
+  text: "#0F1623",
+  textSub: "#5A6478",
+  textMuted: "#9AA3B5",
+  teal: "#00C4A1",
+  tealLight: "#E6FAF7",
+  tealDark: "#009E82",
+  violet: "#7C5CFC",
+  violetLight: "#EEE9FF",
+  sky: "#2196F3",
+  skyLight: "#E3F2FD",
+  amber: "#F59E0B",
+  amberLight: "#FEF3C7",
+  red: "#EF4444",
+  redLight: "#FEE2E2",
+  green: "#10B981",
+  greenLight: "#D1FAE5",
+};
+
 function getIcon(msg: string): string {
   const m = msg.toLowerCase();
   if (m.includes("rendez-vous") || m.includes("rdv")) return "📅";
@@ -36,7 +60,7 @@ function getIcon(msg: string): string {
 }
 
 export default function AdminNotifications() {
-  const { token, isLoading, username } = useAuth();
+  const { token, isLoading, user } = useAuth();
   const router = useRouter();
 
   const [stats, setStats] = useState<Stats>({
@@ -142,101 +166,151 @@ export default function AdminNotifications() {
   return (
     <PrivateRoute allowedRoles={["admin"]}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-        @keyframes fadeInUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes shimmer  { 0%{background-position:-400px 0} 100%{background-position:400px 0} }
-        @keyframes ping     { 0%{transform:scale(1);opacity:1} 75%,100%{transform:scale(2.2);opacity:0} }
-        @keyframes glow     { 0%,100%{box-shadow:0 0 8px rgba(34,211,165,.3)} 50%{box-shadow:0 0 20px rgba(34,211,165,.6)} }
+        * { box-sizing: border-box; }
 
-        /* ── Dark admin theme ── */
-        .admin-root { min-height:100vh; background:linear-gradient(180deg,#0d1520 0%,#131f2e 100%); font-family:'DM Sans',sans-serif; display:flex; }
-        .admin-main { margin-left:260px; flex:1; padding:2rem 2.5rem; padding-top:calc(70px + 2.5rem); }
+        @keyframes fadeUp  { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes shimmer { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+        @keyframes ping    { 0%{transform:scale(1);opacity:1} 75%,100%{transform:scale(2.2);opacity:0} }
 
-        .page-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:28px; animation:fadeInUp .4s ease; }
-        .page-title  { font-family:'Syne',sans-serif; font-size:26px; font-weight:800; color:#f0f4ff; }
-        .page-sub    { font-size:13px; color:#4a6080; margin-top:4px; }
+        .panel {
+          background: ${C.surface};
+          border-radius: 16px;
+          border: 1px solid ${C.border};
+          box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+          animation: fadeUp 0.45s ease both;
+        }
 
-        .header-actions { display:flex; gap:10px; }
-        .btn-mark-all { display:flex; align-items:center; gap:7px; padding:9px 16px; background:rgba(34,211,165,.08); border:1.5px solid rgba(34,211,165,.2); border-radius:12px; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; color:#22d3a5; cursor:pointer; transition:all .2s; }
-        .btn-mark-all:hover { background:rgba(34,211,165,.15); border-color:rgba(34,211,165,.4); }
-        .btn-clear { display:flex; align-items:center; gap:7px; padding:9px 16px; background:rgba(239,68,68,.07); border:1.5px solid rgba(239,68,68,.2); border-radius:12px; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; color:#f87171; cursor:pointer; transition:all .2s; }
-        .btn-clear:hover { background:rgba(239,68,68,.14); border-color:rgba(239,68,68,.4); }
+        /* Header actions */
+        .btn-mark-all {
+          display:flex; align-items:center; gap:7px; padding:9px 16px;
+          background:${C.tealLight}; border:1px solid ${C.teal}30; border-radius:10px;
+          font-family:inherit; font-size:13px; font-weight:600; color:${C.tealDark};
+          cursor:pointer; transition:all .2s ease;
+        }
+        .btn-mark-all:hover { transform: translateY(-1px); }
+
+        .btn-clear {
+          display:flex; align-items:center; gap:7px; padding:9px 16px;
+          background:${C.redLight}; border:1px solid ${C.red}30; border-radius:10px;
+          font-family:inherit; font-size:13px; font-weight:600; color:${C.red};
+          cursor:pointer; transition:all .2s ease;
+        }
+        .btn-clear:hover { transform: translateY(-1px); }
 
         /* Stats */
-        .stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; animation:fadeInUp .4s ease .05s backwards; }
-        .stat-card { background:rgba(255,255,255,.04); border:1px solid #1e3050; border-radius:18px; padding:16px 20px; display:flex; align-items:center; gap:14px; transition:all .25s; cursor:default; }
-        .stat-card:hover { background:rgba(255,255,255,.07); border-color:#2a4060; }
-        .stat-icon { width:42px; height:42px; border-radius:12px; background:linear-gradient(135deg,#8B5CF6,#22d3a5); display:flex; align-items:center; justify-content:center; font-size:19px; flex-shrink:0; box-shadow:0 4px 12px rgba(139,92,246,.3); }
-        .stat-val  { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; color:#f0f4ff; line-height:1; }
-        .stat-lbl  { font-size:11px; color:#4a6080; margin-top:2px; }
-        .stat-unread { color:#22d3a5 !important; }
+        .stats-row {
+          display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px;
+        }
+        .stat-card-n {
+          display:flex; align-items:center; gap:14px; padding:16px 20px;
+        }
+        .stat-icon-n {
+          width:42px; height:42px; border-radius:12px;
+          display:flex; align-items:center; justify-content:center; font-size:19px;
+          flex-shrink:0;
+        }
+        .stat-val-n { font-size:22px; font-weight:800; color:${C.text}; line-height:1; }
+        .stat-lbl-n { font-size:11px; color:${C.textMuted}; margin-top:2px; }
 
-        /* Filtres */
-        .filters { display:flex; gap:8px; margin-bottom:20px; animation:fadeInUp .4s ease .1s backwards; }
-        .filter-btn { padding:8px 18px; border-radius:99px; border:1.5px solid #1e3050; background:transparent; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; color:#4a6080; cursor:pointer; transition:all .2s; }
-        .filter-btn:hover  { border-color:rgba(34,211,165,.4); color:#22d3a5; }
-        .filter-btn.active { background:linear-gradient(135deg,#8B5CF6,#22d3a5); color:white; border-color:transparent; box-shadow:0 4px 14px rgba(139,92,246,.3); }
+        /* Filters */
+        .filters { display:flex; gap:8px; margin-bottom:20px; }
+        .filter-btn {
+          padding:9px 18px; border-radius:99px; border:1px solid ${C.border};
+          background:${C.surface}; font-family:inherit; font-size:13px; font-weight:600;
+          color:${C.textSub}; cursor:pointer; transition:all .2s ease;
+        }
+        .filter-btn:hover { border-color: ${C.violet}40; color: ${C.violet}; }
+        .filter-btn.active {
+          background: ${C.violet}; color: white; border-color: transparent;
+          box-shadow: 0 4px 12px ${C.violet}40;
+        }
 
-        /* Liste */
-        .notif-list { display:flex; flex-direction:column; gap:8px; animation:fadeInUp .4s ease .15s backwards; }
+        /* List */
+        .notif-list { display:flex; flex-direction:column; gap:8px; }
 
-        .notif-item { background:rgba(255,255,255,.03); border-radius:16px; padding:16px 20px; display:flex; align-items:center; gap:16px; border:1px solid #1e3050; transition:all .25s; position:relative; overflow:hidden; }
-        .notif-item.unread { background:rgba(139,92,246,.05); border-color:rgba(139,92,246,.2); }
-        .notif-item:hover  { background:rgba(255,255,255,.06); border-color:#2a4060; }
-        .notif-item.unread:hover { background:rgba(139,92,246,.09); border-color:rgba(139,92,246,.35); }
+        .notif-item {
+          background:${C.surface}; border-radius:14px; padding:16px 20px;
+          display:flex; align-items:center; gap:16px; border:1px solid ${C.border};
+          transition:all .2s ease; position:relative; overflow:hidden;
+        }
+        .notif-item.unread { background:${C.violetLight}; border-color:${C.violet}30; }
+        .notif-item:hover { box-shadow: 0 4px 12px rgba(15,22,35,.06); }
 
-        .notif-item::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:#1e3050; }
-        .notif-item.unread::before { background:linear-gradient(180deg,#8B5CF6,#22d3a5); animation:glow 2.5s ease infinite; }
+        .notif-item::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:${C.border}; }
+        .notif-item.unread::before { background: ${C.violet}; }
 
-        .notif-icon-wrap { width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
-        .notif-icon-wrap.unread { background:rgba(139,92,246,.12); }
-        .notif-icon-wrap.read   { background:rgba(255,255,255,.04); }
+        .notif-icon-wrap {
+          width:42px; height:42px; border-radius:12px;
+          display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;
+        }
+        .notif-icon-wrap.unread { background:${C.violetLight}; }
+        .notif-icon-wrap.read   { background:${C.surfaceAlt}; }
 
         .notif-content { flex:1; min-width:0; }
-        .notif-msg     { font-size:14px; line-height:1.6; }
-        .notif-msg.unread { font-weight:600; color:#c8d8f0; }
-        .notif-msg.read   { font-weight:400; color:#4a6080; }
+        .notif-msg     { font-size:14px; line-height:1.6; margin:0; }
+        .notif-msg.unread { font-weight:600; color:${C.text}; }
+        .notif-msg.read   { font-weight:400; color:${C.textMuted}; }
 
         .notif-status { display:flex; align-items:center; gap:6px; margin-top:5px; font-size:11px; font-weight:600; }
-        .notif-status.unread { color:#8B5CF6; }
-        .notif-status.read   { color:#2a4060; }
+        .notif-status.unread { color:${C.violet}; }
+        .notif-status.read   { color:${C.textMuted}; }
 
         .ping-dot { position:relative; width:8px; height:8px; flex-shrink:0; }
-        .ping-dot span { display:block; width:8px; height:8px; border-radius:50%; background:linear-gradient(135deg,#8B5CF6,#22d3a5); position:absolute; }
+        .ping-dot span { display:block; width:8px; height:8px; border-radius:50%; background:${C.violet}; position:absolute; }
         .ping-dot span:first-child { animation:ping 1.5s cubic-bezier(0,0,.2,1) infinite; }
 
         .item-actions { display:flex; gap:6px; align-items:center; flex-shrink:0; }
-        .mark-btn { padding:5px 11px; border:1.5px solid rgba(34,211,165,.2); border-radius:8px; background:rgba(34,211,165,.06); font-family:'DM Sans',sans-serif; font-size:11px; font-weight:700; color:#22d3a5; cursor:pointer; transition:all .2s; }
-        .mark-btn:hover    { background:rgba(34,211,165,.14); border-color:rgba(34,211,165,.5); }
+        .mark-btn {
+          padding:6px 12px; border:1px solid ${C.teal}30; border-radius:8px;
+          background:${C.tealLight}; font-family:inherit; font-size:11px; font-weight:700;
+          color:${C.tealDark}; cursor:pointer; transition:all .2s ease;
+        }
+        .mark-btn:hover    { transform: translateY(-1px); }
         .mark-btn:disabled { opacity:.4; cursor:not-allowed; }
-        .del-btn  { padding:5px 10px; border:1.5px solid rgba(239,68,68,.15); border-radius:8px; background:rgba(239,68,68,.05); font-family:'DM Sans',sans-serif; font-size:11px; font-weight:700; color:#f87171; cursor:pointer; transition:all .2s; }
-        .del-btn:hover    { background:rgba(239,68,68,.12); border-color:rgba(239,68,68,.4); }
+        .del-btn {
+          padding:6px 10px; border:1px solid ${C.red}30; border-radius:8px;
+          background:${C.redLight}; font-family:inherit; font-size:11px; font-weight:700;
+          color:${C.red}; cursor:pointer; transition:all .2s ease;
+        }
+        .del-btn:hover    { transform: translateY(-1px); }
         .del-btn:disabled { opacity:.4; cursor:not-allowed; }
 
         /* Empty */
         .empty-state { text-align:center; padding:80px 20px; }
 
         /* Skeleton */
-        .skeleton { background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.08) 50%,rgba(255,255,255,.04) 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:8px; }
+        .skeleton { background:${C.surfaceAlt}; border-radius:8px; animation:shimmer 1.4s infinite; }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: ${C.surfaceAlt}; }
+        ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 4px; }
       `}</style>
 
-      <div className="admin-root">
-        <Sidebar stats={stats} />
-        <Navbar title="Notifications" subtitle="Administration" />
+      <div style={{ display: "flex", minHeight: "100vh", background: C.bg, fontFamily: "'Inter', sans-serif" }}>
+        <Sidebar />
+        <main style={{ marginLeft: 260, flex: 1, padding: "5rem 2.4rem 3rem", overflowX: "hidden" }}>
+          <Navbar title="Notifications" subtitle={`Bonjour ${user?.username || "Admin"} 👋`} />
 
-        <main className="admin-main">
           {/* Header */}
-          <div className="page-header">
+          <div style={{
+            display: "flex", justifyContent: "space-between", alignItems: "flex-start",
+            marginBottom: "1.6rem", animation: "fadeUp 0.35s ease both", flexWrap: "wrap", gap: 16,
+          }}>
             <div>
-              <div className="page-title">🔔 Notifications</div>
-              <div className="page-sub">
-                {data.length} notification{data.length !== 1 ? "s" : ""}
-                {unreadCount > 0 &&
-                  ` · ${unreadCount} non lue${unreadCount !== 1 ? "s" : ""}`}
+              <div style={{ fontSize: 11, color: C.violet, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>
+                🔔 Administration
               </div>
+              <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: 0, letterSpacing: "-0.5px" }}>
+                Notifications
+              </h1>
+              <p style={{ color: C.textMuted, fontSize: 13, marginTop: 4, marginBottom: 0 }}>
+                {data.length} notification{data.length !== 1 ? "s" : ""}
+                {unreadCount > 0 && ` · ${unreadCount} non lue${unreadCount !== 1 ? "s" : ""}`}
+              </p>
             </div>
-            <div className="header-actions">
+            <div style={{ display: "flex", gap: 10 }}>
               {unreadCount > 0 && (
                 <button className="btn-mark-all" onClick={markAllRead}>
                   ✓ Tout marquer lu
@@ -253,122 +327,66 @@ export default function AdminNotifications() {
           {/* Stats */}
           <div className="stats-row">
             {[
-              { icon: "🔔", val: data.length, lbl: "Total", className: "" },
-              {
-                icon: "🟣",
-                val: unreadCount,
-                lbl: "Non lues",
-                className: "stat-unread",
-              },
-              {
-                icon: "✅",
-                val: data.length - unreadCount,
-                lbl: "Lues",
-                className: "",
-              },
-              {
-                icon: "👥",
-                val: stats.patients,
-                lbl: "Patients",
-                className: "",
-              },
-            ].map((s) => (
-              <div key={s.lbl} className="stat-card">
-                <div className="stat-icon">{s.icon}</div>
+              { icon: "🔔", val: data.length, lbl: "Total", color: C.sky, bg: C.skyLight },
+              { icon: "🟣", val: unreadCount, lbl: "Non lues", color: C.violet, bg: C.violetLight },
+              { icon: "✅", val: data.length - unreadCount, lbl: "Lues", color: C.green, bg: C.greenLight },
+              { icon: "👥", val: stats.patients, lbl: "Patients", color: C.teal, bg: C.tealLight },
+            ].map((s, i) => (
+              <div key={s.lbl} className="panel stat-card-n" style={{ animationDelay: `${i * 0.06}s` }}>
+                <div className="stat-icon-n" style={{ background: s.bg }}>{s.icon}</div>
                 <div>
-                  <div className={`stat-val ${s.className}`}>{s.val}</div>
-                  <div className="stat-lbl">{s.lbl}</div>
+                  <div className="stat-val-n" style={{ color: s.color }}>{s.val}</div>
+                  <div className="stat-lbl-n">{s.lbl}</div>
                 </div>
               </div>
             ))}
           </div>
 
           {/* Filtres */}
-          <div className="filters">
+          <div className="filters" style={{ animation: "fadeUp 0.4s ease both" }}>
             {(["all", "unread", "read"] as const).map((f) => (
               <button
                 key={f}
                 className={`filter-btn${filter === f ? " active" : ""}`}
                 onClick={() => setFilter(f)}
               >
-                {f === "all"
-                  ? "Toutes"
-                  : f === "unread"
-                    ? `Non lues (${unreadCount})`
-                    : "Lues"}
+                {f === "all" ? "Toutes" : f === "unread" ? `Non lues (${unreadCount})` : "Lues"}
               </button>
             ))}
           </div>
 
           {/* Liste */}
-          <div className="notif-list">
+          <div className="notif-list" style={{ animation: "fadeUp 0.45s ease both" }}>
             {loading ? (
               Array.from({ length: 6 }).map((_, i) => (
-                <div
-                  key={i}
-                  style={{
-                    background: "rgba(255,255,255,.03)",
-                    borderRadius: 16,
-                    padding: "16px 20px",
-                    display: "flex",
-                    gap: 16,
-                    border: "1px solid #1e3050",
-                  }}
-                >
-                  <div
-                    className="skeleton"
-                    style={{
-                      width: 42,
-                      height: 42,
-                      borderRadius: 12,
-                      flexShrink: 0,
-                    }}
-                  />
+                <div key={i} className="panel" style={{ display: "flex", gap: 16, padding: "16px 20px" }}>
+                  <div className="skeleton" style={{ width: 42, height: 42, borderRadius: 12, flexShrink: 0 }} />
                   <div style={{ flex: 1 }}>
-                    <div
-                      className="skeleton"
-                      style={{ height: 14, width: "65%", marginBottom: 8 }}
-                    />
-                    <div
-                      className="skeleton"
-                      style={{ height: 11, width: "20%" }}
-                    />
+                    <div className="skeleton" style={{ height: 14, width: "65%", marginBottom: 8 }} />
+                    <div className="skeleton" style={{ height: 11, width: "20%" }} />
                   </div>
                 </div>
               ))
             ) : filtered.length === 0 ? (
-              <div className="empty-state">
-                <div style={{ fontSize: 52, marginBottom: 16, opacity: 0.2 }}>
-                  🔔
-                </div>
-                <div
-                  style={{ fontSize: 16, fontWeight: 600, color: "#2a4060" }}
-                >
+              <div className="panel empty-state">
+                <div style={{ fontSize: 52, marginBottom: 16, opacity: 0.25 }}>🔔</div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: C.textSub }}>
                   Aucune notification
                 </div>
-                <div style={{ fontSize: 13, marginTop: 6, color: "#1e3050" }}>
+                <div style={{ fontSize: 13, marginTop: 6, color: C.textMuted }}>
                   {filter !== "all" ? "Changez le filtre." : "Tout est à jour."}
                 </div>
               </div>
             ) : (
-              filtered.map((n, i) => (
-                <div
-                  key={n.id}
-                  className={`notif-item${n.lu ? " read" : " unread"}`}
-                >
-                  <div
-                    className={`notif-icon-wrap${n.lu ? " read" : " unread"}`}
-                  >
+              filtered.map((n) => (
+                <div key={n.id} className={`notif-item${n.lu ? " read" : " unread"}`}>
+                  <div className={`notif-icon-wrap${n.lu ? " read" : " unread"}`}>
                     {getIcon(n.message)}
                   </div>
 
                   <div className="notif-content">
-                    <p className={`notif-msg${n.lu ? " read" : " unread"}`}>
-                      {n.message}
-                    </p>
-                    <div
-                      className={`notif-status${n.lu ? " read" : " unread"}`}
-                    >
+                    <p className={`notif-msg${n.lu ? " read" : " unread"}`}>{n.message}</p>
+                    <div className={`notif-status${n.lu ? " read" : " unread"}`}>
                       {!n.lu && (
                         <div className="ping-dot">
                           <span />
@@ -381,19 +399,11 @@ export default function AdminNotifications() {
 
                   <div className="item-actions">
                     {!n.lu && (
-                      <button
-                        className="mark-btn"
-                        disabled={marking === n.id}
-                        onClick={() => markRead(n.id)}
-                      >
+                      <button className="mark-btn" disabled={marking === n.id} onClick={() => markRead(n.id)}>
                         {marking === n.id ? "…" : "Marquer lu"}
                       </button>
                     )}
-                    <button
-                      className="del-btn"
-                      disabled={deleting === n.id}
-                      onClick={() => deleteNotif(n.id)}
-                    >
+                    <button className="del-btn" disabled={deleting === n.id} onClick={() => deleteNotif(n.id)}>
                       {deleting === n.id ? "…" : "🗑"}
                     </button>
                   </div>

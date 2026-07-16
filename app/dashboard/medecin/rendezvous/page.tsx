@@ -1,4 +1,3 @@
-// D:\teleconsultation\frontend\app\dashboard\medecin\rendezvous\page.tsx
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -7,6 +6,22 @@ import Sidebar from "../../../../components/Sidebar";
 import Navbar from "../../../../components/Navbar";
 import api from "../../../../lib/api";
 import dynamic from "next/dynamic";
+
+// ─────────────────────────────────────────────────────────────
+// IMPORTS LUCIDE ICONS
+// ─────────────────────────────────────────────────────────────
+import {
+  List,
+  MapPin,
+  Calendar,
+  Clock,
+  CheckCircle,
+  Video,
+  CalendarX,
+  CalendarCheck,
+  Search,
+  X,
+} from "lucide-react";
 
 const VideoCall = dynamic(() => import("@/components/VideoCall"), {
   ssr: false,
@@ -25,31 +40,35 @@ type FilterType = "tous" | "aujourdhui" | "avenir" | "passe";
 
 const statusConfig: Record<
   string,
-  { label: string; color: string; bg: string; border: string }
+  { label: string; color: string; bg: string; border: string; icon: any }
 > = {
   en_attente: {
     label: "En attente",
     color: "#D97706",
     bg: "#FFFBEB",
     border: "#FDE68A",
+    icon: Clock,
   },
   confirme: {
     label: "Confirmé",
     color: "#059669",
     bg: "#ECFDF5",
     border: "#A7F3D0",
+    icon: CheckCircle,
   },
   annule: {
     label: "Annulé",
     color: "#DC2626",
     bg: "#FEF2F2",
     border: "#FECACA",
+    icon: CalendarX,
   },
   termine: {
     label: "Terminé",
     color: "#475569",
     bg: "#F8FAFC",
     border: "#E2E8F0",
+    icon: CalendarCheck,
   },
 };
 
@@ -60,6 +79,7 @@ export default function MedecinRendezVous() {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<FilterType>("tous");
   const [activeVideoRdvId, setActiveVideoRdvId] = useState<number | null>(null);
+  const [search, setSearch] = useState("");
   const [stats, setStats] = useState({
     rendezvous: 0,
     consultations: 0,
@@ -112,24 +132,30 @@ export default function MedecinRendezVous() {
       const rdvDate = new Date(rdv.date_heure);
       rdvDate.setHours(0, 0, 0, 0);
 
+      let dateMatch = true;
       if (activeFilter === "aujourdhui")
-        return rdvDate.getTime() === today.getTime();
-      if (activeFilter === "avenir")
-        return rdvDate >= today && rdv.status !== "termine";
-      if (activeFilter === "passe")
-        return rdvDate < today || rdv.status === "termine";
-      return true;
+        dateMatch = rdvDate.getTime() === today.getTime();
+      else if (activeFilter === "avenir")
+        dateMatch = rdvDate >= today && rdv.status !== "termine";
+      else if (activeFilter === "passe")
+        dateMatch = rdvDate < today || rdv.status === "termine";
+
+      const searchMatch =
+        rdv.patient_name?.toLowerCase().includes(search.toLowerCase()) ||
+        rdv.motif?.toLowerCase().includes(search.toLowerCase());
+
+      return dateMatch && searchMatch;
     })
     .sort(
       (a, b) =>
         new Date(a.date_heure).getTime() - new Date(b.date_heure).getTime(),
     );
 
-  const filters: { key: FilterType; label: string; icon: string }[] = [
-    { key: "tous", label: "Tous", icon: "📋" },
-    { key: "aujourdhui", label: "Aujourd'hui", icon: "📌" },
-    { key: "avenir", label: "À venir", icon: "📅" },
-    { key: "passe", label: "Passés", icon: "⏳" },
+  const filters: { key: FilterType; label: string; icon: any }[] = [
+    { key: "tous", label: "Tous", icon: List },
+    { key: "aujourdhui", label: "Aujourd'hui", icon: MapPin },
+    { key: "avenir", label: "À venir", icon: Calendar },
+    { key: "passe", label: "Passés", icon: Clock },
   ];
 
   const getStatusStyle = (status: string) => {
@@ -139,13 +165,12 @@ export default function MedecinRendezVous() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght:700;800&family=DM+Sans:wght:300;400;500;600&display=swap');
         
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(20px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.5; }
@@ -164,7 +189,6 @@ export default function MedecinRendezVous() {
           box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
           transition: all 0.3s ease;
         }
-        
         .glass-card:hover {
           box-shadow: 0 10px 25px -5px rgba(139, 92, 246, 0.12);
           border-color: rgba(139, 92, 246, 0.2);
@@ -173,6 +197,8 @@ export default function MedecinRendezVous() {
         .text-gradient {
           background: linear-gradient(135deg, #8B5CF6, #10B981);
           -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
           -webkit-text-fill-color: transparent;
         }
         
@@ -191,18 +217,45 @@ export default function MedecinRendezVous() {
           align-items: center;
           gap: 8px;
         }
-        
         .filter-btn:hover {
           background: rgba(139, 92, 246, 0.05);
           color: #334155;
           border-color: rgba(139, 92, 246, 0.2);
+          transform: translateY(-1px);
         }
-        
         .filter-btn.active {
           background: linear-gradient(135deg, #8B5CF6, #10B981);
           color: white;
           border-color: transparent;
           box-shadow: 0 4px 15px rgba(139, 92, 246, 0.35);
+        }
+        
+        .search-container {
+            background: white;
+            border: 1px solid #EAE8F5;
+            border-radius: 14px;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+        }
+        .search-container:focus-within {
+            border-color: #8B5CF6;
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+        }
+        .search-input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 14px;
+            color: #1e1b4b;
+            outline: none;
+        }
+        .search-input::placeholder {
+            color: #94a3b8;
         }
         
         .rdv-card {
@@ -215,13 +268,11 @@ export default function MedecinRendezVous() {
           overflow: hidden;
           cursor: pointer;
         }
-        
         .rdv-card:hover {
           transform: translateY(-4px);
           box-shadow: 0 15px 30px -10px rgba(139, 92, 246, 0.2);
           border-color: rgba(139, 92, 246, 0.2);
         }
-        
         .rdv-card::before {
           content: '';
           position: absolute;
@@ -246,7 +297,6 @@ export default function MedecinRendezVous() {
         <Navbar title="Rendez-vous" subtitle="Planification et suivi" />
 
         <main style={{ flex: 1, padding: "2rem", paddingTop: "100px" }}>
-          {/* Header */}
           <div
             style={{
               display: "flex",
@@ -279,24 +329,65 @@ export default function MedecinRendezVous() {
             </div>
           </div>
 
-          {/* Filters */}
+          {/* CONTENEUR FLEX HORIZONTAL : Recherche + Filtres */}
           <div
             style={{
               display: "flex",
-              gap: 10,
+              gap: 16,
+              alignItems: "center",
               marginBottom: 24,
               flexWrap: "wrap",
             }}
           >
-            {filters.map((f) => (
-              <button
-                key={f.key}
-                className={`filter-btn ${activeFilter === f.key ? "active" : ""}`}
-                onClick={() => setActiveFilter(f.key)}
-              >
-                <span>{f.icon}</span> {f.label}
-              </button>
-            ))}
+            <div
+              className="search-container"
+              style={{ flex: 1, minWidth: "280px", marginBottom: 0 }}
+            >
+              <Search size={18} color="#94a3b8" />
+              <input
+                className="search-input"
+                placeholder="Rechercher par patient, motif..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#94a3b8",
+                    padding: 2,
+                  }}
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                flexWrap: "wrap",
+                marginBottom: 0,
+              }}
+            >
+              {filters.map((f) => {
+                const IconComponent = f.icon;
+                return (
+                  <button
+                    key={f.key}
+                    className={`filter-btn ${activeFilter === f.key ? "active" : ""}`}
+                    onClick={() => setActiveFilter(f.key)}
+                  >
+                    <IconComponent size={16} strokeWidth={2.5} />
+                    {f.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Content */}
@@ -365,7 +456,9 @@ export default function MedecinRendezVous() {
                 animation: "fadeInUp 0.6s ease",
               }}
             >
-              <div style={{ fontSize: 50, marginBottom: 16 }}>📅</div>
+              <div style={{ fontSize: 50, marginBottom: 16, color: "#cbd5e1" }}>
+                <CalendarX size={60} strokeWidth={1} />
+              </div>
               <h3
                 style={{
                   fontFamily: "'Syne', sans-serif",
@@ -384,9 +477,11 @@ export default function MedecinRendezVous() {
                   margin: "0 auto",
                 }}
               >
-                {activeFilter === "tous"
-                  ? "Votre planning est vide pour le moment."
-                  : `Aucun rendez-vous ${filters.find((f) => f.key === activeFilter)?.label.toLowerCase()}.`}
+                {search
+                  ? "Aucun résultat pour cette recherche."
+                  : activeFilter !== "tous"
+                    ? `Aucun rendez-vous ${filters.find((f) => f.key === activeFilter)?.label.toLowerCase()}.`
+                    : "Votre planning est vide pour le moment."}
               </p>
             </div>
           ) : (
@@ -401,6 +496,7 @@ export default function MedecinRendezVous() {
                 const s = getStatusStyle(rdv.status);
                 const rdvDate = new Date(rdv.date_heure);
                 const isToday = rdvDate.toDateString() === today.toDateString();
+                const StatusIcon = s.icon;
 
                 return (
                   <div
@@ -426,7 +522,6 @@ export default function MedecinRendezVous() {
                           gap: 14,
                         }}
                       >
-                        {/* Date/Time Block */}
                         <div
                           style={{
                             background:
@@ -485,7 +580,7 @@ export default function MedecinRendezVous() {
                               gap: 4,
                             }}
                           >
-                            🕐{" "}
+                            <Clock size={14} color="#64748b" />
                             {rdvDate.toLocaleTimeString("fr-FR", {
                               hour: "2-digit",
                               minute: "2-digit",
@@ -510,7 +605,6 @@ export default function MedecinRendezVous() {
                       </div>
                     </div>
 
-                    {/* Bottom Row: Status + Actions */}
                     <div
                       style={{
                         display: "flex",
@@ -534,14 +628,7 @@ export default function MedecinRendezVous() {
                           textTransform: "capitalize",
                         }}
                       >
-                        <span
-                          style={{
-                            width: 6,
-                            height: 6,
-                            borderRadius: "50%",
-                            background: s.color,
-                          }}
-                        ></span>
+                        <StatusIcon size={12} />
                         {s.label}
                       </span>
 
@@ -564,7 +651,8 @@ export default function MedecinRendezVous() {
                             gap: 6,
                           }}
                         >
-                          📹 Rejoindre
+                          <Video size={14} />
+                          Rejoindre
                         </button>
                       </div>
                     </div>
@@ -579,6 +667,7 @@ export default function MedecinRendezVous() {
             channelName={`rdv-${activeVideoRdvId}`}
             rdvId={activeVideoRdvId}
             onEnd={() => setActiveVideoRdvId(null)}
+            role="medecin"
           />
         )}
       </div>

@@ -11,6 +11,10 @@ interface Props {
   channelName: string;
   rdvId: number;
   onEnd: () => void;
+  /** "medecin" ou "patient" — détermine les libellés et avatars affichés */
+  role: "medecin" | "patient";
+  /** Nom affiché pour l'autre participant (optionnel, sinon déduit du rôle) */
+  remoteName?: string;
 }
 
 /* ─── icons (inline SVG, no external dep) ─── */
@@ -216,10 +220,21 @@ const S: Record<string, React.CSSProperties> = {
     fontVariantNumeric: "tabular-nums",
     fontWeight: 500,
   },
+  /* Vue à deux panneaux (les deux participants sont connectés) */
   body: {
     flex: 1,
     display: "grid",
-    gridTemplateColumns: "1fr 1fr",
+    gridTemplateColumns: "1fr",
+    gridTemplateRows: "1fr 1fr",
+    gap: 10,
+    padding: 12,
+    minHeight: 0,
+  },
+  /* Vue solo (un seul participant connecté pour l'instant) */
+  bodySolo: {
+    flex: 1,
+    display: "grid",
+    gridTemplateColumns: "1fr",
     gap: 10,
     padding: 12,
     minHeight: 0,
@@ -401,11 +416,62 @@ const DOT_STYLE = `
 const fmt = (s: number) =>
   `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
-export default function VideoCall({ channelName, rdvId, onEnd }: Props) {
+/*
+ * Garde PARTAGÉE entre toutes les instances de VideoCall dans cet onglet
+ * (donc au-dessus du composant, en portée module). Contrairement à un
+ * useRef, elle survit même si deux instances du composant sont montées
+ * en même temps (ex: VideoCall rendu deux fois dans l'arbre React,
+ * double-clic sur "Rejoindre", deuxième fenêtre, etc.) — le scénario que
+ * ne couvrait pas la protection précédente (qui ne gérait que le
+ * remount séquentiel de React StrictMode).
+ *
+ * Pour un rdvId donné :
+ *  - leaving === null  -> une instance est actuellement connectée
+ *  - leaving = Promise  -> une instance précédente est en train de partir
+ *  - absent de la Map   -> personne n'est connecté
+ */
+const activeJoins = new Map<
+  number,
+  { instanceId: string; leaving: Promise<void> | null }
+>();
+
+/** Déduit les initiales / libellés à partir du rôle */
+const roleLabels = (role: "medecin" | "patient", remoteName?: string) => {
+  if (role === "medecin") {
+    return {
+      localLabel: "Vous",
+      localInitials: "VS",
+      remoteLabel: remoteName ?? "Patient",
+      remoteInitials: (remoteName ?? "Patient").slice(0, 2).toUpperCase(),
+      waitingText: "En attente du patient…",
+    };
+  }
+  return {
+    localLabel: "Vous",
+    localInitials: "VS",
+    remoteLabel: remoteName ?? "Dr. Dupont",
+    remoteInitials: (remoteName ?? "Dr")
+      .replace("Dr.", "Dr")
+      .slice(0, 2)
+      .toUpperCase(),
+    waitingText: "En attente du médecin…",
+  };
+};
+
+export default function VideoCall({
+  channelName,
+  rdvId,
+  onEnd,
+  role,
+  remoteName,
+}: Props) {
   const clientRef = useRef<IAgoraRTCClient | null>(null);
   const localVideoRef = useRef<HTMLDivElement>(null);
   const remoteVideoRef = useRef<HTMLDivElement>(null);
-  const joinedRef = useRef(false);
+  // Mémorise la piste vidéo distante reçue, pour pouvoir la (re)jouer une
+  // fois que le panneau distant est réellement monté dans le DOM (voir
+  // le useEffect [remoteJoined] plus bas).
+  const remoteVideoTrackRef = useRef<any>(null);
 
   const [videoTrack, setVideoTrack] = useState<ICameraVideoTrack | null>(null);
   const [audioTrack, setAudioTrack] = useState<IMicrophoneAudioTrack | null>(
@@ -418,14 +484,64 @@ export default function VideoCall({ channelName, rdvId, onEnd }: Props) {
   const [duration, setDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
+  const labels = roleLabels(role, remoteName);
+
+  /*
+   * Garde une référence à la promesse de "leave" en cours entre deux cycles
+   * d'effet. En React 18 StrictMode (dev), l'effet est monté → démonté →
+   * remonté quasi instantanément. Sans cette garde, la 2e connexion Agora
+   * pouvait démarrer AVANT que la 1re ait vraiment quitté le canal, créant
+   * deux participants actifs (la même caméra vue "en double").
+   */
+  const leavingRef = useRef<Promise<void> | null>(null);
+  // Identifiant unique de CETTE instance du composant — sert à savoir si
+  // c'est bien "nous" qui détenons la connexion active dans activeJoins.
+  const instanceIdRef = useRef(
+    `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+  );
+
   useEffect(() => {
-    if (joinedRef.current) return;
-    joinedRef.current = true;
+    const instanceId = instanceIdRef.current;
+    let cancelled = false;
     let timer: ReturnType<typeof setInterval>;
-    let isMounted = true;
+    let client: IAgoraRTCClient | null = null;
+    let micTrack: IMicrophoneAudioTrack | null = null;
+    let camTrack: ICameraVideoTrack | null = null;
 
     const join = async () => {
       try {
+        // 1) Une session précédente (même instance, remount StrictMode)
+        //    est peut-être encore en train de partir : on attend.
+        if (leavingRef.current) {
+          await leavingRef.current;
+        }
+        if (cancelled) return;
+
+        // 2) Garde partagée : si une AUTRE instance vivante de VideoCall
+        //    détient déjà la connexion pour ce rdvId, on n'ouvre pas une
+        //    deuxième connexion Agora (ce qui provoquerait le doublon
+        //    vidéo observé). On journalise clairement pour localiser la
+        //    source du double montage côté React.
+        const existing = activeJoins.get(rdvId);
+        if (existing && existing.instanceId !== instanceId) {
+          if (existing.leaving) {
+            await existing.leaving;
+          } else {
+            console.error(
+              `[VideoCall] Double connexion détectée pour le RDV ${rdvId} — ` +
+                `une instance (${existing.instanceId}) est déjà connectée, ` +
+                `une seconde instance (${instanceId}) tente de rejoindre. ` +
+                `Le composant <VideoCall /> est probablement rendu deux fois ` +
+                `dans l'arbre React (vérifier le parent, une modale + une page, ` +
+                `un double-clic sur "Rejoindre", ou une deuxième fenêtre).`,
+            );
+            setError(
+              "Une session vidéo est déjà active pour ce rendez-vous dans cet onglet. Fermez les onglets ou fenêtres en double puis réessayez.",
+            );
+            return;
+          }
+        }
+
         let cameras: MediaDeviceInfo[] = [];
         let mics: MediaDeviceInfo[] = [];
         try {
@@ -434,6 +550,7 @@ export default function VideoCall({ channelName, rdvId, onEnd }: Props) {
         } catch {
           /* silent */
         }
+        if (cancelled) return;
         if (!cameras.length && !mics.length) {
           setError("Aucune caméra ni microphone détecté.");
           return;
@@ -447,31 +564,52 @@ export default function VideoCall({ channelName, rdvId, onEnd }: Props) {
           return;
         }
 
-        const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+        client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
         clientRef.current = client;
+        // On prend possession de la garde pour ce rdvId.
+        activeJoins.set(rdvId, { instanceId, leaving: null });
+        console.log(
+          `[VideoCall] instance ${instanceId} rejoint le RDV ${rdvId}`,
+        );
 
         client.on("user-published", async (user, mediaType) => {
-          await client.subscribe(user, mediaType);
-          if (mediaType === "video" && remoteVideoRef.current) {
-            user.videoTrack?.play(remoteVideoRef.current);
+          await client!.subscribe(user, mediaType);
+          if (mediaType === "video") {
+            // On mémorise la piste : le panneau distant n'existe pas
+            // encore dans le DOM à cet instant (il n'apparaît qu'une
+            // fois remoteJoined=true), donc on ne peut pas appeler
+            // .play() ici. Le useEffect [remoteJoined] s'en charge une
+            // fois le <div ref={remoteVideoRef}> réellement monté.
+            remoteVideoTrackRef.current = user.videoTrack;
             setRemoteJoined(true);
           }
           if (mediaType === "audio") user.audioTrack?.play();
         });
         client.on("user-unpublished", (_, mt) => {
-          if (mt === "video") setRemoteJoined(false);
+          if (mt === "video") {
+            remoteVideoTrackRef.current = null;
+            setRemoteJoined(false);
+          }
         });
-        client.on("user-left", () => setRemoteJoined(false));
+        client.on("user-left", () => {
+          remoteVideoTrackRef.current = null;
+          setRemoteJoined(false);
+        });
 
         const res = await api.post(`video/start/${rdvId}/`);
+        if (cancelled) return;
+
         await client.join(
           res.data.app_id,
           res.data.channel,
           res.data.token ?? null,
           res.data.uid,
         );
+        if (cancelled) {
+          await client.leave().catch(() => {});
+          return;
+        }
 
-        let micTrack: IMicrophoneAudioTrack, camTrack: ICameraVideoTrack;
         try {
           [micTrack, camTrack] =
             await AgoraRTC.createMicrophoneAndCameraTracks();
@@ -491,10 +629,18 @@ export default function VideoCall({ channelName, rdvId, onEnd }: Props) {
           } else throw e;
         }
 
-        if (!isMounted) return;
-        setAudioTrack(micTrack!);
-        setVideoTrack(camTrack!);
-        if (localVideoRef.current) camTrack!.play(localVideoRef.current);
+        if (cancelled) {
+          micTrack?.close();
+          camTrack?.close();
+          await client.unpublish().catch(() => {});
+          await client.leave().catch(() => {});
+          return;
+        }
+
+        setAudioTrack(micTrack);
+        setVideoTrack(camTrack);
+        if (localVideoRef.current && camTrack)
+          camTrack.play(localVideoRef.current);
         await client.publish([micTrack!, camTrack!]);
         setConnected(true);
         timer = setInterval(() => setDuration((d) => d + 1), 1000);
@@ -508,14 +654,59 @@ export default function VideoCall({ channelName, rdvId, onEnd }: Props) {
     };
 
     join();
+
     return () => {
-      isMounted = false;
+      cancelled = true;
       clearInterval(timer);
-      clientRef.current?.leave().catch(() => {});
-      clientRef.current = null;
-      joinedRef.current = false;
+      // Cleanup asynchrone mais dont la promesse est mémorisée : le
+      // prochain montage (StrictMode) attendra sa fin avant de rejoindre.
+      const leavePromise = (async () => {
+        try {
+          camTrack?.stop();
+          camTrack?.close();
+          micTrack?.stop();
+          micTrack?.close();
+          if (client) {
+            await client.unpublish().catch(() => {});
+            await client.leave();
+            console.log(
+              `[VideoCall] instance ${instanceId} a quitté le RDV ${rdvId}`,
+            );
+          }
+        } catch {
+          /* silent */
+        } finally {
+          clientRef.current = null;
+          leavingRef.current = null;
+        }
+      })();
+
+      leavingRef.current = leavePromise;
+
+      // Ne libère la garde partagée que si c'est bien NOUS qui la
+      // détenions (évite qu'une instance en retard n'efface la garde
+      // d'une instance plus récente).
+      const current = activeJoins.get(rdvId);
+      if (current && current.instanceId === instanceId) {
+        activeJoins.set(rdvId, { instanceId, leaving: leavePromise });
+        leavePromise.then(() => {
+          const stillOurs = activeJoins.get(rdvId);
+          if (stillOurs && stillOurs.instanceId === instanceId) {
+            activeJoins.delete(rdvId);
+          }
+        });
+      }
     };
   }, [rdvId]);
+
+  // Une fois remoteJoined=true, React monte le <div ref={remoteVideoRef}>.
+  // C'est SEULEMENT à ce moment que le ref est disponible : on y joue
+  // alors la piste vidéo distante mémorisée par user-published.
+  useEffect(() => {
+    if (remoteJoined && remoteVideoRef.current && remoteVideoTrackRef.current) {
+      remoteVideoTrackRef.current.play(remoteVideoRef.current);
+    }
+  }, [remoteJoined]);
 
   const toggleMic = async () => {
     if (!audioTrack) return;
@@ -587,7 +778,11 @@ export default function VideoCall({ channelName, rdvId, onEnd }: Props) {
         <div style={S.statusRow}>
           <div style={S.dot(connected)} />
           <span style={S.statusText}>
-            {connected ? "Consultation en cours" : "Connexion en cours…"}
+            {!connected
+              ? "Connexion en cours…"
+              : remoteJoined
+                ? "Consultation en cours"
+                : labels.waitingText}
           </span>
         </div>
         <div style={S.badges}>
@@ -596,70 +791,100 @@ export default function VideoCall({ channelName, rdvId, onEnd }: Props) {
             Chiffré
           </div>
           <div style={S.badge}>
-            <IconUsers />2 participants
+            <IconUsers />
+            {remoteJoined ? "2 participants" : "1 participant"}
           </div>
           {connected && <div style={S.timer}>{fmt(duration)}</div>}
         </div>
       </div>
 
-      {/* VIDEO PANELS */}
-      <div style={S.body}>
-        {/* Remote */}
-        <div style={S.panel(false)}>
-          <div
-            ref={remoteVideoRef}
-            style={{ position: "absolute", inset: 0 }}
-          />
-          {!remoteJoined && (
-            <>
-              <div style={S.avatar(false)}>DR</div>
-              <span style={S.panelSub}>En attente du participant…</span>
-              <div style={S.waitingDots}>
-                {[0, 1, 2].map((i) => (
-                  <div
-                    key={i}
-                    className="_vcdot"
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: "50%",
-                      background: "#14b8a6",
-                      opacity: 0.5,
-                      animationDelay: `${i * 0.2}s`,
-                    }}
-                  />
-                ))}
-              </div>
-            </>
-          )}
-          <div style={S.nameTag}>Dr. Dupont</div>
-          <div style={S.stateBadge()}>HD</div>
-        </div>
+      {/* VIDEO PANELS — un seul panneau tant que l'autre participant n'a pas rejoint */}
 
-        {/* Local */}
-        <div style={S.panel(true)}>
-          <div ref={localVideoRef} style={{ position: "absolute", inset: 0 }} />
-          {!camOn && (
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                background: "#0e131c",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 10,
-              }}
-            >
-              <div style={S.avatar(true)}>VS</div>
-              <span style={S.panelSub}>Caméra désactivée</span>
+      <div style={remoteJoined ? S.body : S.bodySolo}>
+        {(() => {
+          const localPanel = (
+            <div style={S.panel(true)} key="local">
+              <div
+                ref={localVideoRef}
+                style={{ position: "absolute", inset: 0 }}
+              />
+              {!camOn && (
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    background: "#0e131c",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 10,
+                  }}
+                >
+                  <div style={S.avatar(true)}>{labels.localInitials}</div>
+                  <span style={S.panelSub}>Caméra désactivée</span>
+                </div>
+              )}
+              <div style={S.nameTag}>{labels.localLabel}</div>
+              <div style={S.stateBadge(!micOn)}>{micOn ? "Actif" : "Muet"}</div>
             </div>
-          )}
-          <div style={S.nameTag}>Vous</div>
-          <div style={S.stateBadge(!micOn)}>{micOn ? "Actif" : "Muet"}</div>
-        </div>
+          );
+
+          const remotePanel = remoteJoined && (
+            <div style={S.panel(false)} key="remote">
+              <div
+                ref={remoteVideoRef}
+                style={{ position: "absolute", inset: 0 }}
+              />
+              <div style={S.nameTag}>{labels.remoteLabel}</div>
+              <div style={S.stateBadge()}>HD</div>
+            </div>
+          );
+
+          // Le médecin est toujours affiché en premier (donc en haut dans la grille en lignes),
+          // que ce soit lui le "local" ou le "remote".
+          const medecinPanel = role === "medecin" ? localPanel : remotePanel;
+          const patientPanel = role === "medecin" ? remotePanel : localPanel;
+
+          return (
+            <>
+              {medecinPanel}
+              {patientPanel}
+            </>
+          );
+        })()}
       </div>
+
+      {/* Message d'attente sous le panneau solo */}
+      {connected && !remoteJoined && (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 6,
+            paddingBottom: 8,
+          }}
+        >
+          <span style={S.panelSub}>{labels.waitingText}</span>
+          <div style={S.waitingDots}>
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="_vcdot"
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: "#14b8a6",
+                  opacity: 0.5,
+                  animationDelay: `${i * 0.2}s`,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* FOOTER CONTROLS */}
       <div style={S.footer}>

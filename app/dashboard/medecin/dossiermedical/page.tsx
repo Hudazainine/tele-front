@@ -3,17 +3,42 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../../context/AuthContext";
-import PrivateRoute from "../../../../components/PrivateRoute";
+import PrivateRoute from "../../../../components/PrivateRoute"; // Vérifiez si des accolades sont nécessaires selon votre export
 import api from "../../../../lib/api";
 import Sidebar from "../../../../components/Sidebar";
 import Navbar from "../../../../components/Navbar";
+// Import des icônes Lucide
+import {
+  Stethoscope,
+  Zap,
+  Capsules,
+  Syringe,
+  Hospital,
+  FileText,
+  Notebook,
+  FolderOpen,
+  Lock,
+  Users,
+  Unlock,
+  AlertTriangle,
+  User,
+  Phone,
+  Mail,
+  Cake,
+  Droplets,
+  Inbox,
+  Paperclip,
+  ArrowUpRight,
+  Folder,
+  Clipboard,
+  Search,
+  X,
+  Eye,
+} from "lucide-react";
 
-<<<<<<< HEAD
 // ─────────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────────
-=======
-/* ═══════════════════ TYPES ═══════════════════ */
 
 interface SavedAttachment {
   id: number;
@@ -21,7 +46,6 @@ interface SavedAttachment {
   type: "image" | "document";
   url: string;
 }
->>>>>>> 796b3dadf14987e05ba52c2df74edd28a6437504
 
 interface DMESection {
   id: string;
@@ -41,7 +65,6 @@ interface SharedDMERecord {
   token: string;
 }
 
-<<<<<<< HEAD
 interface PatientProfile {
   id: number;
   user: {
@@ -56,8 +79,6 @@ interface PatientProfile {
   emergency_contact?: string;
 }
 
-=======
->>>>>>> 796b3dadf14987e05ba52c2df74edd28a6437504
 interface Stats {
   rendezvous: number;
   consultations: number;
@@ -65,19 +86,25 @@ interface Stats {
   dossiersMedical?: number;
 }
 
-/* ═══════════════════ CONSTANTES ═══════════════════ */
+// ─────────────────────────────────────────────
+// CONSTANTS
+// ─────────────────────────────────────────────
 
-const ICON_MAP: Record<string, string> = {
-  "[1]": "🩺",
-  "[2]": "⚡",
-  "[3]": "💊",
-  "[4]": "💉",
-  "[5]": "🏥",
-  "[6]": "📝",
+// Mapping des codes icônes vers les composants Lucide
+const ICON_MAP: Record<
+  string,
+  React.ComponentType<{ size?: number; className?: string }>
+> = {
+  "[1]": Stethoscope,
+  "[2]": Zap,
+  "[3]": Capsules,
+  "[4]": Syringe,
+  "[5]": Hospital,
+  "[6]": FileText,
 };
 
 function resolveIcon(raw: string) {
-  return ICON_MAP[raw] ?? raw;
+  return ICON_MAP[raw] ?? FileText;
 }
 
 const SECTION_META: Record<string, { gradient: string; color: string }> = {
@@ -107,13 +134,9 @@ const SECTION_META: Record<string, { gradient: string; color: string }> = {
   },
 };
 
-<<<<<<< HEAD
 // ─────────────────────────────────────────────
-// COMPONENTS
+// UTILITY COMPONENTS
 // ─────────────────────────────────────────────
-=======
-/* ═══════════════════ COMPOSANTS UTILITAIRES ═══════════════════ */
->>>>>>> 796b3dadf14987e05ba52c2df74edd28a6437504
 
 function TimeBar({
   expiresAt,
@@ -299,12 +322,6 @@ function Avatar({ name, size = 44 }: { name: string; size?: number }) {
   );
 }
 
-<<<<<<< HEAD
-// ─────────────────────────────────────────────
-// MAIN COMPONENT
-// ─────────────────────────────────────────────
-=======
-/* ─── Lightbox pour agrandir les images ─── */
 function ImageLightbox({
   src,
   alt,
@@ -350,18 +367,230 @@ function ImageLightbox({
           background: "rgba(255,255,255,0.15)",
           border: "none",
           color: "white",
-          fontSize: 20,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
           cursor: "pointer",
         }}
       >
-        ✕
+        <X size={24} />
       </button>
     </div>
   );
 }
 
-/* ═══════════════════ PAGE MÉDECIN ═══════════════════ */
->>>>>>> 796b3dadf14987e05ba52c2df74edd28a6437504
+// ─────────────────────────────────────────────
+// SECTION CONTENT COMPONENT
+// ─────────────────────────────────────────────
+
+function SectionContent({
+  section,
+  onImageClick,
+}: {
+  section: DMESection;
+  onImageClick: (src: string, alt: string) => void;
+}) {
+  const hasContent = section.content.trim().length > 0;
+  const hasAttachments = (section.attachments?.length ?? 0) > 0;
+  const images = section.attachments?.filter((a) => a.type === "image") ?? [];
+  const documents =
+    section.attachments?.filter((a) => a.type === "document") ?? [];
+
+  const IconComp = resolveIcon(section.icon);
+
+  return (
+    <>
+      {/* Header */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+          marginBottom: 20,
+        }}
+      >
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 16,
+            flexShrink: 0,
+            background: `linear-gradient(${SECTION_META[section.id]?.gradient || "135deg, #8B5CF6, #10B981"})`,
+            border: "1px solid rgba(255,255,255,0.2)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "white",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
+          }}
+        >
+          <IconComp size={24} strokeWidth={2} />
+        </div>
+        <h3
+          style={{
+            fontFamily: "'Syne',sans-serif",
+            fontSize: 20,
+            fontWeight: 800,
+            color: "#1E293B",
+            margin: 0,
+          }}
+        >
+          {section.title}
+        </h3>
+      </div>
+
+      {/* Text content */}
+      <div className="content-area">
+        {hasContent ? (
+          section.content
+        ) : !hasAttachments ? (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "40px",
+              color: "#94A3B8",
+              textAlign: "center",
+              gap: 12,
+            }}
+          >
+            <Inbox size={32} strokeWidth={1.5} />
+            <p
+              style={{
+                fontSize: 14,
+                fontWeight: 600,
+                margin: 0,
+              }}
+            >
+              Non renseigné par le patient
+            </p>
+          </div>
+        ) : null}
+      </div>
+
+      {/* Attachments */}
+      {hasAttachments && (
+        <div style={{ marginTop: 20 }}>
+          <p
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "1px",
+              textTransform: "uppercase",
+              color: "#64748B",
+              marginBottom: 12,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <Paperclip size={14} strokeWidth={2} />
+            Pièces jointes ({section.attachments!.length})
+          </p>
+
+          {/* Images */}
+          {images.length > 0 && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+                gap: 12,
+                marginBottom: 12,
+              }}
+            >
+              {images.map((att) => (
+                <div
+                  key={att.id}
+                  className="att-img-card"
+                  onClick={() => onImageClick(att.url, att.name)}
+                >
+                  <img src={att.url} alt={att.name} />
+                  <div className="att-label">{att.name}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Documents */}
+          {documents.length > 0 && (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
+              {documents.map((att) => (
+                <a
+                  key={att.id}
+                  href={att.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="att-doc-card"
+                >
+                  <FileText size={24} strokeWidth={1.5} color="#64748B" />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "#1E293B",
+                        margin: 0,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {att.name}
+                    </p>
+                    <p
+                      style={{
+                        fontSize: 11,
+                        color: "#94A3B8",
+                        margin: 0,
+                      }}
+                    >
+                      Cliquez pour ouvrir
+                    </p>
+                  </div>
+                  <ArrowUpRight size={16} color="#6366F1" strokeWidth={2} />
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Read-only badge */}
+      <div
+        style={{
+          marginTop: 16,
+          padding: "12px 16px",
+          background: "rgba(16,185,129,0.05)",
+          border: "1px solid rgba(16,185,129,0.1)",
+          borderRadius: 14,
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          fontSize: 12,
+          color: "#64748B",
+        }}
+      >
+        <Eye size={16} strokeWidth={2} color="#059669" />
+        <span>
+          Accès <strong style={{ color: "#059669" }}>lecture seule</strong> —
+          modification non autorisée.
+        </span>
+      </div>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────
+// MAIN COMPONENT
+// ─────────────────────────────────────────────
 
 export default function MedecinDMEPage() {
   const { token, isLoading, username } = useAuth();
@@ -388,14 +617,10 @@ export default function MedecinDMEPage() {
   const [tokenError, setTokenError] = useState("");
   const [loadingToken, setLoadingToken] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-<<<<<<< HEAD
-=======
   const [lightboxImg, setLightboxImg] = useState<{
     src: string;
     alt: string;
   } | null>(null);
-
->>>>>>> 796b3dadf14987e05ba52c2df74edd28a6437504
   const [nowTs, setNowTs] = useState<number>(() => Date.now());
 
   // Mise à jour de la vue quand on change de patient
@@ -505,7 +730,9 @@ export default function MedecinDMEPage() {
   );
   const filledSections =
     selectedDossier?.sections.filter(
-      (s) => s.content.trim().length > 0 || (s.attachments && s.attachments.length > 0),
+      (s) =>
+        s.content.trim().length > 0 ||
+        (s.attachments && s.attachments.length > 0),
     ) ?? [];
   const activeDossiers = sharedDossiers.filter((d) => !isExpired(d));
   const filtered = searchQuery
@@ -526,126 +753,96 @@ export default function MedecinDMEPage() {
         .dme-bg { background: linear-gradient(135deg, #FDF4FF 0%, #ECFDF5 100%); min-height: 100vh; }
         .dme-card { background: rgba(255,255,255,0.78); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.95); border-radius: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); }
 
-        .text-grad { background: linear-gradient(135deg, #8B5CF6, #10B981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .text-gradient { background: linear-gradient(135deg, #8B5CF6, #10B981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 
-<<<<<<< HEAD
         .dossier-row { display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:14px; cursor:pointer; transition:all 0.2s ease; border:1.5px solid transparent; background:rgba(255,255,255,0.4); margin-bottom:8px; }
         .dossier-row:hover:not(.exp-row) { border-color:rgba(16,185,129,0.25); background:rgba(16,185,129,0.06); transform:translateX(3px); }
-        .dossier-row.sel-row { border-color:rgba(16,185,129,0.4); background:rgba(16,185,129,0.1); box-shadow: 0 4px 12px rgba(16,185,129,0.08); }
-=======
-        .text-grad {
-          background: linear-gradient(135deg, #8B5CF6, #10B981);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-
-        .dossier-row {
-          display:flex; align-items:center; gap:12px;
-          padding:12px 14px; border-radius:14px;
-          cursor:pointer; transition:all 0.2s ease;
-          border:1.5px solid transparent;
-          background:rgba(255,255,255,0.4);
-          margin-bottom:8px;
-        }
-        .dossier-row:hover:not(.exp-row) {
-          border-color:rgba(16,185,129,0.25);
-          background:rgba(16,185,129,0.06);
-          transform:translateX(3px);
-        }
-        .dossier-row.sel-row {
-          border-color:rgba(16,185,129,0.4);
-          background:rgba(16,185,129,0.1);
-          box-shadow: 0 4px 12px rgba(16,185,129,0.08);
-        }
->>>>>>> 796b3dadf14987e05ba52c2df74edd28a6437504
-        .dossier-row.exp-row { opacity:0.5; cursor:not-allowed; filter: grayscale(0.5); }
+        .dossier-row.sel-row { border-color:rgba(16,185,129,0.4); background:rgba(16,185,129,0.1); box-shadow:0 4px 12px rgba(16,185,129,0.08); }
+        .dossier-row.exp-row { opacity:0.5; cursor:not-allowed; filter:grayscale(0.5); }
 
         .sec-tab-med { display:flex; align-items:center; gap:9px; padding:10px 13px; border-radius:12px; cursor:pointer; transition:all 0.2s; font-size:13px; font-weight:500; color:#64748B; border:1px solid transparent; }
         .sec-tab-med:hover { background:rgba(139,92,246,0.05); color:#334155; border-color:rgba(139,92,246,0.1); }
-<<<<<<< HEAD
         .sec-tab-med.active-tab { background:linear-gradient(135deg,rgba(139,92,246,0.1),rgba(16,185,129,0.08)); color:#1E293B; border-color:rgba(139,92,246,0.3); box-shadow:0 2px 8px rgba(139,92,246,0.1); }
-=======
-        .sec-tab-med.active-tab {
-          background:linear-gradient(135deg,rgba(139,92,246,0.1),rgba(16,185,129,0.08));
-          color:#1E293B; border-color:rgba(139,92,246,0.3);
-          box-shadow:0 2px 8px rgba(139,92,246,0.1);
-        }
->>>>>>> 796b3dadf14987e05ba52c2df74edd28a6437504
         .sec-tab-med.empty-tab { opacity:0.4; }
 
-        .token-field { flex:1; padding:13px 18px; border:1.5px solid rgba(0,0,0,0.06); border-radius:14px; font-family:'DM Sans',sans-serif; font-size:14px; color:#334155; background:rgba(255,255,255,0.6); outline:none; transition:all 0.2s; }
-        .token-field:focus { border-color:rgba(139,92,246,0.4); background:white; box-shadow:0 0 0 4px rgba(139,92,246,0.08); }
+        /* Styles pour la barre de recherche unifiée */
+        .search-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.8);
+            border: 1.5px solid rgba(0,0,0,0.06);
+            border-radius: 12px;
+            padding: 0;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            transition: all 0.2s;
+        }
+        .search-container:focus-within {
+            border-color: #8B5CF6;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(139,92,246,0.1);
+        }
+        .search-input {
+            width: 100%;
+            padding: 12px 40px 12px 40px;
+            border: none;
+            background: transparent;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 14px;
+            color: #334155;
+            outline: none;
+        }
+        /* Styles Filter Buttons pour les stats */
+        .filter-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(0,0,0,0.05);
+            background: rgba(255,255,255,0.7);
+            color: #475569;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'DM Sans', sans-serif;
+        }
+        .filter-btn:hover {
+            background: rgba(139,92,246,0.05);
+            border-color: rgba(139,92,246,0.2);
+            color: #8B5CF6;
+        }
+        .filter-btn.active {
+            background: rgba(139,92,246,0.1);
+            border-color: rgba(139,92,246,0.3);
+            color: #8B5CF6;
+        }
 
-        .token-submit { padding:13px 24px; border-radius:14px; background:linear-gradient(135deg,#8B5CF6,#10B981); color:white; border:none; font-family:'DM Sans',sans-serif; font-weight:700; font-size:14px; cursor:pointer; white-space:nowrap; transition:all 0.25s; box-shadow:0 4px 14px rgba(139,92,246,0.25); }
-        .token-submit:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 8px 20px rgba(139,92,246,0.35); }
-
-<<<<<<< HEAD
         .stat-card { padding:20px 22px; display:flex; align-items:center; gap:14px; }
-        .stat-icon { width:46px; height:46px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:20px; flexShrink:0; }
-=======
-        .stat-card {
-          padding:20px 22px; display:flex; align-items:center; gap:14px;
-        }
-        .stat-icon {
-          width:46px; height:46px; border-radius:14px;
-          display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;
-        }
->>>>>>> 796b3dadf14987e05ba52c2df74edd28a6437504
+        .stat-icon { width:46px; height:46px; border-radius:14px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 
         .content-area { background:white; border:1.5px solid rgba(0,0,0,0.04); border-radius:16px; padding:24px; min-height:200px; font-size:15px; line-height:1.8; color:#334155; white-space:pre-wrap; }
 
         .read-badge { display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:20px; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.2); color:#059669; font-size:11px; font-weight:700; letter-spacing:0.5px; }
 
-        /* Tab Styles */
         .view-tabs { display:flex; gap:8px; padding:6px; background:rgba(255,255,255,0.5); border-radius:16px; margin-bottom:24px; border:1px solid rgba(255,255,255,0.8); }
-        .view-tab-btn { flex:1; padding:12px; border:none; border-radius:12px; background:transparent; color:#64748B; font-weight:600; font-size:14px; cursor:pointer; transition:all 0.2s; font-family:'DM Sans', sans-serif; display:flex; align-items:center; justify-content:center; gap:8px; }
+        .view-tab-btn { flex:1; padding:12px; border:none; border-radius:12px; background:transparent; color:#64748B; font-weight:600; font-size:14px; cursor:pointer; transition:all 0.2s; font-family:'DM Sans',sans-serif; display:flex; align-items:center; justify-content:center; gap:8px; }
         .view-tab-btn:hover { background:rgba(255,255,255,0.8); color:#334155; }
         .view-tab-btn.active { background:white; color:#0F172A; box-shadow:0 2px 8px rgba(0,0,0,0.05); }
 
-        /* Fiche Styles */
-        .fiche-grid { display:grid; grid-template-columns: 1fr 1fr; gap:24px; }
+        .fiche-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
         .fiche-card { background:rgba(255,255,255,0.6); border:1px solid rgba(255,255,255,0.8); border-radius:18px; padding:20px; }
         .fiche-label { font-size:11px; font-weight:700; text-transform:uppercase; color:#94A3B8; letter-spacing:0.5px; margin-bottom:8px; }
         .fiche-val { font-size:15px; color:#1E293B; font-weight:500; }
-        .fiche-big-val { font-size:22px; color:#0F172A; font-weight:700; }
 
-<<<<<<< HEAD
-=======
-        .read-badge {
-          display:inline-flex; align-items:center; gap:6px;
-          padding:5px 12px; border-radius:20px;
-          background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.2);
-          color:#059669; font-size:11px; font-weight:700; letter-spacing:0.5px;
-        }
+        .att-img-card { border-radius:12px; overflow:hidden; border:1px solid rgba(0,0,0,0.06); cursor:pointer; transition:all 0.2s; }
+        .att-img-card:hover { transform:scale(1.03); box-shadow:0 6px 20px rgba(0,0,0,0.1); }
+        .att-img-card img { width:100%; height:100px; object-fit:cover; display:block; }
+        .att-img-card .att-label { padding:6px 10px; font-size:11px; color:#334155; font-weight:600; background:white; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
-        .att-img-card {
-          border-radius:12px; overflow:hidden;
-          border:1px solid rgba(0,0,0,0.06);
-          cursor:pointer; transition:all 0.2s;
-        }
-        .att-img-card:hover {
-          transform:scale(1.03);
-          box-shadow:0 6px 20px rgba(0,0,0,0.1);
-        }
-        .att-img-card img {
-          width:100%; height:100px; object-fit:cover; display:block;
-        }
-        .att-img-card .att-label {
-          padding:6px 10px; font-size:11px; color:#334155;
-          font-weight:600; background:white;
-          overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-        }
-
-        .att-doc-card {
-          display:flex; align-items:center; gap:10px;
-          padding:12px 14px; background:#F8FAFC;
-          border:1px solid #E2E8F0; border-radius:12px;
-          transition:all 0.2s; text-decoration:none;
-        }
-        .att-doc-card:hover {
-          background:#EFF6FF; border-color:#93C5FD;
-        }
->>>>>>> 796b3dadf14987e05ba52c2df74edd28a6437504
+        .att-doc-card { display:flex; align-items:center; gap:10px; padding:12px 14px; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:12px; transition:all 0.2s; text-decoration:none; }
+        .att-doc-card:hover { background:#EFF6FF; border-color:#93C5FD; }
       `}</style>
 
       <div
@@ -674,176 +871,157 @@ export default function MedecinDMEPage() {
               onClose={() => setLightboxImg(null)}
             />
           )}
-
-          {/* Token access */}
-          <div
-            className="dme-card"
-            style={{
-              padding: "20px 24px",
-              marginBottom: 20,
-              animation: "dmeFadeUp 0.35s ease",
-            }}
-          >
-            <p
+          <div>
+            <h1
+              className="text-gradient"
               style={{
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: "1.2px",
-                textTransform: "uppercase",
-                color: "#64748B",
-                marginBottom: 12,
+                fontFamily: "'Syne', sans-serif",
+                fontSize: 32,
+                fontWeight: 800,
+                margin: 0,
               }}
             >
-              Accès via lien
+              Dossiers Médicaux
+            </h1>
+
+            <p
+              style={{
+                color: "#64748b",
+                fontSize: 14,
+                marginTop: 4,
+              }}
+            >
+              {activeDossiers.length} dossier
+              {activeDossiers.length !== 1 ? "s" : ""}
             </p>
-            <div style={{ display: "flex", gap: 10 }}>
+          </div>
+
+          {/* CONTENEUR FLEX HORIZONTAL : Token + Stats (Style Recherche + Filtres) */}
+          <div
+            style={{
+              display: "flex",
+              gap: 16,
+              alignItems: "center",
+              marginBottom: 24,
+              flexWrap: "wrap",
+            }}
+          >
+            {/* Zone Token (Style Search Input) */}
+            <div
+              className="search-container"
+              style={{
+                flex: 1,
+                minWidth: "300px",
+                marginBottom: 0,
+                position: "relative",
+              }}
+            >
+              <Unlock
+                size={18}
+                color="#94a3b8"
+                style={{
+                  position: "absolute",
+                  left: 12,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                }}
+              />
               <input
-                className="token-field"
-                placeholder="Collez le code ou lien fourni par le patient…"
+                className="search-input"
+                placeholder="Collez le code ou lien fourni par le patient..."
                 value={tokenInput}
                 onChange={(e) => {
                   setTokenInput(e.target.value);
                   setTokenError("");
                 }}
                 onKeyDown={(e) => e.key === "Enter" && accessByToken()}
+                style={{ paddingLeft: 40 }} // Espace pour l'icône
               />
-              <button
-                className="token-submit"
-                onClick={accessByToken}
-                disabled={loadingToken || !tokenInput.trim()}
-              >
-                {loadingToken ? "…" : "🔓 Accéder"}
-              </button>
-            </div>
-            {tokenError && (
-              <p
-                style={{
-                  marginTop: 8,
-                  fontSize: 13,
-                  color: "#DC2626",
-                  fontWeight: 600,
-                }}
-              >
-                ⚠️ {tokenError}
-              </p>
-            )}
-          </div>
-
-          {/* Stats */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3,1fr)",
-              gap: 14,
-              marginBottom: 20,
-            }}
-          >
-            <div className="dme-card stat-card">
-              <div
-                className="stat-icon"
-                style={{
-                  background: "rgba(16,185,129,0.1)",
-                  border: "1px solid rgba(16,185,129,0.15)",
-                }}
-              >
-                📂
-              </div>
-              <div>
-                <p
+              {/* Bouton d'action intégré à droite du input */}
+              {!loadingToken && tokenInput.trim() && (
+                <button
+                  onClick={accessByToken}
                   style={{
-                    fontFamily: "'Syne',sans-serif",
-                    fontSize: 28,
-                    fontWeight: 800,
-                    color: "#10B981",
-                    margin: 0,
-                    lineHeight: 1,
-                  }}
-                >
-                  {activeDossiers.length}
-                </p>
-                <p
-                  style={{
-                    fontSize: 12,
-                    color: "#64748B",
+                    position: "absolute",
+                    right: 8,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "linear-gradient(135deg, #8B5CF6, #10B981)",
+                    color: "white",
+                    border: "none",
+                    borderRadius: 8,
+                    padding: "6px 12px",
+                    fontSize: "12px",
                     fontWeight: 600,
-                    margin: 0,
-                    marginTop: 3,
+                    cursor: "pointer",
                   }}
                 >
-                  Actifs
-                </p>
-              </div>
-            </div>
-            <div className="dme-card stat-card">
-              <div
-                className="stat-icon"
-                style={{
-                  background: "rgba(239,68,68,0.08)",
-                  border: "1px solid rgba(239,68,68,0.12)",
-                }}
-              >
-                🔒
-              </div>
-              <div>
-                <p
+                  Accéder
+                </button>
+              )}
+              {tokenError && (
+                <div
                   style={{
-                    fontFamily: "'Syne',sans-serif",
-                    fontSize: 28,
-                    fontWeight: 800,
+                    position: "absolute",
+                    bottom: -24,
+                    left: 0,
+                    fontSize: "11px",
                     color: "#EF4444",
-                    margin: 0,
-                    lineHeight: 1,
-                  }}
-                >
-                  {sharedDossiers.length - activeDossiers.length}
-                </p>
-                <p
-                  style={{
-                    fontSize: 12,
-                    color: "#64748B",
                     fontWeight: 600,
-                    margin: 0,
-                    marginTop: 3,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
                   }}
                 >
-                  Expirés
-                </p>
-              </div>
+                  <AlertTriangle size={12} /> {tokenError}
+                </div>
+              )}
             </div>
-            <div className="dme-card stat-card">
+
+            {/* Stats (Style Filter Buttons) */}
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                flexWrap: "wrap",
+                marginBottom: 0,
+              }}
+            >
+              {/* Stat 1 : Actifs */}
               <div
-                className="stat-icon"
-                style={{
-                  background: "rgba(99,102,241,0.08)",
-                  border: "1px solid rgba(99,102,241,0.12)",
-                }}
+                className="filter-btn active"
+                style={{ cursor: "pointer" }}
+                onClick={() => router.push("/dashboard/medecin/dossiers")} // Exemple de navigation
+                title="Dossiers actifs"
               >
-                👥
+                <FolderOpen size={16} strokeWidth={2.5} color="#10B981" />
+                <span>{activeDossiers.length} Actifs</span>
               </div>
-              <div>
-                <p
-                  style={{
-                    fontFamily: "'Syne',sans-serif",
-                    fontSize: 28,
-                    fontWeight: 800,
-                    color: "#6366F1",
-                    margin: 0,
-                    lineHeight: 1,
-                  }}
-                >
-                  {sharedDossiers.length}
-                </p>
-                <p
-                  style={{
-                    fontSize: 12,
-                    color: "#64748B",
-                    fontWeight: 600,
-                    margin: 0,
-                    marginTop: 3,
-                  }}
-                >
-                  Total
-                </p>
+
+              {/* Stat 2 : Expirés */}
+              <div
+                className="filter-btn"
+                style={{
+                  cursor: "pointer",
+                  opacity:
+                    sharedDossiers.length - activeDossiers.length > 0 ? 1 : 0.5,
+                }}
+                title="Dossiers expirés"
+              >
+                <Lock size={16} strokeWidth={2.5} color="#EF4444" />
+                <span>
+                  {sharedDossiers.length - activeDossiers.length} Expirés
+                </span>
+              </div>
+
+              {/* Stat 3 : Total */}
+              <div
+                className="filter-btn"
+                style={{ cursor: "pointer" }}
+                title="Total dossiers"
+              >
+                <Users size={16} strokeWidth={2.5} color="#6366F1" />
+                <span>{sharedDossiers.length} Total</span>
               </div>
             </div>
           </div>
@@ -896,24 +1074,36 @@ export default function MedecinDMEPage() {
                 </span>
               </div>
 
-              <input
-                style={{
-                  width: "100%",
-                  boxSizing: "border-box",
-                  padding: "9px 14px",
-                  marginBottom: 12,
-                  border: "1.5px solid rgba(0,0,0,0.06)",
-                  borderRadius: 11,
-                  fontFamily: "'DM Sans',sans-serif",
-                  fontSize: 13,
-                  color: "#334155",
-                  background: "rgba(255,255,255,0.5)",
-                  outline: "none",
-                }}
-                placeholder="🔍 Rechercher…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+              <div style={{ position: "relative", marginBottom: 12 }}>
+                <Search
+                  size={14}
+                  color="#94A3B8"
+                  style={{
+                    position: "absolute",
+                    left: 12,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                  }}
+                />
+                <input
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "9px 14px 9px 36px",
+                    marginBottom: 12,
+                    border: "1.5px solid rgba(0,0,0,0.06)",
+                    borderRadius: 11,
+                    fontFamily: "'DM Sans',sans-serif",
+                    fontSize: 13,
+                    color: "#334155",
+                    background: "rgba(255,255,255,0.5)",
+                    outline: "none",
+                  }}
+                  placeholder="Rechercher…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
 
               {filtered.length === 0 ? (
                 <div
@@ -921,9 +1111,18 @@ export default function MedecinDMEPage() {
                     padding: "32px 16px",
                     textAlign: "center",
                     color: "#64748B",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                 >
-                  <p style={{ fontSize: 32, marginBottom: 8 }}>🗂️</p>
+                  <Folder
+                    size={32}
+                    strokeWidth={1.5}
+                    color="#CBD5E1"
+                    style={{ marginBottom: 8, alignSelf: "center" }}
+                  />
                   <p style={{ fontSize: 13, fontWeight: 600 }}>Aucun dossier</p>
                 </div>
               ) : (
@@ -961,7 +1160,7 @@ export default function MedecinDMEPage() {
                               fontWeight: 700,
                             }}
                           >
-                            ⛔ Expiré
+                            Expiré
                           </span>
                         )}
                       </div>
@@ -977,12 +1176,13 @@ export default function MedecinDMEPage() {
                             background: "rgba(239,68,68,0.05)",
                             border: "1px solid rgba(239,68,68,0.15)",
                             color: "#EF4444",
-                            fontSize: 11,
                             cursor: "pointer",
                             fontWeight: 600,
+                            display: "flex",
+                            alignItems: "center",
                           }}
                         >
-                          ✕
+                          <X size={14} strokeWidth={2} />
                         </button>
                       )}
                     </div>
@@ -1015,11 +1215,11 @@ export default function MedecinDMEPage() {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: 36,
+                    color: "#8B5CF6",
                     marginBottom: 20,
                   }}
                 >
-                  📋
+                  <Clipboard size={40} strokeWidth={1.5} />
                 </div>
                 <h3
                   style={{
@@ -1050,7 +1250,6 @@ export default function MedecinDMEPage() {
                   display: "flex",
                   flexDirection: "column",
                   gap: 16,
-<<<<<<< HEAD
                   height: "100%",
                   overflow: "hidden",
                 }}
@@ -1082,128 +1281,10 @@ export default function MedecinDMEPage() {
                     <p style={{ fontSize: 13, color: "#64748B", margin: 0 }}>
                       Patient ID: #{selectedDossier.patient_id}
                     </p>
-=======
-                }}
-              >
-                {/* Patient header card */}
-                <div className="dme-card" style={{ padding: "24px 28px" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                      marginBottom: 18,
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 16,
-                      }}
-                    >
-                      <Avatar
-                        name={selectedDossier.patient_name}
-                        size={54}
-                      />
-                      <div>
-                        <h2
-                          style={{
-                            fontFamily: "'Syne',sans-serif",
-                            fontSize: 22,
-                            fontWeight: 800,
-                            color: "#1E293B",
-                            margin: 0,
-                            marginBottom: 4,
-                          }}
-                        >
-                          {selectedDossier.patient_name}
-                        </h2>
-                        <p
-                          style={{
-                            fontSize: 13,
-                            color: "#64748B",
-                            margin: 0,
-                          }}
-                        >
-                          Partagé le{" "}
-                          {new Date(
-                            selectedDossier.created_at,
-                          ).toLocaleDateString("fr-FR", {
-                            day: "numeric",
-                            month: "long",
-                            year: "numeric",
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="read-badge">🔍 Lecture seule</span>
                   </div>
-
-                  <TimeBar expiresAt={selectedDossier.expires_at} />
-
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(3,1fr)",
-                      gap: 12,
-                      marginTop: 20,
-                    }}
-                  >
-                    {[
-                      {
-                        val: filledSections.length,
-                        label: "Sections remplies",
-                        color: "#8B5CF6",
-                      },
-                      {
-                        val: selectedDossier.sections.length,
-                        label: "Total sections",
-                        color: "#10B981",
-                      },
-                      {
-                        val: `${Math.max(0, Math.round((new Date(selectedDossier.expires_at).getTime() - Date.now()) / 3600000))}h`,
-                        label: "Restantes",
-                        color: "#F59E0B",
-                      },
-                    ].map((item) => (
-                      <div
-                        key={item.label}
-                        style={{
-                          padding: "14px 16px",
-                          background: "rgba(255,255,255,0.5)",
-                          borderRadius: 14,
-                          border: "1px solid rgba(255,255,255,0.8)",
-                          textAlign: "center",
-                        }}
-                      >
-                        <p
-                          style={{
-                            fontFamily: "'Syne',sans-serif",
-                            fontSize: 24,
-                            fontWeight: 800,
-                            color: item.color,
-                            margin: 0,
-                          }}
-                        >
-                          {item.val}
-                        </p>
-                        <p
-                          style={{
-                            fontSize: 11,
-                            color: "#64748B",
-                            fontWeight: 600,
-                            margin: 0,
-                            marginTop: 2,
-                          }}
-                        >
-                          {item.label}
-                        </p>
-                      </div>
-                    ))}
->>>>>>> 796b3dadf14987e05ba52c2df74edd28a6437504
-                  </div>
-                  <span className="read-badge">🔍 Lecture seule</span>
+                  <span className="read-badge">
+                    <Eye size={12} strokeWidth={2} /> Lecture seule
+                  </span>
                 </div>
 
                 {/* TABS SWITCHER */}
@@ -1212,14 +1293,13 @@ export default function MedecinDMEPage() {
                     className={`view-tab-btn ${viewMode === "fiche" ? "active" : ""}`}
                     onClick={() => setViewMode("fiche")}
                   >
-<<<<<<< HEAD
-                    👤 Fiche Technique
+                    <User size={18} strokeWidth={2} /> Fiche Technique
                   </button>
                   <button
                     className={`view-tab-btn ${viewMode === "dossier" ? "active" : ""}`}
                     onClick={() => setViewMode("dossier")}
                   >
-                    📂 Dossier Médical
+                    <FolderOpen size={18} strokeWidth={2} /> Dossier Médical
                   </button>
                 </div>
 
@@ -1246,83 +1326,6 @@ export default function MedecinDMEPage() {
                           Chargement des informations...
                         </div>
                       ) : patientProfile ? (
-=======
-                    <div>
-                      <p
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 700,
-                          letterSpacing: "1.5px",
-                          textTransform: "uppercase",
-                          color: "#94A3B8",
-                          marginBottom: 12,
-                        }}
-                      >
-                        Sections
-                      </p>
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 6,
-                        }}
-                      >
-                        {selectedDossier.sections.map((section) => {
-                          const filled =
-                            section.content.trim().length > 0 ||
-                            (section.attachments &&
-                              section.attachments.length > 0);
-                          const isAct = activeSection === section.id;
-                          return (
-                            <div
-                              key={section.id}
-                              className={`sec-tab-med ${isAct ? "active-tab" : ""} ${!filled ? "empty-tab" : ""}`}
-                              onClick={() => setActiveSection(section.id)}
-                            >
-                              <span style={{ fontSize: 15 }}>
-                                {resolveIcon(section.icon)}
-                              </span>
-                              <span style={{ flex: 1 }}>
-                                {section.title}
-                              </span>
-                              {filled ? (
-                                <span
-                                  style={{
-                                    width: 6,
-                                    height: 6,
-                                    borderRadius: "50%",
-                                    background: isAct
-                                      ? "#8B5CF6"
-                                      : "#10B981",
-                                    flexShrink: 0,
-                                    boxShadow: isAct
-                                      ? "0 0 8px rgba(139,92,246,0.6)"
-                                      : "0 0 6px rgba(16,185,129,0.6)",
-                                  }}
-                                />
-                              ) : (
-                                <span
-                                  style={{
-                                    width: 6,
-                                    height: 6,
-                                    borderRadius: "50%",
-                                    background: "rgba(0,0,0,0.05)",
-                                    flexShrink: 0,
-                                  }}
-                                />
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div
-                      key={activeSection}
-                      style={{ animation: "dmeFadeUp 0.25s ease" }}
-                    >
-                      {currentSection && (
->>>>>>> 796b3dadf14987e05ba52c2df74edd28a6437504
                         <>
                           <div
                             className="fiche-card"
@@ -1332,14 +1335,7 @@ export default function MedecinDMEPage() {
                               style={{
                                 display: "flex",
                                 alignItems: "center",
-<<<<<<< HEAD
                                 gap: 16,
-=======
-                                justifyContent: "center",
-                                fontSize: 22,
-                                boxShadow:
-                                  "0 8px 24px rgba(0,0,0,0.1)",
->>>>>>> 796b3dadf14987e05ba52c2df74edd28a6437504
                               }}
                             >
                               <div
@@ -1351,8 +1347,10 @@ export default function MedecinDMEPage() {
                                   display: "flex",
                                   alignItems: "center",
                                   justifyContent: "center",
-                                  fontSize: 32,
+                                  color: "#8B5CF6",
                                   border: "2px dashed rgba(139,92,246,0.2)",
+                                  fontSize: 24,
+                                  fontWeight: 800,
                                 }}
                               >
                                 {patientProfile.user?.first_name
@@ -1384,17 +1382,9 @@ export default function MedecinDMEPage() {
                             </div>
                           </div>
 
-<<<<<<< HEAD
                           <div className="fiche-grid">
                             <div className="fiche-card">
                               <p className="fiche-label">Contact</p>
-=======
-                          {/* ═══ Contenu texte ═══ */}
-                          <div className="content-area">
-                            {currentSection.content.trim() ? (
-                              currentSection.content
-                            ) : !currentSection.attachments?.length ? (
->>>>>>> 796b3dadf14987e05ba52c2df74edd28a6437504
                               <div
                                 style={{
                                   display: "flex",
@@ -1409,7 +1399,11 @@ export default function MedecinDMEPage() {
                                     gap: 8,
                                   }}
                                 >
-                                  <span style={{ fontSize: 16 }}>📞</span>
+                                  <Phone
+                                    size={18}
+                                    strokeWidth={2}
+                                    color="#64748B"
+                                  />
                                   <span className="fiche-val">
                                     {patientProfile.user?.phone ||
                                       "Non renseigné"}
@@ -1422,7 +1416,11 @@ export default function MedecinDMEPage() {
                                     gap: 8,
                                   }}
                                 >
-                                  <span style={{ fontSize: 16 }}>📧</span>
+                                  <Mail
+                                    size={18}
+                                    strokeWidth={2}
+                                    color="#64748B"
+                                  />
                                   <span
                                     className="fiche-val"
                                     style={{ wordBreak: "break-all" }}
@@ -1432,7 +1430,6 @@ export default function MedecinDMEPage() {
                                   </span>
                                 </div>
                               </div>
-<<<<<<< HEAD
                             </div>
 
                             <div className="fiche-card">
@@ -1451,7 +1448,11 @@ export default function MedecinDMEPage() {
                                     gap: 8,
                                   }}
                                 >
-                                  <span style={{ fontSize: 16 }}>🎂</span>
+                                  <Cake
+                                    size={18}
+                                    strokeWidth={2}
+                                    color="#64748B"
+                                  />
                                   <span className="fiche-val">
                                     {patientProfile.date_of_birth
                                       ? new Date(
@@ -1467,7 +1468,11 @@ export default function MedecinDMEPage() {
                                     gap: 8,
                                   }}
                                 >
-                                  <span style={{ fontSize: 16 }}>🩸</span>
+                                  <Droplets
+                                    size={18}
+                                    strokeWidth={2}
+                                    color="#64748B"
+                                  />
                                   <span className="fiche-val">
                                     {patientProfile.blood_type ||
                                       "Non renseigné"}
@@ -1477,7 +1482,7 @@ export default function MedecinDMEPage() {
                             </div>
                           </div>
 
-                          <div className="fiche-card">
+                          <div className="fiche-card" style={{ marginTop: 16 }}>
                             <p className="fiche-label">Adresse</p>
                             <p className="fiche-val">
                               {patientProfile.address || "Non renseigné"}
@@ -1492,175 +1497,13 @@ export default function MedecinDMEPage() {
                             color: "#64748B",
                           }}
                         >
-                          <span
-                            style={{
-                              fontSize: 32,
-                              display: "block",
-                              marginBottom: 10,
-                            }}
-                          >
-                            📭
-                          </span>
+                          <Inbox
+                            size={32}
+                            strokeWidth={1.5}
+                            style={{ marginBottom: 10 }}
+                          />
                           <p>Fiche technique non disponible</p>
                         </div>
-=======
-                            ) : null}
-                          </div>
-
-                          {/* ═══ PIÈCES JOINTES ENVOYÉES PAR LE PATIENT ═══ */}
-                          {currentSection.attachments &&
-                            currentSection.attachments.length > 0 && (
-                              <div style={{ marginTop: 20 }}>
-                                <p
-                                  style={{
-                                    fontSize: 11,
-                                    fontWeight: 700,
-                                    letterSpacing: "1px",
-                                    textTransform: "uppercase",
-                                    color: "#64748B",
-                                    marginBottom: 12,
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 6,
-                                  }}
-                                >
-                                  📎 Pièces jointes (
-                                  {currentSection.attachments.length})
-                                </p>
-
-                                {/* Images */}
-                                {currentSection.attachments.filter(
-                                  (a) => a.type === "image",
-                                ).length > 0 && (
-                                  <div
-                                    style={{
-                                      display: "grid",
-                                      gridTemplateColumns:
-                                        "repeat(auto-fill, minmax(140px, 1fr))",
-                                      gap: 12,
-                                      marginBottom: 12,
-                                    }}
-                                  >
-                                    {currentSection.attachments
-                                      .filter((a) => a.type === "image")
-                                      .map((att) => (
-                                        <div
-                                          key={att.id}
-                                          className="att-img-card"
-                                          onClick={() =>
-                                            setLightboxImg({
-                                              src: att.url,
-                                              alt: att.name,
-                                            })
-                                          }
-                                        >
-                                          <img
-                                            src={att.url}
-                                            alt={att.name}
-                                          />
-                                          <div className="att-label">
-                                            {att.name}
-                                          </div>
-                                        </div>
-                                      ))}
-                                  </div>
-                                )}
-
-                                {/* Documents */}
-                                {currentSection.attachments.filter(
-                                  (a) => a.type === "document",
-                                ).length > 0 && (
-                                  <div
-                                    style={{
-                                      display: "flex",
-                                      flexDirection: "column",
-                                      gap: 8,
-                                    }}
-                                  >
-                                    {currentSection.attachments
-                                      .filter(
-                                        (a) => a.type === "document",
-                                      )
-                                      .map((att) => (
-                                        <a
-                                          key={att.id}
-                                          href={att.url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="att-doc-card"
-                                        >
-                                          <span style={{ fontSize: 24 }}>
-                                            📑
-                                          </span>
-                                          <div
-                                            style={{
-                                              flex: 1,
-                                              minWidth: 0,
-                                            }}
-                                          >
-                                            <p
-                                              style={{
-                                                fontSize: 13,
-                                                fontWeight: 600,
-                                                color: "#1E293B",
-                                                margin: 0,
-                                                overflow: "hidden",
-                                                textOverflow: "ellipsis",
-                                                whiteSpace: "nowrap",
-                                              }}
-                                            >
-                                              {att.name}
-                                            </p>
-                                            <p
-                                              style={{
-                                                fontSize: 11,
-                                                color: "#94A3B8",
-                                                margin: 0,
-                                              }}
-                                            >
-                                              Cliquez pour ouvrir
-                                            </p>
-                                          </div>
-                                          <span
-                                            style={{
-                                              fontSize: 16,
-                                              color: "#6366F1",
-                                            }}
-                                          >
-                                            ↗
-                                          </span>
-                                        </a>
-                                      ))}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                          <div
-                            style={{
-                              marginTop: 16,
-                              padding: "12px 16px",
-                              background: "rgba(16,185,129,0.05)",
-                              border: "1px solid rgba(16,185,129,0.1)",
-                              borderRadius: 14,
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 10,
-                              fontSize: 12,
-                              color: "#64748B",
-                            }}
-                          >
-                            <span>🔍</span>
-                            <span>
-                              Accès{" "}
-                              <strong style={{ color: "#059669" }}>
-                                lecture seule
-                              </strong>{" "}
-                              — modification non autorisée.
-                            </span>
-                          </div>
-                        </>
->>>>>>> 796b3dadf14987e05ba52c2df74edd28a6437504
                       )}
                     </div>
                   )}
@@ -1690,263 +1533,66 @@ export default function MedecinDMEPage() {
                           <p
                             style={{
                               fontSize: 13,
-                              color: "#64748B",
+                              fontWeight: 700,
+                              color: "#1E293B",
                               margin: 0,
                             }}
                           >
-                            Dossier partagé le{" "}
-                            {new Date(
-                              selectedDossier.created_at,
-                            ).toLocaleDateString("fr-FR")}
+                            Sections du dossier
                           </p>
                           <TimeBar expiresAt={selectedDossier.expires_at} />
                         </div>
+
+                        {/* List of Sections Tabs */}
                         <div
                           style={{
-                            display: "grid",
-                            gridTemplateColumns: "repeat(3,1fr)",
-                            gap: 10,
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: 8,
                           }}
                         >
-                          {[
-                            {
-                              val: filledSections.length,
-                              label: "Sections remplies",
-                              color: "#8B5CF6",
-                            },
-                            {
-                              val: selectedDossier.sections.length,
-                              label: "Total sections",
-                              color: "#10B981",
-                            },
-                            {
-                              val: `${Math.max(0, Math.round((new Date(selectedDossier.expires_at).getTime() - Number(new Date().getTime())) / 3600000))}h`,
-                              label: "Restantes",
-                              color: "#F59E0B",
-                            },
-                          ].map((item) => (
-                            <div
-                              key={item.label}
-                              style={{
-                                padding: "10px",
-                                background: "rgba(255,255,255,0.5)",
-                                borderRadius: 12,
-                                border: "1px solid rgba(255,255,255,0.8)",
-                                textAlign: "center",
-                              }}
-                            >
-                              <p
-                                style={{
-                                  fontFamily: "'Syne',sans-serif",
-                                  fontSize: 20,
-                                  fontWeight: 800,
-                                  color: item.color,
-                                  margin: 0,
-                                }}
+                          {selectedDossier.sections.map((sec) => {
+                            const isEmpty =
+                              sec.content.trim().length === 0 &&
+                              (sec.attachments?.length ?? 0) === 0;
+                            return (
+                              <button
+                                key={sec.id}
+                                className={`sec-tab-med ${
+                                  activeSection === sec.id ? "active-tab" : ""
+                                } ${isEmpty ? "empty-tab" : ""}`}
+                                onClick={() => setActiveSection(sec.id)}
                               >
-                                {item.val}
-                              </p>
-                              <p
-                                style={{
-                                  fontSize: 11,
-                                  color: "#64748B",
-                                  fontWeight: 600,
-                                  margin: 0,
-                                  marginTop: 2,
-                                }}
-                              >
-                                {item.label}
-                              </p>
-                            </div>
-                          ))}
+                                {(() => {
+                                  const Icon = resolveIcon(sec.id);
+                                  return <Icon size={16} strokeWidth={2} />;
+                                })()}
+                                {sec.title}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
 
-                      {/* Contenu Dossier */}
-                      <div
-                        className="dme-card"
-                        style={{ padding: 24, flex: 1 }}
-                      >
+                      {/* Content of selected section */}
+                      {currentSection ? (
+                        <SectionContent
+                          section={currentSection}
+                          onImageClick={(src, alt) =>
+                            setLightboxImg({ src, alt })
+                          }
+                        />
+                      ) : (
                         <div
                           style={{
-                            display: "grid",
-                            gridTemplateColumns: "200px 1fr",
-                            gap: 20,
-                            height: "100%",
+                            padding: 40,
+                            textAlign: "center",
+                            color: "#94A3B8",
                           }}
                         >
-                          {/* Menu Gauche Dossier */}
-                          <div>
-                            <p
-                              style={{
-                                fontSize: 10,
-                                fontWeight: 700,
-                                letterSpacing: "1.5px",
-                                textTransform: "uppercase",
-                                color: "#94A3B8",
-                                marginBottom: 12,
-                              }}
-                            >
-                              Sections
-                            </p>
-                            <div
-                              style={{
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: 6,
-                              }}
-                            >
-                              {selectedDossier.sections.map((section) => {
-                                const filled =
-                                  section.content.trim().length > 0;
-                                const isAct = activeSection === section.id;
-                                return (
-                                  <div
-                                    key={section.id}
-                                    className={`sec-tab-med ${isAct ? "active-tab" : ""} ${!filled ? "empty-tab" : ""}`}
-                                    onClick={() => setActiveSection(section.id)}
-                                  >
-                                    <span style={{ fontSize: 15 }}>
-                                      {resolveIcon(section.icon)}
-                                    </span>
-                                    <span style={{ flex: 1 }}>
-                                      {section.title}
-                                    </span>
-                                    {filled ? (
-                                      <span
-                                        style={{
-                                          width: 6,
-                                          height: 6,
-                                          borderRadius: "50%",
-                                          background: isAct
-                                            ? "#8B5CF6"
-                                            : "#10B981",
-                                          flexShrink: 0,
-                                          boxShadow: isAct
-                                            ? "0 0 8px rgba(139,92,246,0.6)"
-                                            : "0 0 6px rgba(16,185,129,0.6)",
-                                        }}
-                                      />
-                                    ) : (
-                                      <span
-                                        style={{
-                                          width: 6,
-                                          height: 6,
-                                          borderRadius: "50%",
-                                          background: "rgba(0,0,0,0.05)",
-                                          flexShrink: 0,
-                                        }}
-                                      />
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          {/* Contenu Dossier Droite */}
-                          <div
-                            key={activeSection}
-                            style={{ animation: "dmeFadeUp 0.25s ease" }}
-                          >
-                            {currentSection ? (
-                              <>
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 14,
-                                    marginBottom: 20,
-                                  }}
-                                >
-                                  <div
-                                    style={{
-                                      width: 48,
-                                      height: 48,
-                                      borderRadius: 16,
-                                      flexShrink: 0,
-                                      background: `linear-gradient(${SECTION_META[currentSection.id]?.gradient || "135deg, #8B5CF6, #10B981"})`,
-                                      border: "1px solid rgba(255,255,255,0.2)",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      fontSize: 22,
-                                      boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
-                                    }}
-                                  >
-                                    {resolveIcon(currentSection.icon)}
-                                  </div>
-                                  <h3
-                                    style={{
-                                      fontFamily: "'Syne',sans-serif",
-                                      fontSize: 20,
-                                      fontWeight: 800,
-                                      color: "#1E293B",
-                                      margin: 0,
-                                    }}
-                                  >
-                                    {currentSection.title}
-                                  </h3>
-                                </div>
-
-                                <div className="content-area">
-                                  {currentSection.content.trim() ? (
-                                    currentSection.content
-                                  ) : (
-                                    <div
-                                      style={{
-                                        display: "flex",
-                                        flexDirection: "column",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        padding: "40px",
-                                        color: "#94A3B8",
-                                        textAlign: "center",
-                                        gap: 12,
-                                      }}
-                                    >
-                                      <span style={{ fontSize: 32 }}>📭</span>
-                                      <p
-                                        style={{
-                                          fontSize: 14,
-                                          fontWeight: 600,
-                                          margin: 0,
-                                        }}
-                                      >
-                                        Non renseigné par le patient
-                                      </p>
-                                    </div>
-                                  )}
-                                </div>
-
-                                <div
-                                  style={{
-                                    marginTop: 16,
-                                    padding: "12px 16px",
-                                    background: "rgba(16,185,129,0.05)",
-                                    border: "1px solid rgba(16,185,129,0.1)",
-                                    borderRadius: 14,
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 10,
-                                    fontSize: 12,
-                                    color: "#64748B",
-                                  }}
-                                >
-                                  <span>🔍</span>
-                                  <span>
-                                    Accès{" "}
-                                    <strong style={{ color: "#059669" }}>
-                                      lecture seule
-                                    </strong>{" "}
-                                    — modification non autorisée.
-                                  </span>
-                                </div>
-                              </>
-                            ) : null}
-                          </div>
+                          Sélectionnez une section
                         </div>
-                      </div>
+                      )}
                     </div>
                   )}
                 </div>

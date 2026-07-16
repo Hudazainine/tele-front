@@ -15,7 +15,7 @@ export default function PageDetailPaiement({ rdvId }) {
     setLoading(true);
     setErreur(null);
     try {
-      const { data: res } = await api.get(`paiement/detail/${rdvId}/`);
+      const { data: res } = await api.get(`paiement/verifier/${rdvId}/`);
       setData(res);
     } catch (err) {
       setErreur(
@@ -154,7 +154,7 @@ export default function PageDetailPaiement({ rdvId }) {
           rel="noopener noreferrer"
           className="underline"
         >
-          Paymee
+          Konnect
         </a>
         . En cas de problème, contactez le support.
       </p>

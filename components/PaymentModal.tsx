@@ -21,18 +21,21 @@ export default function PaymentModal({
   const acompte = montantTotal * 0.5;
 
   const handlePaiement = async () => {
+    setLoading(true);
     try {
-      const res = await api.post(`/api/paiement/avance/${consultationId}/`);
-
-      const paymentUrl = res.data.payment_url;
+      const res = await api.post(`paiement/avance/${rdvId}/`); // ← rdvId, pas consultationId
+      // ← pas de /api/ devant (api.js le gère)
+      const paymentUrl = res.data.pay_url; // ← pay_url, pas payment_url (c'est ce que Django renvoie)
 
       if (paymentUrl) {
-        window.location.href = paymentUrl; // REDIRECTION PAYMEE
+        window.location.href = paymentUrl;
       } else {
-        console.error("payment_url missing", res.data);
+        console.error("pay_url manquant", res.data);
       }
     } catch (err) {
       console.error("Erreur paiement", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -174,7 +177,7 @@ export default function PaymentModal({
         </div>
 
         <button
-          onClick={handlePayAcompte}
+          onClick={handlePaiement}
           disabled={loading}
           style={{
             width: "100%",
@@ -215,51 +218,3 @@ export default function PaymentModal({
     </div>
   );
 }
-const [finishing, setFinishing] = useState(false);
-
-const handleFinishConsultation = async () => {
-  setFinishing(true);
-  try {
-    // Cet appel va déclencher le signal Django qui passera la facture en "paye_entierement"
-    // et transférera les fonds au médecin
-    await api.patch(`consultations/${consultationId}/`, {
-      status: "terminee",
-    });
-
-    // Mise à jour locale de l'UI...
-    toast.success(
-      "Consultation terminée ! Le solde a été crédité sur votre compte.",
-    );
-    router.push("/dashboard/medecin/facturation"); // Redirige vers la page de facturation
-  } catch (error) {
-    toast.error("Erreur lors de la finalisation");
-  } finally {
-    setFinishing(false);
-  }
-};
-
-// Dans le rendu JSX :
-<button
-  onClick={handleFinishConsultation}
-  disabled={finishing}
-  style={{
-    background: "linear-gradient(135deg, #10B981, #06B6D4)",
-    color: "white",
-    border: "none",
-    borderRadius: 14,
-    padding: "14px 24px",
-    fontSize: 14,
-    fontWeight: 700,
-    cursor: "pointer",
-    fontFamily: "inherit",
-    boxShadow: "0 6px 20px rgba(16, 185, 129, 0.35)",
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-  }}
->
-  ✅{" "}
-  {finishing
-    ? "Finalisation en cours..."
-    : "Terminer la consultation & Encaisser le solde"}
-</button>;

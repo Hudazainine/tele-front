@@ -7,9 +7,23 @@ import PrivateRoute from "@/components/PrivateRoute";
 import api from "@/lib/api";
 
 // ─────────────────────────────────────────────────────────────
+// IMPORTS LUCIDE ICONS
+// ─────────────────────────────────────────────────────────────
+import {
+  Users,
+  Search,
+  ChevronDown,
+  Crown,
+  Stethoscope,
+  User,
+  Home,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
+
+// ─────────────────────────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────────────────────────
-
 interface MembreFamille {
   id: number;
   nom: string;
@@ -35,13 +49,16 @@ interface Famille {
   membres: MembreFamille[];
 }
 
+// ─────────────────────────────────────────────────────────────
+// CONSTANTS & HELPERS
+// ─────────────────────────────────────────────────────────────
 const LIEN_LABELS: Record<string, string> = {
-  enfant:      "Enfant",
-  conjoint:    "Conjoint(e)",
-  pere:        "Père",
-  mere:        "Mère",
+  enfant: "Enfant",
+  conjoint: "Conjoint(e)",
+  pere: "Père",
+  mere: "Mère",
   frere_soeur: "Frère / Sœur",
-  autre:       "Autre",
+  autre: "Autre",
 };
 
 const getAge = (dob: string | null) => {
@@ -52,17 +69,82 @@ const getAge = (dob: string | null) => {
 };
 
 // ─────────────────────────────────────────────────────────────
+// STYLES UNIFIÉS
+// ─────────────────────────────────────────────────────────────
+const PAGE_STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght:700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+
+  @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes spin { to{transform:rotate(360deg)} }
+
+  .root { min-height:100vh; background:#F4F2F9; font-family:'DM Sans',sans-serif; display:flex; }
+  .main { margin-left:260px; flex:1; padding:2rem 2.5rem; padding-top:calc(70px + 2rem); animation:fadeUp .4s ease; display:flex; flex-direction:column; gap:24px; }
+
+  .page-header { display:flex; align-items:center; gap:18px; }
+  .page-icon { width:56px; height:56px; border-radius:18px; background:linear-gradient(135deg, #8B5CF6, #10B981); display:flex; align-items:center; justify-content:center; color:white; box-shadow:0 8px 24px rgba(139,92,246,0.35); flex-shrink:0; }
+  .page-title { font-family:'Syne',sans-serif; font-size:28px; font-weight:800; background:linear-gradient(135deg, #8B5CF6, #10B981); -webkit-background-clip:text; color:transparent; }
+  .page-sub { font-size:13px; color:#64748b; margin-top:4px; }
+
+  /* Toolbar (Search + Filtres sur la même ligne) */
+  .toolbar { display:flex; align-items:center; gap:16px; }
+  .search-container { flex:1; position:relative; background:white; border:1px solid #EAE8F5; border-radius:14px; display:flex; align-items:center; transition:all .2s; box-shadow:0 1px 2px rgba(0,0,0,0.02); }
+  .search-container:focus-within { border-color:#8B5CF6; box-shadow:0 0 0 3px rgba(139,92,246,0.1); }
+  .search-icon { position:absolute; left:14px; color:#94A3B8; pointer-events:none; }
+  .search-input { width:100%; padding:12px 16px 12px 44px; border:none; background:transparent; font-family:'DM Sans',sans-serif; font-size:14px; color:#1E293B; outline:none; }
+  
+  .stat-pill { display:inline-flex; align-items:center; gap:8px; background:white; border:1px solid #EAE8F5; border-radius:12px; padding:10px 16px; font-size:13px; font-weight:600; color:#475569; white-space:nowrap; }
+  .stat-dot { width:8px; height:8px; border-radius:50%; background:#10B981; box-shadow: 0 0 8px rgba(16,185,129,0.6); }
+
+  /* Cards */
+  .card { background:#fff; border-radius:20px; border:1px solid #EAE8F5; box-shadow:0 1px 3px rgba(0,0,0,0.02); overflow:hidden; animation:fadeUp .4s ease backwards; transition:all .25s ease; }
+  .card:hover { box-shadow:0 8px 24px rgba(139,92,246,0.08); transform:translateY(-2px); }
+
+  .card-header { padding:20px 24px; display:flex; align-items:center; gap:16px; }
+  .chef-avatar { width:48px; height:48px; border-radius:14px; background:linear-gradient(135deg, #8B5CF6, #10B981); display:flex; align-items:center; justify-content:center; color:white; font-size:16px; font-weight:800; font-family:'Syne',sans-serif; flex-shrink:0; }
+  .chef-info { flex:1; min-width:0; }
+  .chef-name { font-size:16px; font-weight:700; color:#1E293B; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .chef-meta { display:flex; gap:8px; margin-top:6px; flex-wrap:wrap; }
+  
+  .badge { font-size:11px; padding:3px 10px; border-radius:8px; font-weight:700; display:inline-flex; align-items:center; gap:4px; }
+  .badge-purple { background:rgba(139,92,246,0.08); color:#8B5CF6; border:1px solid rgba(139,92,246,0.15); }
+  .badge-green { background:rgba(16,185,129,0.08); color:#059669; border:1px solid rgba(16,185,129,0.15); }
+  .badge-blue { background:rgba(59,130,246,0.08); color:#3B82F6; border:1px solid rgba(59,130,246,0.15); }
+  .badge-chef { background:linear-gradient(135deg, #8B5CF6, #10B981); color:white; border:none; }
+
+  .btn-expand { background:rgba(139,92,246,0.06); border:1.5px solid rgba(139,92,246,0.15); border-radius:12px; padding:8px 16px; font-size:12px; font-weight:700; color:#7C3AED; font-family:'DM Sans',sans-serif; cursor:pointer; transition:all .2s; display:flex; align-items:center; gap:6px; }
+  .btn-expand:hover { background:rgba(139,92,246,0.12); border-color:rgba(139,92,246,0.3); }
+  .btn-expand svg { transition:transform .25s ease; }
+
+  .members-list { padding:0 24px 20px; border-top:1px solid #F1F5F9; }
+  .members-title { font-size:11px; font-weight:700; color:#94A3B8; text-transform:uppercase; letter-spacing:.8px; margin:16px 0 12px; }
+  
+  .membre-row { display:flex; align-items:center; gap:14px; padding:12px 16px; border-radius:14px; background:#FAFAFE; border:1px solid #F1F5F9; margin-bottom:8px; transition:all .2s; }
+  .membre-row:last-child { margin-bottom:0; }
+  .membre-row:hover { background:#F3E8FF; border-color:#E9D5FF; }
+  .membre-avatar { width:36px; height:36px; border-radius:11px; background:linear-gradient(135deg, #F3E8FF, #D1FAE5); display:flex; align-items:center; justify-content:center; color:#7C3AED; font-size:13px; font-weight:700; font-family:'Syne',sans-serif; flex-shrink:0; }
+  .membre-info { flex:1; min-width:0; }
+  .membre-name { font-size:14px; font-weight:600; color:#1E293B; }
+  .membre-meta { display:flex; gap:6px; margin-top:4px; flex-wrap:wrap; }
+  .membre-sex { font-size:13px; color:#94A3B8; font-weight:500; }
+
+  .error-box { background:#FEF2F2; color:#DC2626; border:1px solid #FECACA; border-radius:14px; padding:14px 18px; font-size:13px; font-weight:600; display:flex; align-items:center; gap:10px; }
+  .empty-state { text-align:center; padding:60px 20px; color:#8A87A0; }
+
+  .spin { animation:spin 0.7s linear infinite; }
+`;
+
+// ─────────────────────────────────────────────────────────────
 // COMPONENT
 // ─────────────────────────────────────────────────────────────
-
 export default function MedecinFamillesPage() {
   const { token, isLoading, username } = useAuth();
 
-  const [familles, setFamilles]   = useState<Famille[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [errorMsg, setErrorMsg]   = useState("");
-  const [search, setSearch]       = useState("");
-  const [expanded, setExpanded]   = useState<Set<string>>(new Set());
+  const [familles, setFamilles] = useState<Famille[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [search, setSearch] = useState("");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const fetchData = useCallback(async () => {
     if (!token) return;
@@ -82,200 +164,217 @@ export default function MedecinFamillesPage() {
   }, [token, isLoading, fetchData]);
 
   const toggleExpand = (id: string) => {
-    setExpanded(prev => {
+    setExpanded((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   };
 
-  const filtered = familles.filter(f => {
+  const filtered = familles.filter((f) => {
     const q = search.toLowerCase();
     if (!q) return true;
     const chefName = `${f.chef.prenom} ${f.chef.nom}`.toLowerCase();
-    return chefName.includes(q) || f.membres.some(m =>
-      `${m.prenom} ${m.nom}`.toLowerCase().includes(q)
+    return (
+      chefName.includes(q) ||
+      f.membres.some((m) => `${m.prenom} ${m.nom}`.toLowerCase().includes(q))
     );
   });
 
+  const totalMembres = familles.reduce((acc, f) => acc + f.membres.length, 0);
+
   return (
     <PrivateRoute allowedRoles={["medecin"]}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;600;700&display=swap');
-        @keyframes fadeInUp { from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);} }
-        @keyframes spin     { to{transform:rotate(360deg);} }
-        @keyframes pulse    { 0%,100%{opacity:1;}50%{opacity:0.5;} }
+      <style>{PAGE_STYLES}</style>
 
-        .fam-page-bg { background:linear-gradient(135deg,#F0FDF9 0%,#ECFDF5 50%,#F0F9FF 100%); min-height:100vh; font-family:'DM Sans',sans-serif; }
-        .fam-card { background:rgba(255,255,255,0.82); backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,0.9); border-radius:20px; box-shadow:0 4px 20px rgba(16,185,129,0.07); animation:fadeInUp 0.45s ease backwards; transition:all 0.3s ease; }
-        .fam-card:hover { box-shadow:0 8px 28px rgba(16,185,129,0.12); transform:translateY(-3px); }
-        .fam-input { width:100%; padding:12px 16px 12px 44px; border-radius:14px; border:1.5px solid #E2E8F0; background:rgba(255,255,255,0.9); font-family:'DM Sans',sans-serif; font-size:14px; color:#1E293B; transition:all 0.25s ease; outline:none; }
-        .fam-input:focus { border-color:#10B981; box-shadow:0 0 0 4px rgba(16,185,129,0.1); background:#fff; }
-        .fam-input::placeholder { color:#94A3B8; }
-        .fam-gradient-text { background:linear-gradient(135deg,#10B981,#8B5CF6); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-        .expand-btn { background:rgba(16,185,129,0.07); border:1.5px solid rgba(16,185,129,0.2); border-radius:10px; padding:8px 16px; font-size:12px; font-weight:700; color:#059669; font-family:'DM Sans',sans-serif; cursor:pointer; transition:all 0.2s ease; display:flex; align-items:center; gap:6px; }
-        .expand-btn:hover { background:rgba(16,185,129,0.14); border-color:rgba(16,185,129,0.4); }
-        .membre-row { display:flex; align-items:center; gap:14px; padding:12px 16px; border-radius:14px; background:rgba(16,185,129,0.03); border:1px solid rgba(16,185,129,0.08); margin-bottom:8px; transition:all 0.2s ease; }
-        .membre-row:last-child { margin-bottom:0; }
-        .membre-row:hover { background:rgba(16,185,129,0.07); border-color:rgba(16,185,129,0.18); }
-        .badge { font-size:11px; padding:3px 10px; border-radius:8px; font-weight:700; }
-        .badge-green { background:rgba(16,185,129,0.08); color:#059669; border:1px solid rgba(16,185,129,0.15); }
-        .badge-purple { background:rgba(139,92,246,0.08); color:#8B5CF6; border:1px solid rgba(139,92,246,0.15); }
-        .badge-blue { background:rgba(59,130,246,0.08); color:#3B82F6; border:1px solid rgba(59,130,246,0.15); }
-        .stat-pill { display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,0.8); border:1px solid rgba(16,185,129,0.15); border-radius:10px; padding:6px 14px; font-size:13px; font-weight:600; color:#374151; }
-      `}</style>
-
-      <div className="fam-page-bg" style={{ display:"flex" }}>
+      <div className="root">
         <Sidebar stats={{}} />
-        <Navbar title="Comptes Familles" subtitle={`Vue d'ensemble de vos familles, Dr. ${username}`} />
+        <Navbar
+          title="Comptes Familles"
+          subtitle={`Vue d'ensemble de vos familles, Dr. ${username}`}
+        />
 
-        <main style={{ flex:1, marginLeft:240, padding:"2rem 2.5rem", paddingTop:"100px" }}>
-
+        <main className="main">
           {/* Header */}
-          <div style={{ display:"flex", alignItems:"center", gap:18, marginBottom:28, animation:"fadeInUp 0.4s ease backwards" }}>
-            <div style={{ width:56, height:56, borderRadius:18, background:"linear-gradient(135deg,#10B981,#8B5CF6)", display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 8px 24px rgba(16,185,129,0.35)", flexShrink:0 }}>
-              <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
-              </svg>
-            </div>
-            <div style={{ flex:1 }}>
-              <h1 style={{ fontFamily:"'Syne',sans-serif", fontSize:28, fontWeight:800, color:"#1E1B4B", margin:0, lineHeight:1.2 }}>
-                Comptes <span className="fam-gradient-text">Familles</span>
-              </h1>
-              <p style={{ fontSize:14, color:"#64748B", margin:0, marginTop:2 }}>
+          <div className="page-header">
+            <div>
+              <h1 className="page-title">Comptes Familles</h1>
+              <p className="page-sub">
                 Familles dont vous êtes le médecin traitant
               </p>
-            </div>
-            {/* Stats */}
-            <div style={{ display:"flex", gap:10 }}>
-              <div className="stat-pill">
-                <span style={{ width:8, height:8, borderRadius:"50%", background:"#10B981", animation:"pulse 2s ease infinite" }}/>
-                {familles.length} famille{familles.length !== 1 ? "s" : ""}
-              </div>
-              <div className="stat-pill">
-                👥 {familles.reduce((acc, f) => acc + f.membres.length, 0)} membres
-              </div>
             </div>
           </div>
 
           {/* Error */}
           {errorMsg && (
-            <div style={{ background:"#FEF2F2", border:"1px solid #FEE2E2", color:"#DC2626", padding:"12px 20px", borderRadius:14, marginBottom:20, fontWeight:600, fontSize:13 }}>
-              {errorMsg}
+            <div className="error-box">
+              <AlertCircle size={18} /> {errorMsg}
             </div>
           )}
 
-          {/* Search */}
-          <div style={{ position:"relative", marginBottom:24 }}>
-            <svg style={{ position:"absolute", left:14, top:"50%", transform:"translateY(-50%)", pointerEvents:"none" }} width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
-            <input
-              type="text"
-              className="fam-input"
-              placeholder="Rechercher une famille ou un membre..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
+          {/* Toolbar (Filtres sur la même ligne) */}
+          <div className="toolbar">
+            <div className="search-container">
+              <Search size={18} className="search-icon" />
+              <input
+                type="text"
+                className="search-input"
+                placeholder="Rechercher une famille ou un membre..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+
+            <div className="stat-pill">
+              <span className="stat-dot" />
+              {familles.length} Famille{familles.length !== 1 ? "s" : ""}
+            </div>
+
+            <div className="stat-pill">
+              <Users size={16} color="#8B5CF6" />
+              {totalMembres} Membres
+            </div>
           </div>
 
-          {/* Loading */}
+          {/* Loading / Empty / List */}
           {loading ? (
-            <div style={{ textAlign:"center", padding:"4rem 0", color:"#94A3B8" }}>
-              <div style={{ width:36, height:36, border:"3px solid #E2E8F0", borderTopColor:"#10B981", borderRadius:"50%", animation:"spin 0.7s linear infinite", margin:"0 auto 16px" }}/>
-              <p style={{ fontWeight:600 }}>Chargement des familles...</p>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 12,
+                padding: "4rem 0",
+                color: "#94A3B8",
+              }}
+            >
+              <Loader2
+                size={40}
+                className="spin"
+                style={{ color: "#8B5CF6" }}
+              />
+              <p style={{ fontWeight: 600 }}>Chargement des familles...</p>
             </div>
           ) : filtered.length === 0 ? (
-            <div className="fam-card" style={{ padding:"4rem 2rem", textAlign:"center", color:"#94A3B8" }}>
-              <div style={{ fontSize:56, marginBottom:16 }}>👨‍👩‍👧‍👦</div>
-              <p style={{ fontSize:18, fontWeight:600, color:"#475569", marginBottom:8 }}>
-                {search ? "Aucun résultat trouvé" : "Aucun compte famille"}
-              </p>
-              <p style={{ fontSize:14 }}>
-                {search
-                  ? "Essayez un autre terme de recherche."
-                  : "Vous apparaîtrez ici dès qu'un patient vous désigne comme médecin traitant."}
-              </p>
+            <div className="card">
+              <div className="empty-state">
+                <div style={{ color: "#E2E8F0", marginBottom: 16 }}>
+                  <Users size={56} />
+                </div>
+                <p
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 600,
+                    color: "#475569",
+                    marginBottom: 8,
+                  }}
+                >
+                  {search ? "Aucun résultat trouvé" : "Aucun compte famille"}
+                </p>
+                <p style={{ fontSize: 14, color: "#94A3B8" }}>
+                  {search
+                    ? "Essayez un autre terme de recherche."
+                    : "Vous apparaîtrez ici dès qu'un patient vous désigne comme médecin traitant."}
+                </p>
+              </div>
             </div>
           ) : (
-            <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {filtered.map((f, i) => {
-                const open    = expanded.has(f.id);
+                const open = expanded.has(f.id);
                 const chefAge = getAge(f.chef.date_naissance);
                 return (
-                  <div key={f.id} className="fam-card" style={{ padding:0, overflow:"hidden", animationDelay:`${i * 0.07}s` }}>
-
-                    {/* Chef row */}
-                    <div style={{ padding:"20px 24px", display:"flex", alignItems:"center", gap:16 }}>
-                      {/* Avatar */}
-                      <div style={{ width:48, height:48, borderRadius:15, background:"linear-gradient(135deg,#10B981,#8B5CF6)", display:"flex", alignItems:"center", justifyContent:"center", color:"white", fontSize:17, fontWeight:700, flexShrink:0 }}>
-                        {f.chef.prenom?.charAt(0) ?? "?"}{f.chef.nom?.charAt(0) ?? ""}
+                  <div
+                    key={f.id}
+                    className="card"
+                    style={{ animationDelay: `${i * 0.07}s` }}
+                  >
+                    {/* Chef Row */}
+                    <div className="card-header">
+                      <div className="chef-avatar">
+                        {f.chef.prenom?.charAt(0) ?? "?"}
+                        {f.chef.nom?.charAt(0) ?? ""}
                       </div>
 
-                      {/* Info */}
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
-                          <p style={{ fontSize:16, fontWeight:700, color:"#1E293B", margin:0 }}>
-                            {f.chef.prenom} {f.chef.nom}
-                          </p>
-                          <span style={{ fontSize:11, padding:"3px 10px", borderRadius:8, background:"linear-gradient(135deg,#10B981,#8B5CF6)", color:"white", fontWeight:700 }}>
-                            👑 Chef de famille
+                      <div className="chef-info">
+                        <div className="chef-name">
+                          {f.chef.prenom} {f.chef.nom}
+                          <span className="badge badge-chef">
+                            <Crown size={11} /> Chef
                           </span>
                           {chefAge !== null && (
-                            <span className="badge badge-green">{chefAge} ans</span>
+                            <span className="badge badge-green">
+                              {chefAge} ans
+                            </span>
                           )}
                         </div>
-                        <div style={{ display:"flex", gap:8, marginTop:6, flexWrap:"wrap" }}>
+                        <div className="chef-meta">
                           {f.chef.medecin_nom && (
-                            <span className="badge badge-blue">🩺 {f.chef.medecin_nom}</span>
+                            <span className="badge badge-blue">
+                              <Stethoscope size={10} /> {f.chef.medecin_nom}
+                            </span>
                           )}
                           <span className="badge badge-purple">
-                            {f.membres.length} membre{f.membres.length !== 1 ? "s" : ""}
+                            <Users size={10} /> {f.membres.length} membre
+                            {f.membres.length !== 1 ? "s" : ""}
                           </span>
                         </div>
                       </div>
 
-                      {/* Expand button */}
                       {f.membres.length > 0 && (
-                        <button className="expand-btn" onClick={() => toggleExpand(f.id)}>
+                        <button
+                          className="btn-expand"
+                          onClick={() => toggleExpand(f.id)}
+                        >
                           {open ? "Masquer" : "Voir membres"}
-                          <svg style={{ transform: open ? "rotate(180deg)" : "none", transition:"transform 0.25s" }} width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M6 9l6 6 6-6"/>
-                          </svg>
+                          <ChevronDown
+                            size={14}
+                            style={{
+                              transform: open
+                                ? "rotate(180deg)"
+                                : "rotate(0deg)",
+                            }}
+                          />
                         </button>
                       )}
                     </div>
 
-                    {/* Members list (expandable) */}
+                    {/* Members List */}
                     {open && f.membres.length > 0 && (
-                      <div style={{ padding:"0 24px 20px", borderTop:"1px solid rgba(16,185,129,0.08)" }}>
-                        <p style={{ fontSize:11, fontWeight:700, color:"#94A3B8", textTransform:"uppercase", letterSpacing:"1px", margin:"16px 0 12px" }}>
+                      <div className="members-list">
+                        <div className="members-title">
                           Membres de la famille
-                        </p>
-                        {f.membres.map(m => {
+                        </div>
+                        {f.membres.map((m) => {
                           const age = getAge(m.date_naissance);
                           return (
                             <div key={m.id} className="membre-row">
-                              <div style={{ width:36, height:36, borderRadius:11, background:"rgba(16,185,129,0.12)", display:"flex", alignItems:"center", justifyContent:"center", color:"#059669", fontSize:13, fontWeight:700, flexShrink:0 }}>
-                                {m.prenom.charAt(0)}{m.nom.charAt(0)}
+                              <div className="membre-avatar">
+                                {m.prenom.charAt(0)}
+                                {m.nom.charAt(0)}
                               </div>
-                              <div style={{ flex:1, minWidth:0 }}>
-                                <p style={{ fontSize:14, fontWeight:600, color:"#1E293B", margin:0 }}>
+                              <div className="membre-info">
+                                <div className="membre-name">
                                   {m.prenom} {m.nom}
-                                </p>
-                                <div style={{ display:"flex", gap:6, marginTop:4, flexWrap:"wrap" }}>
+                                </div>
+                                <div className="membre-meta">
                                   <span className="badge badge-purple">
-                                    {LIEN_LABELS[m.lien_parente] ?? m.lien_parente}
+                                    {LIEN_LABELS[m.lien_parente] ??
+                                      m.lien_parente}
                                   </span>
                                   {age !== null && (
-                                    <span className="badge badge-green">{age} ans</span>
+                                    <span className="badge badge-green">
+                                      {age} ans
+                                    </span>
                                   )}
                                   {m.medecin_nom && (
-                                    <span className="badge badge-blue">🩺 {m.medecin_nom}</span>
+                                    <span className="badge badge-blue">
+                                      <Stethoscope size={10} /> {m.medecin_nom}
+                                    </span>
                                   )}
                                 </div>
                               </div>
-                              <span style={{ fontSize:12, color:"#94A3B8", fontWeight:500 }}>
+                              <span className="membre-sex">
                                 {m.sexe === "homme" ? "♂" : "♀"}
                               </span>
                             </div>

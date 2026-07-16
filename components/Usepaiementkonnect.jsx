@@ -29,7 +29,7 @@ export function useKonnectPaiement(paymentRef, options = {}) {
     tentativesRef.current += 1;
 
     try {
-      const { data } = await api.get(`paiement/konnect/status/${paymentRef}/`);
+      const { data } = await api.get(`paiement/sync/${paymentRef}/`);
       const statutKonnect = data?.payment?.status;
       setStatut(statutKonnect);
 

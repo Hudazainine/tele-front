@@ -1,12 +1,25 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../../context/AuthContext";
 import Sidebar from "../../../../components/Sidebar";
 import api from "../../../../lib/api";
-import { darkTableCSS } from "../../../../lib/shared-table-styles";
 import Navbar from "../../../../components/Navbar";
+import {
+  Users,
+  Search,
+  RefreshCw,
+  Eye,
+  X,
+  Check,
+  User,
+  Calendar,
+  CircleDot,
+  Circle,
+  Power,
+  AlertTriangle,
+  FileText,
+} from "lucide-react";
 
 // --- Types ---
 interface Patient {
@@ -18,28 +31,140 @@ interface Patient {
   historique: string;
   is_active: boolean;
 }
-
 interface User {
   username: string;
 }
 
-// --- Constants ---
-const ACCENT = "#22d3a5";
+// --- Design Tokens (Dark Mode) ---
+const C = {
+  // Fond principal (très sombre)
+  bg: "#050a10",
+  // Surface des cartes et modales
+  surface: "#131f2e",
+  // Surface pour hover / input / secondaire
+  surfaceAlt: "#1e2a3d",
+  // Bordures
+  border: "#2d456e",
+  borderHover: "#4a6080",
 
-// --- CSS & Animations ---
+  // Textes
+  text: "#f1f5f9",
+  textSub: "#94a3b8",
+  textMuted: "#64748b",
+
+  // Accents (Transparent pour Dark Mode)
+  teal: "#2dd4bf",
+  tealLight: "rgba(45, 212, 191, 0.15)",
+  tealDark: "#0d9488",
+
+  red: "#f87171",
+  redLight: "rgba(248, 113, 113, 0.15)",
+
+  amber: "#fbbf24",
+  amberLight: "rgba(251, 191, 36, 0.15)",
+
+  sky: "#38bdf8",
+  skyLight: "rgba(56, 189, 248, 0.15)",
+
+  violet: "#8b5cf6",
+  violetLight: "rgba(139, 92, 246, 0.15)",
+};
+
 const css = `
-  @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
-  @keyframes slideUp { from{opacity:0;transform:translateY(28px) scale(.97)} to{opacity:1;transform:translateY(0) scale(1)} }
-  @keyframes toastIn { from{opacity:0;transform:translateX(40px)} to{opacity:1;transform:translateX(0)} }
-  @keyframes fadeUp  { from{opacity:0;transform:translateY(15px)} to{opacity:1;transform:translateY(0)} }
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
-  .mo  { position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(6px);z-index:999;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease }
-  .mb  { background:linear-gradient(145deg,#131f2e,#1a2a3f);border:1px solid #2a3f5a;border-radius:24px;padding:2rem;width:520px;max-width:95vw;box-shadow:0 32px 80px rgba(0,0,0,.5);animation:slideUp .28s cubic-bezier(.34,1.56,.64,1) }
-  .ia  { width:34px;height:34px;border-radius:9px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all .18s }
-  .ia:hover { transform:scale(1.1) }
-  .bs  { padding:11px 20px;background:transparent;border:1px solid #1e3050;border-radius:11px;color:#8ba0c0;font-size:14px;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all .2s }
-  .bs:hover { border-color:#2a4060;color:#c8d8f0 }
-  .confirm-box { background:linear-gradient(145deg,#131f2e,#1a2a3f);border:1px solid #2a3f5a;border-radius:20px;padding:1.75rem;width:400px;max-width:95vw;box-shadow:0 32px 80px rgba(0,0,0,.5);animation:slideUp .25s ease;text-align:center }
+  * { box-sizing: border-box; }
+
+  @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
+  @keyframes slideUp { from{opacity:0;transform:translateY(20px) scale(.98)} to{opacity:1;transform:translateY(0) scale(1)} }
+  @keyframes toastIn { from{opacity:0;transform:translateX(40px)} to{opacity:1;transform:translateX(0)} }
+  @keyframes shimmer { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .mo {
+    position:fixed;inset:0;background:rgba(5, 10, 16, 0.75);
+    backdrop-filter:blur(8px);z-index:999;
+    display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease;
+  }
+  .mb {
+    background:${C.surface};border:1px solid ${C.border};border-radius:20px;
+    padding:2rem;width:520px;max-width:95vw;
+    box-shadow:0 24px 60px rgba(0,0,0,0.5);animation:slideUp .25s cubic-bezier(.34,1.56,.64,1);
+  }
+  .confirm-box {
+    background:${C.surface};border:1px solid ${C.border};border-radius:20px;
+    padding:1.75rem;width:400px;max-width:95vw;
+    box-shadow:0 24px 60px rgba(0,0,0,0.5);animation:slideUp .22s ease;text-align:center;
+  }
+
+  .ia {
+    width:32px;height:32px;border-radius:8px;border:1px solid ${C.border};
+    cursor:pointer;display:flex;align-items:center;justify-content:center;
+    font-size:14px;transition:all .18s;background:${C.surfaceAlt};color:${C.textSub};
+  }
+  .ia:hover { 
+    transform:scale(1.08); 
+    box-shadow:0 4px 10px rgba(0,0,0,0.2); 
+    border-color: ${C.borderHover};
+    color: ${C.text};
+  }
+
+  .btn-sec {
+    padding:9px 18px;background:${C.surfaceAlt};border:1px solid ${C.border};
+    border-radius:10px;color:${C.textSub};font-size:13px;font-weight:600;
+    font-family:'Inter',sans-serif;cursor:pointer;transition:all .2s;
+  }
+  .btn-sec:hover { 
+    background:${C.surface}; 
+    color:${C.text};
+    border-color: ${C.borderHover};
+  }
+
+  .p-table-wrap {
+    background:${C.surface};border:1px solid ${C.border};border-radius:16px;
+    overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.2);
+  }
+  .p-table { width:100%;border-collapse:collapse; }
+  .p-thead-tr { background:${C.surfaceAlt};border-bottom:1px solid ${C.border}; }
+  .p-th {
+    padding:11px 16px;text-align:left;font-size:11px;font-weight:700;
+    color:${C.textMuted};letter-spacing:0.08em;text-transform:uppercase;white-space:nowrap;
+  }
+  .p-row { border-bottom:1px solid ${C.border};transition:background .15s; }
+  .p-row:last-child { border-bottom:none; }
+  .p-row:hover { background:${C.surfaceAlt}; }
+  .p-td { padding:12px 16px;font-size:13px;color:${C.textSub};vertical-align:middle; }
+  .p-empty { padding:3rem;text-align:center;color:${C.textMuted};font-size:14px; }
+  .p-skeleton {
+    border-radius:6px;background:${C.surfaceAlt};animation:shimmer 1.4s infinite;
+  }
+
+  .filter-btn {
+    padding:8px 16px;border-radius:9px;border:1px solid ${C.border};
+    background:${C.surface};color:${C.textSub};font-size:12px;font-weight:600;
+    font-family:'Inter',sans-serif;cursor:pointer;transition:all .2s;
+  }
+  .filter-btn.active {
+    background:${C.tealLight};border-color:${C.teal}66;color:${C.teal};
+  }
+  .filter-btn:hover:not(.active) { background:${C.surfaceAlt}; border-color: ${C.borderHover}; }
+
+  .search-input {
+    flex:1;min-width:200px;padding:9px 14px 9px 38px;
+    background:${C.surface};border:1px solid ${C.border};border-radius:10px;
+    font-size:13px;color:${C.text};font-family:'Inter',sans-serif;outline:none;
+    transition:border-color .2s;
+  }
+  .search-input:focus { border-color:${C.teal};box-shadow:0 0 0 3px ${C.tealLight}; }
+  .search-input::placeholder { color:${C.textMuted}; }
+
+  .info-row { padding:10px 0;border-bottom:1px solid ${C.border}; }
+  .info-label { font-size:10px;color:${C.textMuted};font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:3px; }
+  .info-value { font-size:13.5px;color:${C.text}; }
+
+  ::-webkit-scrollbar { width:6px; }
+  ::-webkit-scrollbar-track { background:${C.bg}; }
+  ::-webkit-scrollbar-thumb { background:${C.border};border-radius:4px; }
+  ::-webkit-scrollbar-thumb:hover { background:${C.borderHover}; }
 `;
 
 export default function AdminPatients() {
@@ -53,14 +178,7 @@ export default function AdminPatients() {
   const [viewing, setViewing] = useState<Patient | null>(null);
   const [confirm, setConfirm] = useState<Patient | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
-
-  const [time, setTime] = useState(new Date());
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-
-  const fetchData = () => {
-    load();
-    toast_("Données actualisées", true);
-  };
 
   const load = () => {
     setLoading(true);
@@ -71,10 +189,10 @@ export default function AdminPatients() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const fetchData = () => {
+    load();
+    toast_("Données actualisées", true);
+  };
 
   useEffect(() => {
     if (isLoading) return;
@@ -82,13 +200,7 @@ export default function AdminPatients() {
       router.push("/login");
       return;
     }
-
-    if (authUser) {
-      setCurrentUser(authUser);
-    } else {
-      setCurrentUser({ username: "Admin" });
-    }
-
+    setCurrentUser(authUser || { username: "Admin" });
     load();
     const t = setInterval(load, 10000);
     return () => clearInterval(t);
@@ -126,28 +238,32 @@ export default function AdminPatients() {
 
   const activeCount = data.filter((p) => p.is_active).length;
   const inactiveCount = data.filter((p) => !p.is_active).length;
+  const allergyCount = data.filter((p) => p.allergies).length;
 
-  const InfoRow = ({ label, value }: { label: string; value: string }) => (
-    <div style={{ padding: "10px 0", borderBottom: "1px solid #1a2a3f" }}>
+  const InfoRow = ({
+    label,
+    value,
+    icon: Icon,
+  }: {
+    label: string;
+    value: string;
+    icon?: any;
+  }) => (
+    <div className="info-row">
       <div
-        style={{
-          fontSize: 10,
-          color: "#4a6080",
-          fontWeight: 700,
-          letterSpacing: "0.1em",
-          textTransform: "uppercase" as const,
-          marginBottom: 3,
-        }}
+        className="info-label"
+        style={{ display: "flex", alignItems: "center", gap: 6 }}
       >
+        {Icon && <Icon size={12} color={C.textMuted} />}
         {label}
       </div>
-      <div style={{ fontSize: 14, color: "#c8d8f0" }}>{value || "—"}</div>
+      <div className="info-value">{value || "—"}</div>
     </div>
   );
 
   return (
     <>
-      <style>{darkTableCSS + css}</style>
+      <style>{css}</style>
 
       {/* Toast */}
       {toast && (
@@ -157,43 +273,55 @@ export default function AdminPatients() {
             top: 24,
             right: 24,
             zIndex: 9999,
-            padding: "12px 20px",
+            padding: "11px 18px",
             borderRadius: 12,
-            background: toast.ok
-              ? "rgba(34,211,165,.15)"
-              : "rgba(248,113,113,.15)",
-            border: `1px solid ${toast.ok ? "rgba(34,211,165,.3)" : "rgba(248,113,113,.3)"}`,
-            color: toast.ok ? "#22d3a5" : "#f87171",
-            fontSize: 13.5,
+            background: toast.ok ? C.tealLight : C.redLight,
+            border: `1px solid ${toast.ok ? C.teal + "44" : C.red + "44"}`,
+            color: toast.ok ? C.teal : C.red,
+            fontSize: 13,
             fontWeight: 600,
-            fontFamily: "'DM Sans',sans-serif",
-            boxShadow: "0 8px 24px rgba(0,0,0,.3)",
+            fontFamily: "'Inter',sans-serif",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
             display: "flex",
             alignItems: "center",
             gap: 8,
             animation: "toastIn .3s ease",
           }}
         >
-          {toast.ok ? "✓" : "✕"} {toast.msg}
+          {toast.ok ? <Check size={16} /> : <X size={16} />} {toast.msg}
         </div>
       )}
 
-      {/* Confirm toggle */}
+      {/* Confirm modal */}
       {confirm && (
         <div
           className="mo"
           onClick={(e) => e.target === e.currentTarget && setConfirm(null)}
         >
           <div className="confirm-box">
-            <div style={{ fontSize: 40, marginBottom: 12 }}>
-              {confirm.is_active ? "🔴" : "🟢"}
+            <div
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 16,
+                margin: "0 auto 14px",
+                background: confirm.is_active ? C.redLight : C.tealLight,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {confirm.is_active ? (
+                <Power size={28} color={C.red} />
+              ) : (
+                <Power size={28} color={C.teal} />
+              )}
             </div>
             <h3
               style={{
-                fontSize: 17,
+                fontSize: 16,
                 fontWeight: 700,
-                color: "#f0f4ff",
-                fontFamily: "'Syne',sans-serif",
+                color: C.text,
                 margin: "0 0 8px",
               }}
             >
@@ -201,31 +329,28 @@ export default function AdminPatients() {
                 ? "Désactiver ce patient ?"
                 : "Activer ce patient ?"}
             </h3>
-            <p style={{ fontSize: 13, color: "#8ba0c0", margin: "0 0 1.5rem" }}>
+            <p style={{ fontSize: 13, color: C.textSub, margin: "0 0 1.5rem" }}>
               {confirm.is_active
                 ? `${confirm.username} ne pourra plus se connecter.`
                 : `${confirm.username} pourra à nouveau se connecter.`}
             </p>
             <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-              <button className="bs" onClick={() => setConfirm(null)}>
+              <button className="btn-sec" onClick={() => setConfirm(null)}>
                 Annuler
               </button>
               <button
                 onClick={() => handleToggle(confirm)}
                 style={{
-                  padding: "11px 24px",
-                  background: confirm.is_active
-                    ? "rgba(248,113,113,.15)"
-                    : "linear-gradient(135deg,#22d3a5,#059669)",
-                  border: confirm.is_active
-                    ? "1px solid rgba(248,113,113,.3)"
-                    : "none",
-                  borderRadius: 11,
-                  color: confirm.is_active ? "#f87171" : "#fff",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  fontFamily: "'DM Sans',sans-serif",
+                  padding: "9px 22px",
+                  background: confirm.is_active ? C.red : C.teal,
+                  border: "none",
+                  borderRadius: 10,
+                  color: "#050a10", // Texte sombre sur fond vif
+                  fontSize: 13,
+                  fontWeight: 700,
+                  fontFamily: "'Inter',sans-serif",
                   cursor: "pointer",
+                  boxShadow: `0 4px 12px ${confirm.is_active ? C.red + "44" : C.teal + "44"}`,
                 }}
               >
                 {confirm.is_active ? "Désactiver" : "Activer"}
@@ -247,44 +372,41 @@ export default function AdminPatients() {
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                marginBottom: "1.5rem",
+                marginBottom: "1.4rem",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <div
                   style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: "50%",
-                    background: `${ACCENT}20`,
-                    border: `2px solid ${ACCENT}40`,
+                    width: 46,
+                    height: 46,
+                    borderRadius: 14,
+                    background: C.tealLight,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: 22,
                   }}
                 >
-                  🧑
+                  <User size={24} color={C.teal} />
                 </div>
                 <div>
                   <div
                     style={{
                       fontSize: 10,
-                      color: ACCENT,
+                      color: C.teal,
                       fontWeight: 700,
                       letterSpacing: "0.1em",
                       textTransform: "uppercase" as const,
-                      marginBottom: 3,
+                      marginBottom: 2,
                     }}
                   >
                     Dossier patient
                   </div>
                   <h2
                     style={{
-                      fontSize: 18,
+                      fontSize: 17,
                       fontWeight: 800,
-                      color: "#f0f4ff",
-                      fontFamily: "'Syne',sans-serif",
+                      color: C.text,
                       margin: 0,
                     }}
                   >
@@ -294,77 +416,63 @@ export default function AdminPatients() {
               </div>
               <button
                 onClick={() => setViewing(null)}
-                style={{
-                  background: "rgba(255,255,255,.06)",
-                  border: "1px solid #1e3050",
-                  borderRadius: 8,
-                  width: 32,
-                  height: 32,
-                  cursor: "pointer",
-                  color: "#8ba0c0",
-                  fontSize: 16,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
+                className="ia"
+                title="Fermer"
               >
-                ✕
+                <X size={16} />
               </button>
             </div>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column" as const,
-                gap: 0,
-              }}
-            >
-              <InfoRow label="ID" value={`#${viewing.id}`} />
-              <InfoRow label="Email" value={viewing.email} />
-              <InfoRow
-                label="Date de naissance"
-                value={
-                  viewing.date_naissance
-                    ? new Date(viewing.date_naissance).toLocaleDateString(
-                        "fr-FR",
-                      )
-                    : ""
-                }
-              />
-              <InfoRow label="Allergies" value={viewing.allergies} />
-              <InfoRow label="Historique" value={viewing.historique} />
-              <div style={{ padding: "10px 0" }}>
-                <div
-                  style={{
-                    fontSize: 10,
-                    color: "#4a6080",
-                    fontWeight: 700,
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase" as const,
-                    marginBottom: 6,
-                  }}
-                >
-                  Statut
-                </div>
-                <span
-                  style={{
-                    padding: "5px 14px",
-                    background: viewing.is_active
-                      ? "rgba(34,211,165,.12)"
-                      : "rgba(248,113,113,.1)",
-                    color: viewing.is_active ? "#22d3a5" : "#f87171",
-                    border: `1px solid ${viewing.is_active ? "rgba(34,211,165,.25)" : "rgba(248,113,113,.2)"}`,
-                    borderRadius: 20,
-                    fontSize: 13,
-                    fontWeight: 600,
-                  }}
-                >
-                  {viewing.is_active ? "● Actif" : "○ Inactif"}
-                </span>
-              </div>
+
+            <InfoRow label="ID" value={`#${viewing.id}`} icon={FileText} />
+            <InfoRow label="Email" value={viewing.email} icon={null} />
+            <InfoRow
+              label="Date de naissance"
+              value={
+                viewing.date_naissance
+                  ? new Date(viewing.date_naissance).toLocaleDateString("fr-FR")
+                  : ""
+              }
+              icon={Calendar}
+            />
+            <InfoRow
+              label="Allergies"
+              value={viewing.allergies}
+              icon={AlertTriangle}
+            />
+            <InfoRow
+              label="Historique"
+              value={viewing.historique}
+              icon={null}
+            />
+            <div className="info-row" style={{ borderBottom: "none" }}>
+              <div className="info-label">Statut</div>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  marginTop: 4,
+                  padding: "4px 14px",
+                  borderRadius: 20,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  background: viewing.is_active ? C.tealLight : C.redLight,
+                  color: viewing.is_active ? C.teal : C.red,
+                  border: `1px solid ${viewing.is_active ? C.teal + "33" : C.red + "33"}`,
+                }}
+              >
+                {viewing.is_active ? (
+                  <CircleDot size={12} />
+                ) : (
+                  <Circle size={12} />
+                )}{" "}
+                {viewing.is_active ? "Actif" : "Inactif"}
+              </span>
             </div>
-            <div style={{ marginTop: "1.25rem", display: "flex", gap: 10 }}>
+
+            <div style={{ display: "flex", gap: 10, marginTop: "1.25rem" }}>
               <button
-                className="bs"
+                className="btn-sec"
                 style={{ flex: 1 }}
                 onClick={() => setViewing(null)}
               >
@@ -377,22 +485,23 @@ export default function AdminPatients() {
                 }}
                 style={{
                   flex: 1,
-                  padding: "11px 20px",
-                  background: viewing.is_active
-                    ? "rgba(248,113,113,.1)"
-                    : "linear-gradient(135deg,#22d3a5,#059669)",
-                  border: viewing.is_active
-                    ? "1px solid rgba(248,113,113,.25)"
-                    : "none",
-                  borderRadius: 11,
-                  color: viewing.is_active ? "#f87171" : "#fff",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  fontFamily: "'DM Sans',sans-serif",
+                  padding: "9px 20px",
+                  background: viewing.is_active ? C.red : C.teal,
+                  border: "none",
+                  borderRadius: 10,
+                  color: "#050a10",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  fontFamily: "'Inter',sans-serif",
                   cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
                 }}
               >
-                {viewing.is_active ? "🔴 Désactiver" : "🟢 Activer"}
+                <Power size={14} />
+                {viewing.is_active ? "Désactiver" : "Activer"}
               </button>
             </div>
           </div>
@@ -404,171 +513,234 @@ export default function AdminPatients() {
         style={{
           display: "flex",
           minHeight: "100vh",
-          background: "#0d1520",
-          fontFamily: "'DM Sans',sans-serif",
+          background: C.bg,
+          fontFamily: "'Inter',sans-serif",
         }}
       >
         <Sidebar />
-
-        <main
-          style={{
-            marginLeft: 260,
-            flex: 1,
-            padding: "2rem 2.5rem",
-            position: "relative",
-          }}
-        >
-          {/* Navbar */}
+        <main style={{ marginLeft: 260, flex: 1, padding: "5rem 2.4rem 3rem" }}>
           <Navbar
-            title="Mon espace santé"
-            subtitle={`Bonjour ${currentUser?.username || "Admin"} 👋`}
+            title="Patients"
+            subtitle={`Bonjour ${currentUser?.username || "Admin"}`}
           />
 
-          {/* ── Header (Clock Only) ───────────────────────────────────── */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end", // Align remaining content to the right
-              alignItems: "center",
-              marginBottom: "1rem",
-              animation: "fadeUp .4s ease both",
-            }}
-          >
-            <div style={{ textAlign: "right" }}>
-              <div
-                style={{
-                  fontSize: 28,
-                  fontWeight: 700,
-                  color: "#f0f4ff",
-                  fontFamily: "'Syne', sans-serif",
-                  letterSpacing: "-1px",
-                }}
-              >
-                {time.toLocaleTimeString("fr-FR", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                })}
-              </div>
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "#4a6080",
-                  marginTop: 2,
-                  letterSpacing: "0.06em",
-                }}
-              >
-                HEURE LOCALE
-              </div>
-              <button
-                onClick={fetchData}
-                style={{
-                  marginTop: 8,
-                  padding: "5px 14px",
-                  background: "rgba(34,211,165,0.1)",
-                  border: "1px solid rgba(34,211,165,0.25)",
-                  borderRadius: 8,
-                  color: "#22d3a5",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                ↻ Actualiser
-              </button>
-            </div>
-          </div>
-
-          {/* Section Header */}
+          {/* Header */}
           <div
             style={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "flex-start",
-              marginBottom: "1.5rem",
+              marginBottom: "1.8rem",
             }}
           >
             <div>
               <div
                 style={{
                   fontSize: 11,
-                  color: ACCENT,
+                  color: C.teal,
                   fontWeight: 700,
                   letterSpacing: "0.12em",
                   textTransform: "uppercase",
                   marginBottom: 6,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
                 }}
               >
-                👥 Gestion
+                <Users size={14} /> Gestion
               </div>
               <h1
                 style={{
-                  fontSize: 28,
+                  fontSize: 26,
                   fontWeight: 800,
-                  color: "#f0f4ff",
-                  fontFamily: "'Syne',sans-serif",
+                  color: C.text,
                   letterSpacing: "-0.5px",
                   margin: 0,
                 }}
               >
                 Patients
               </h1>
-              <p style={{ color: "#4a6080", fontSize: 13, marginTop: 5 }}>
+              <p
+                style={{
+                  color: C.textMuted,
+                  fontSize: 13,
+                  marginTop: 5,
+                  marginBottom: 0,
+                }}
+              >
                 {loading
                   ? "Chargement…"
                   : `${data.length} patient${data.length > 1 ? "s" : ""} — ${activeCount} actif${activeCount > 1 ? "s" : ""}, ${inactiveCount} inactif${inactiveCount > 1 ? "s" : ""}`}
               </p>
             </div>
+            <button
+              onClick={fetchData}
+              style={{
+                padding: "9px 18px",
+                background: C.teal,
+                border: "none",
+                borderRadius: 10,
+                color: "#050a10",
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                boxShadow: `0 4px 12px ${C.teal}44`,
+                transition: "all .2s",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <RefreshCw size={14} /> Actualiser
+            </button>
+          </div>
+
+          {/* Stats mini */}
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              marginBottom: "1.6rem",
+              flexWrap: "wrap",
+            }}
+          >
+            {[
+              {
+                label: "Total",
+                value: data.length,
+                color: C.violet,
+                bg: C.violetLight,
+                icon: Users,
+              },
+              {
+                label: "Actifs",
+                value: activeCount,
+                color: C.teal,
+                bg: C.tealLight,
+                icon: CircleDot,
+              },
+              {
+                label: "Inactifs",
+                value: inactiveCount,
+                color: C.red,
+                bg: C.redLight,
+                icon: Circle,
+              },
+              {
+                label: "Avec allergies",
+                value: allergyCount,
+                color: C.amber,
+                bg: C.amberLight,
+                icon: AlertTriangle,
+              },
+            ].map((s) => (
+              <div
+                key={s.label}
+                style={{
+                  background: C.surface,
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 12,
+                  padding: "12px 18px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+                  minWidth: "140px",
+                }}
+              >
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    background: s.bg,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: s.color,
+                  }}
+                >
+                  {loading ? null : <s.icon size={18} />}
+                </div>
+                <div>
+                  <div
+                    style={{
+                      fontSize: 18,
+                      fontWeight: 800,
+                      color: s.color,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {loading ? "—" : s.value}
+                  </div>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: C.textMuted,
+                      fontWeight: 500,
+                    }}
+                  >
+                    {s.label}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Filters */}
           <div
             style={{
               display: "flex",
-              gap: 10,
-              marginBottom: "1.5rem",
+              gap: 8,
+              marginBottom: "1.4rem",
               flexWrap: "wrap" as const,
+              alignItems: "center",
             }}
           >
-            <input
-              className="dt-search"
-              placeholder="🔍  Rechercher un patient…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ flex: 1, minWidth: 200 }}
-            />
+            <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
+              <div
+                style={{
+                  position: "absolute",
+                  left: 12,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: C.textMuted,
+                }}
+              >
+                <Search size={16} />
+              </div>
+              <input
+                className="search-input"
+                placeholder="Rechercher un patient…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
             {(["all", "active", "inactive"] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                style={{
-                  padding: "9px 18px",
-                  borderRadius: 10,
-                  border: `1px solid ${filter === f ? ACCENT + "55" : "#1e3050"}`,
-                  background: filter === f ? `${ACCENT}18` : "transparent",
-                  color: filter === f ? ACCENT : "#4a6080",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  fontFamily: "'DM Sans',sans-serif",
-                  cursor: "pointer",
-                  transition: "all .2s",
-                }}
+                className={`filter-btn${filter === f ? " active" : ""}`}
+                style={{ display: "flex", alignItems: "center", gap: 6 }}
               >
-                {f === "all"
-                  ? "Tous"
-                  : f === "active"
-                    ? "✓ Actifs"
-                    : "✕ Inactifs"}
+                {f === "all" ? (
+                  <Users size={14} />
+                ) : f === "active" ? (
+                  <CircleDot size={14} />
+                ) : (
+                  <Circle size={14} />
+                )}
+                {f === "all" ? "Tous" : f === "active" ? "Actifs" : "Inactifs"}
               </button>
             ))}
           </div>
 
           {/* Table */}
-          <div className="dt-table-wrap">
-            <table className="dt-table">
+          <div className="p-table-wrap">
+            <table className="p-table">
               <thead>
-                <tr className="dt-thead-tr">
+                <tr className="p-thead-tr">
                   {[
                     "ID",
                     "Patient",
@@ -578,7 +750,7 @@ export default function AdminPatients() {
                     "Statut",
                     "Actions",
                   ].map((h) => (
-                    <th key={h} className="dt-th">
+                    <th key={h} className="p-th">
                       {h}
                     </th>
                   ))}
@@ -587,7 +759,7 @@ export default function AdminPatients() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="dt-empty">
+                    <td colSpan={7} className="p-empty">
                       <div
                         style={{
                           display: "flex",
@@ -596,11 +768,11 @@ export default function AdminPatients() {
                           gap: 10,
                         }}
                       >
-                        {[100, 160, 120].map((w, i) => (
+                        {[100, 160, 120, 80, 60].map((w, i) => (
                           <div
                             key={i}
-                            className="dt-skeleton"
-                            style={{ width: w, height: 14 }}
+                            className="p-skeleton"
+                            style={{ width: w, height: 12 }}
                           />
                         ))}
                       </div>
@@ -608,36 +780,28 @@ export default function AdminPatients() {
                   </tr>
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="dt-empty">
+                    <td colSpan={7} className="p-empty">
                       Aucun patient trouvé
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((p, i) => (
-                    <tr
-                      key={p.id}
-                      className="dt-row"
-                      style={{
-                        background:
-                          i % 2 === 0 ? "transparent" : "rgba(0,0,0,.1)",
-                      }}
-                    >
-                      <td className="dt-td">
+                  filtered.map((p) => (
+                    <tr key={p.id} className="p-row">
+                      <td className="p-td">
                         <span
                           style={{
                             padding: "3px 10px",
-                            background: `${ACCENT}18`,
-                            border: `1px solid ${ACCENT}30`,
                             borderRadius: 8,
-                            fontSize: 12,
+                            background: C.violetLight,
+                            color: C.violet,
+                            fontSize: 11,
                             fontWeight: 700,
-                            color: ACCENT,
                           }}
                         >
                           #{p.id}
                         </span>
                       </td>
-                      <td className="dt-td">
+                      <td className="p-td">
                         <div
                           style={{
                             display: "flex",
@@ -647,107 +811,115 @@ export default function AdminPatients() {
                         >
                           <div
                             style={{
-                              width: 36,
-                              height: 36,
-                              borderRadius: "50%",
+                              width: 34,
+                              height: 34,
+                              borderRadius: 10,
                               background: p.is_active
-                                ? `${ACCENT}20`
-                                : "rgba(255,255,255,.05)",
-                              border: `2px solid ${p.is_active ? ACCENT + "40" : "#1e3050"}`,
+                                ? C.tealLight
+                                : C.surfaceAlt,
+                              border: `1px solid ${p.is_active ? C.teal + "33" : C.border}`,
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
-                              fontSize: 15,
+                              color: p.is_active ? C.teal : C.textSub,
                             }}
                           >
-                            🧑
+                            <User size={16} />
                           </div>
                           <span
                             style={{
                               fontWeight: 600,
-                              color: p.is_active ? "#e8f0ff" : "#4a6080",
-                              fontSize: 13.5,
+                              color: C.text,
+                              fontSize: 13,
                             }}
                           >
                             {p.username}
                           </span>
                         </div>
                       </td>
-                      <td
-                        className="dt-td"
-                        style={{ color: "#8ba0c0", fontSize: 13 }}
-                      >
+                      <td className="p-td" style={{ color: C.textMuted }}>
                         {p.email}
                       </td>
-                      <td
-                        className="dt-td"
-                        style={{ color: "#8ba0c0", fontSize: 13 }}
-                      >
-                        {p.date_naissance
-                          ? new Date(p.date_naissance).toLocaleDateString(
-                              "fr-FR",
-                            )
-                          : "—"}
-                      </td>
-                      <td className="dt-td">
-                        <span
+                      <td className="p-td" style={{ color: C.textMuted }}>
+                        <div
                           style={{
-                            padding: "4px 12px",
-                            background: p.allergies
-                              ? "rgba(248,113,113,.1)"
-                              : "rgba(255,255,255,.05)",
-                            color: p.allergies ? "#f87171" : "#4a6080",
-                            border: `1px solid ${p.allergies ? "rgba(248,113,113,.2)" : "transparent"}`,
-                            borderRadius: 20,
-                            fontSize: 12,
-                            fontWeight: 600,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
                           }}
                         >
-                          {p.allergies || "Aucune"}
-                        </span>
+                          <Calendar size={13} color={C.textMuted} />
+                          {p.date_naissance
+                            ? new Date(p.date_naissance).toLocaleDateString(
+                                "fr-FR",
+                              )
+                            : "—"}
+                        </div>
                       </td>
-                      <td className="dt-td">
+                      <td className="p-td">
                         <span
                           style={{
-                            padding: "4px 12px",
-                            background: p.is_active
-                              ? "rgba(34,211,165,.12)"
-                              : "rgba(248,113,113,.1)",
-                            color: p.is_active ? "#22d3a5" : "#f87171",
-                            border: `1px solid ${p.is_active ? "rgba(34,211,165,.25)" : "rgba(248,113,113,.2)"}`,
+                            padding: "3px 10px",
                             borderRadius: 20,
-                            fontSize: 12,
+                            background: p.allergies ? C.redLight : C.surfaceAlt,
+                            color: p.allergies ? C.red : C.textMuted,
+                            border: `1px solid ${p.allergies ? C.red + "22" : "transparent"}`,
+                            fontSize: 11,
                             fontWeight: 600,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
                           }}
                         >
-                          {p.is_active ? "● Actif" : "○ Inactif"}
+                          {p.allergies ? (
+                            <>
+                              <AlertTriangle size={10} /> Oui
+                            </>
+                          ) : (
+                            "Aucune"
+                          )}
                         </span>
                       </td>
-                      <td className="dt-td">
+                      <td className="p-td">
+                        <span
+                          style={{
+                            padding: "3px 10px",
+                            borderRadius: 20,
+                            background: p.is_active ? C.tealLight : C.redLight,
+                            color: p.is_active ? C.teal : C.red,
+                            border: `1px solid ${p.is_active ? C.teal + "33" : C.red + "33"}`,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                        >
+                          {p.is_active ? (
+                            <CircleDot size={10} />
+                          ) : (
+                            <Circle size={10} />
+                          )}
+                          {p.is_active ? "Actif" : "Inactif"}
+                        </span>
+                      </td>
+                      <td className="p-td">
                         <div style={{ display: "flex", gap: 6 }}>
                           <button
                             className="ia"
                             title="Voir le dossier"
                             onClick={() => setViewing(p)}
-                            style={{
-                              background: "rgba(56,189,248,.1)",
-                              color: "#38bdf8",
-                            }}
+                            style={{ color: C.sky }}
                           >
-                            👁️
+                            <Eye size={16} />
                           </button>
                           <button
                             className="ia"
                             title={p.is_active ? "Désactiver" : "Activer"}
                             onClick={() => setConfirm(p)}
-                            style={{
-                              background: p.is_active
-                                ? "rgba(251,146,60,.1)"
-                                : "rgba(34,211,165,.1)",
-                              color: p.is_active ? "#fb923c" : "#22d3a5",
-                            }}
+                            style={{ color: p.is_active ? C.amber : C.teal }}
                           >
-                            {p.is_active ? "🔴" : "🟢"}
+                            <Power size={16} />
                           </button>
                         </div>
                       </td>
@@ -757,57 +929,6 @@ export default function AdminPatients() {
               </tbody>
             </table>
           </div>
-
-          {/* Stats footer */}
-          {!loading && data.length > 0 && (
-            <div
-              style={{
-                display: "flex",
-                gap: 16,
-                marginTop: 16,
-                padding: "1rem 1.25rem",
-                background: "linear-gradient(145deg,#131f2e,#1a2a3f)",
-                borderRadius: 14,
-                border: "1px solid #1e3050",
-              }}
-            >
-              {[
-                { label: "Total", value: data.length, color: ACCENT },
-                { label: "Actifs", value: activeCount, color: "#22d3a5" },
-                { label: "Inactifs", value: inactiveCount, color: "#f87171" },
-                {
-                  label: "Avec allergies",
-                  value: data.filter((p) => p.allergies).length,
-                  color: "#fb923c",
-                },
-              ].map((s) => (
-                <div
-                  key={s.label}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    paddingRight: 16,
-                    borderRight: "1px solid #1e3050",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: 20,
-                      fontWeight: 800,
-                      color: s.color,
-                      fontFamily: "'Syne',sans-serif",
-                    }}
-                  >
-                    {s.value}
-                  </span>
-                  <span style={{ fontSize: 12, color: "#4a6080" }}>
-                    {s.label}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
         </main>
       </div>
     </>

@@ -6,8 +6,54 @@ import Sidebar from "../../../components/Sidebar";
 import PrivateRoute from "../../../components/PrivateRoute";
 import api from "../../../lib/api";
 import Navbar from "../../../components/Navbar";
+import AIAnalyticsPanel, {
+  DashboardData,
+} from "../../../components/AIAnalyticsPanel";
+import {
+  ArrowRight,
+  BarChart2,
+  Calendar,
+  CheckCircle,
+  CircleCheck,
+  ClipboardList,
+  Clock,
+  HeartPulse,
+  RefreshCw,
+  Stethoscope,
+  Users,
+  XCircle,
+  PieChart,
+} from "lucide-react";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+function LucideIcon({
+  name,
+  size,
+  color,
+}: {
+  name: string;
+  size: number;
+  color: string;
+}) {
+  const iconMap: Record<string, any> = {
+    "arrow-right": ArrowRight,
+    "bar-chart-2": BarChart2,
+    calendar: Calendar,
+    "check-circle": CheckCircle,
+    "circle-check": CircleCheck,
+    "clipboard-list": ClipboardList,
+    clock: Clock,
+    "heart-pulse": HeartPulse,
+    "refresh-cw": RefreshCw,
+    stethoscope: Stethoscope,
+    users: Users,
+    "x-circle": XCircle,
+    "pie-chart": PieChart,
+  };
+  const Icon = iconMap[name] || ArrowRight;
+  return <Icon size={size} color={color} />;
+}
+
+// ─── Types ────────────────────────────────────────────────────
 interface RendezVous {
   id: number;
   patient_name: string;
@@ -41,9 +87,10 @@ interface ActivityItem {
   time: string;
   dot: string;
   date: Date;
+  type: string;
 }
 
-// ─── Utilities ────────────────────────────────────────────────────────────────
+// ─── Utilities ────────────────────────────────────────────────
 function formatRelative(date: Date): string {
   const diff = Math.floor((Date.now() - date.getTime()) / 60000);
   if (diff < 1) return "À l'instant";
@@ -51,8 +98,7 @@ function formatRelative(date: Date): string {
   if (diff < 1440) return `Il y a ${Math.floor(diff / 60)}h`;
   return `Il y a ${Math.floor(diff / 1440)}j`;
 }
-
-function getMonthLabel(monthIndex: number): string {
+function getMonthLabel(i: number) {
   return [
     "Jan",
     "Fév",
@@ -66,42 +112,75 @@ function getMonthLabel(monthIndex: number): string {
     "Oct",
     "Nov",
     "Déc",
-  ][monthIndex];
+  ][i];
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-function LiveIndicator() {
+const C = {
+  // Backgrounds (Dark Mode)
+  bg: "#050a10",
+  surface: "#131f2e",
+  surfaceAlt: "#1a283a",
+  surfaceBorder: "#2d456e",
+  border: "#1e3050",
+
+  // Text
+  text: "#f0f4ff",
+  textSub: "#8ba0c0",
+  textMuted: "#4a6080",
+
+  // Accents
+  teal: "#22d3a5",
+  tealLight: "rgba(34, 211, 165, 0.15)",
+
+  violet: "#a78bfa",
+  violetLight: "rgba(167, 139, 250, 0.15)",
+
+  sky: "#38bdf8",
+  skyLight: "rgba(56, 189, 248, 0.15)",
+
+  amber: "#fbbf24",
+  amberLight: "rgba(251, 191, 36, 0.15)",
+
+  red: "#f87171",
+  redLight: "rgba(248, 113, 113, 0.15)",
+
+  green: "#34d399",
+  greenLight: "rgba(52, 211, 153, 0.15)",
+};
+
+// ─── Sub-components ───────────────────────────────────────────
+
+function PulseIcon() {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       <div style={{ position: "relative", width: 8, height: 8 }}>
         <div
           style={{
             position: "absolute",
             inset: 0,
             borderRadius: "50%",
-            background: "#22d3a5",
-            animation: "pulse-ring 1.5s ease-out infinite",
+            background: C.teal,
+            animation: "pulseRing 1.8s ease-out infinite",
           }}
         />
         <div
           style={{
             position: "absolute",
-            inset: 0,
+            inset: 1,
             borderRadius: "50%",
-            background: "#22d3a5",
+            background: C.teal,
           }}
         />
       </div>
       <span
         style={{
           fontSize: 11,
-          color: "#22d3a5",
-          fontWeight: 600,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
+          color: C.teal,
+          fontWeight: 700,
+          letterSpacing: "0.1em",
         }}
       >
-        Live
+        EN DIRECT
       </span>
     </div>
   );
@@ -120,26 +199,25 @@ function AnimatedNumber({
   useEffect(() => {
     if (loading) return;
     let start = 0;
-    const end = value;
-    const duration = 1000;
-    const step = Math.max(1, Math.ceil(end / (duration / 16)));
+    const step = Math.max(1, Math.ceil(value / 40));
     const timer = setInterval(() => {
       start += step;
-      if (start >= end) {
-        setDisplay(end);
+      if (start >= value) {
+        setDisplay(value);
         clearInterval(timer);
       } else setDisplay(start);
-    }, 16);
+    }, 20);
     return () => clearInterval(timer);
   }, [value, loading]);
+
   if (loading)
     return (
       <div
         style={{
-          width: 64,
-          height: 44,
+          width: 80,
+          height: 40,
           borderRadius: 8,
-          background: "rgba(255,255,255,0.06)",
+          background: C.surfaceAlt,
           animation: "shimmer 1.4s infinite",
         }}
       />
@@ -147,45 +225,162 @@ function AnimatedNumber({
   return <span style={{ color }}>{display.toLocaleString()}</span>;
 }
 
-function MiniSparkline({ values, color }: { values: number[]; color: string }) {
+function MiniBar({ values, color }: { values: number[]; color: string }) {
   const max = Math.max(...values, 1);
-  const w = 80,
-    h = 32;
-  const pts = values
-    .map(
-      (v, i) => `${(i / (values.length - 1)) * w},${h - (v / max) * (h - 4)}`,
-    )
-    .join(" ");
   return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} fill="none">
-      <defs>
-        <linearGradient
-          id={`spark-${color.replace("#", "")}`}
-          x1="0"
-          y1="0"
-          x2="0"
-          y2="1"
-        >
-          <stop offset="0%" stopColor={color} stopOpacity="0.25" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <polyline
-        points={pts}
-        fill="none"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+    <div
+      style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 24 }}
+    >
+      {values.map((v, i) => (
+        <div
+          key={i}
+          style={{
+            width: 5,
+            borderRadius: "2px 2px 0 0",
+            height: `${Math.max(3, (v / max) * 24)}px`,
+            background: i === values.length - 1 ? color : `${color}44`,
+            transition: "height 0.6s ease",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  iconName,
+  color,
+  colorLight,
+  sub,
+  trend,
+  loading,
+  onClick,
+  delay,
+}: {
+  label: string;
+  value: number;
+  iconName: string;
+  color: string;
+  colorLight: string;
+  sub: string;
+  trend: number[];
+  loading: boolean;
+  onClick: () => void;
+  delay: number;
+}) {
+  return (
+    <div
+      className="stat-card"
+      onClick={onClick}
+      style={{
+        animationDelay: `${delay}s`,
+        background: C.surface,
+        borderRadius: 12, // Reduced radius slightly
+        padding: "1rem 1.2rem", // Minimized padding
+        cursor: "pointer",
+        border: `1px solid ${C.border}`,
+        boxShadow: "0 4px 12px rgba(0,0,0,0.15)", // Minimized shadow
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 2, // Thinner top border
+          background: color,
+          borderRadius: "12px 12px 0 0",
+        }}
       />
-    </svg>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          marginBottom: 12, // Reduced margin
+        }}
+      >
+        <div
+          style={{
+            width: 36, // Smaller icon container
+            height: 36,
+            borderRadius: 10,
+            background: colorLight,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <LucideIcon name={iconName} size={18} color={color} />
+        </div>
+        <MiniBar values={trend} color={color} />
+      </div>
+      <div
+        style={{
+          fontSize: 28, // Smaller font size
+          fontWeight: 800,
+          lineHeight: 1,
+          marginBottom: 2,
+          fontFamily: "'Inter', sans-serif",
+        }}
+      >
+        <AnimatedNumber value={value} loading={loading} color={C.text} />
+      </div>
+      <div
+        style={{
+          fontSize: 12, // Smaller label font
+          fontWeight: 600,
+          color: C.textSub,
+          marginBottom: 2,
+        }}
+      >
+        {label}
+      </div>
+      <div style={{ fontSize: 10, color: C.textMuted }}>{sub}</div>
+      <div
+        style={{
+          marginTop: 10, // Reduced margin
+          paddingTop: 8, // Reduced padding
+          borderTop: `1px solid ${C.surfaceBorder}`,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <span
+          style={{
+            fontSize: 10, // Smaller link font
+            color,
+            fontWeight: 600,
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
+          Voir détails <LucideIcon name="arrow-right" size={10} color={color} />
+        </span>
+        <div
+          style={{
+            width: 4, // Smaller dot
+            height: 4,
+            borderRadius: "50%",
+            background: color,
+          }}
+        />
+      </div>
+    </div>
   );
 }
 
 function BarChart({
   data,
 }: {
-  data: { label: string; value: number; color?: string }[];
+  data: { label: string; value: number; color: string }[];
 }) {
   const max = Math.max(...data.map((d) => d.value), 1);
   return (
@@ -193,8 +388,8 @@ function BarChart({
       style={{
         display: "flex",
         alignItems: "flex-end",
-        gap: 6,
-        height: 90,
+        gap: 8,
+        height: 90, // Reduced height
         padding: "0 4px",
       }}
     >
@@ -209,24 +404,22 @@ function BarChart({
             gap: 4,
           }}
         >
-          <span style={{ fontSize: 10, color: "#4a6080", fontWeight: 600 }}>
+          <span style={{ fontSize: 9, color: C.textMuted, fontWeight: 600 }}>
             {d.value > 0 ? d.value : ""}
           </span>
-          <div style={{ width: "100%", position: "relative" }}>
-            <div
-              style={{
-                width: "100%",
-                height: `${Math.max(4, (d.value / max) * 64)}px`,
-                background: d.color
-                  ? `linear-gradient(180deg, ${d.color}cc, ${d.color}55)`
-                  : "linear-gradient(180deg, #a78bfa, #7c3aed55)",
-                borderRadius: "6px 6px 0 0",
-                transition: "height 1s cubic-bezier(.34,1.56,.64,1)",
-                boxShadow: `0 0 8px ${d.color || "#a78bfa"}44`,
-              }}
-            />
-          </div>
-          <span style={{ fontSize: 9, color: "#4a6080", textAlign: "center" }}>
+          <div
+            style={{
+              width: "100%",
+              height: `${Math.max(4, (d.value / max) * 60)}px`, // Adjusted height
+              background: d.color,
+              borderRadius: "4px 4px 0 0",
+              opacity: 0.9,
+              transition: "height 0.8s cubic-bezier(.34,1.56,.64,1)",
+            }}
+          />
+          <span
+            style={{ fontSize: 8, color: C.textMuted, textAlign: "center" }}
+          >
             {d.label}
           </span>
         </div>
@@ -244,22 +437,20 @@ function DonutChart({
 }) {
   const total = patients + medecins || 1;
   const pct = patients / total;
-  const r = 36,
-    cx = 44,
-    cy = 44,
-    strokeW = 10;
-  const circ = 2 * Math.PI * r;
-  const pDash = pct * circ;
-  const mDash = (1 - pct) * circ;
+  const r = 32, // Smaller radius
+    cx = 40,
+    cy = 40,
+    strokeW = 7,
+    circ = 2 * Math.PI * r;
   return (
-    <div style={{ position: "relative", width: 88, height: 88 }}>
-      <svg width="88" height="88" viewBox="0 0 88 88">
+    <div style={{ position: "relative", width: 80, height: 80 }}>
+      <svg width="80" height="80" viewBox="0 0 80 80">
         <circle
           cx={cx}
           cy={cy}
           r={r}
           fill="none"
-          stroke="#1e3050"
+          stroke={C.surfaceBorder}
           strokeWidth={strokeW}
         />
         <circle
@@ -267,9 +458,9 @@ function DonutChart({
           cy={cy}
           r={r}
           fill="none"
-          stroke="#22d3a5"
+          stroke={C.teal}
           strokeWidth={strokeW}
-          strokeDasharray={`${pDash} ${circ - pDash}`}
+          strokeDasharray={`${pct * circ} ${circ - pct * circ}`}
           strokeDashoffset={circ / 4}
           strokeLinecap="round"
           style={{ transition: "stroke-dasharray 1s ease" }}
@@ -279,10 +470,10 @@ function DonutChart({
           cy={cy}
           r={r}
           fill="none"
-          stroke="#a78bfa"
+          stroke={C.violet}
           strokeWidth={strokeW}
-          strokeDasharray={`${mDash} ${circ - mDash}`}
-          strokeDashoffset={circ / 4 - pDash}
+          strokeDasharray={`${(1 - pct) * circ} ${circ - (1 - pct) * circ}`}
+          strokeDashoffset={circ / 4 - pct * circ}
           strokeLinecap="round"
           style={{ transition: "stroke-dasharray 1s ease" }}
         />
@@ -297,141 +488,48 @@ function DonutChart({
           justifyContent: "center",
         }}
       >
-        <span style={{ fontSize: 16, fontWeight: 800, color: "#f0f4ff" }}>
+        <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>
           {total}
         </span>
-        <span style={{ fontSize: 9, color: "#4a6080" }}>users</span>
-      </div>
-    </div>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  icon,
-  accent,
-  sub,
-  trend,
-  loading,
-  onClick,
-  delay,
-}: {
-  label: string;
-  value: number;
-  icon: string;
-  accent: string;
-  sub: string;
-  trend: number[];
-  loading: boolean;
-  onClick: () => void;
-  delay: number;
-}) {
-  return (
-    <div
-      className="dash-card"
-      onClick={onClick}
-      style={{
-        animationDelay: `${delay}s`,
-        background: "linear-gradient(145deg, #131f2e, #1a2a3f)",
-        borderRadius: 20,
-        padding: "1.5rem",
-        cursor: "pointer",
-        border: `1px solid ${accent}22`,
-        boxShadow: `0 4px 24px rgba(0,0,0,0.25), inset 0 1px 0 ${accent}15`,
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      <div
-        style={{
-          position: "absolute",
-          top: -30,
-          right: -30,
-          width: 110,
-          height: 110,
-          borderRadius: "50%",
-          background: accent,
-          opacity: 0.08,
-          filter: "blur(35px)",
-          pointerEvents: "none",
-        }}
-      />
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          marginBottom: 14,
-        }}
-      >
-        <div
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 12,
-            background: `${accent}18`,
-            border: `1px solid ${accent}30`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 20,
-          }}
-        >
-          {icon}
-        </div>
-        <MiniSparkline values={trend} color={accent} />
-      </div>
-      <div
-        style={{
-          fontSize: 38,
-          fontWeight: 800,
-          fontFamily: "'Syne', sans-serif",
-          lineHeight: 1,
-          marginBottom: 4,
-        }}
-      >
-        <AnimatedNumber value={value} loading={loading} color={accent} />
-      </div>
-      <div
-        style={{
-          fontSize: 13,
-          fontWeight: 600,
-          color: "#c8d8f0",
-          marginBottom: 2,
-        }}
-      >
-        {label}
-      </div>
-      <div style={{ fontSize: 11, color: "#4a6080" }}>{sub}</div>
-      <div
-        style={{
-          marginTop: 14,
-          paddingTop: 14,
-          borderTop: `1px solid ${accent}18`,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <span style={{ fontSize: 11, color: accent, fontWeight: 600 }}>
-          Voir détails →
+        <span style={{ fontSize: 8, color: C.textMuted, fontWeight: 500 }}>
+          USERS
         </span>
-        <div
-          style={{
-            width: 6,
-            height: 6,
-            borderRadius: "50%",
-            background: accent,
-            opacity: 0.7,
-          }}
-        />
       </div>
     </div>
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+const statusMeta: Record<
+  string,
+  { label: string; color: string; bg: string; iconName: string }
+> = {
+  "en attente": {
+    label: "En attente",
+    color: C.amber,
+    bg: C.amberLight,
+    iconName: "clock",
+  },
+  confirmé: {
+    label: "Confirmé",
+    color: C.green,
+    bg: C.greenLight,
+    iconName: "check-circle",
+  },
+  annulé: {
+    label: "Annulé",
+    color: C.red,
+    bg: C.redLight,
+    iconName: "x-circle",
+  },
+  terminé: {
+    label: "Terminé",
+    color: C.sky,
+    bg: C.skyLight,
+    iconName: "circle-check",
+  },
+};
+
+// ─── Main ─────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const { token, isLoading, user } = useAuth();
   const router = useRouter();
@@ -443,6 +541,12 @@ export default function AdminDashboard() {
     consultations: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [rawData, setRawData] = useState<DashboardData>({
+    patients: [],
+    medecins: [],
+    rdvList: [],
+    consList: [],
+  });
   const [time, setTime] = useState(new Date());
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [rdvParMois, setRdvParMois] = useState<
@@ -459,7 +563,6 @@ export default function AdminDashboard() {
     { label: string; value: number; color: string }[]
   >([]);
 
-  // Live clock
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(t);
@@ -485,18 +588,20 @@ export default function AdminDashboard() {
           rendezvous: rdvList.length,
           consultations: consList.length,
         });
+        setRawData({ patients, medecins, rdvList, consList });
 
-        // ── Activité récente ─────────────────────────────────────────────────
         const events: ActivityItem[] = [
           ...rdvList.slice(-8).map((rv) => ({
-            text: `RDV — ${rv.patient_name || "Patient"} → Dr. ${rv.medecin_name || ""}`,
-            dot: "#38bdf8",
+            text: `RDV · ${rv.patient_name || "Patient"} → Dr. ${rv.medecin_name || ""}`,
+            dot: C.sky,
+            type: "rdv",
             date: new Date(rv.date_heure),
             time: "",
           })),
           ...consList.slice(-8).map((cn) => ({
-            text: `Consultation — ${cn.patient_name || "Patient"}`,
-            dot: "#fb923c",
+            text: `Consultation · ${cn.patient_name || "Patient"}`,
+            dot: C.violet,
+            type: "consultation",
             date: new Date(cn.date_heure),
             time: "",
           })),
@@ -508,7 +613,6 @@ export default function AdminDashboard() {
             .map((e) => ({ ...e, time: formatRelative(e.date) })),
         );
 
-        // ── Graphiques par mois (6 derniers) ─────────────────────────────────
         const nowM = new Date().getMonth();
         const rdvCounts = Array(12).fill(0);
         const consCounts = Array(12).fill(0);
@@ -528,8 +632,6 @@ export default function AdminDashboard() {
         });
         setRdvParMois(last6.map((d) => ({ label: d.label, value: d.rdv })));
         setConsParMois(last6.map((d) => ({ label: d.label, value: d.cons })));
-
-        // ── Rendez-vous récents ───────────────────────────────────────────────
         setRecentRdv(
           [...rdvList]
             .sort(
@@ -540,7 +642,6 @@ export default function AdminDashboard() {
             .slice(0, 5),
         );
 
-        // ── Top médecins par RDV ──────────────────────────────────────────────
         const medecinCount: Record<string, { count: number; spec: string }> =
           {};
         rdvList.forEach((rv) => {
@@ -561,25 +662,17 @@ export default function AdminDashboard() {
             .map(([name, d]) => ({ name, count: d.count, spec: d.spec })),
         );
 
-        // ── Distribution statuts RDV ─────────────────────────────────────────
         const statusMap: Record<string, number> = {};
         rdvList.forEach((rv) => {
           statusMap[rv.status] = (statusMap[rv.status] || 0) + 1;
         });
-        const statusColors: Record<string, string> = {
-          "en attente": "#f59e0b",
-          confirmé: "#22d3a5",
-          annulé: "#f87171",
-          terminé: "#38bdf8",
-        };
         setStatusDist(
           Object.entries(statusMap).map(([label, value]) => ({
             label,
             value,
-            color: statusColors[label] || "#a78bfa",
+            color: statusMeta[label]?.color || C.violet,
           })),
         );
-
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -602,9 +695,10 @@ export default function AdminDashboard() {
     {
       label: "Patients",
       value: stats.patients,
-      icon: "👥",
-      accent: "#22d3a5",
-      sub: "Total inscrits",
+      iconName: "users",
+      color: C.teal,
+      colorLight: C.tealLight,
+      sub: "Inscrits sur la plateforme",
       trend: [4, 7, 5, 9, 8, 11, stats.patients],
       path: "/dashboard/admin/patients",
       delay: 0,
@@ -612,8 +706,9 @@ export default function AdminDashboard() {
     {
       label: "Médecins",
       value: stats.medecins,
-      icon: "⚕️",
-      accent: "#a78bfa",
+      iconName: "stethoscope",
+      color: C.violet,
+      colorLight: C.violetLight,
       sub: "Praticiens actifs",
       trend: [2, 3, 2, 4, 3, 5, stats.medecins],
       path: "/dashboard/admin/medecins",
@@ -622,9 +717,10 @@ export default function AdminDashboard() {
     {
       label: "Rendez-vous",
       value: stats.rendezvous,
-      icon: "📅",
-      accent: "#38bdf8",
-      sub: "Programmés",
+      iconName: "calendar",
+      color: C.sky,
+      colorLight: C.skyLight,
+      sub: "Total programmés",
       trend: [1, 3, 5, 4, 8, 6, stats.rendezvous],
       path: "/dashboard/admin/rendezvous",
       delay: 0.14,
@@ -632,9 +728,10 @@ export default function AdminDashboard() {
     {
       label: "Consultations",
       value: stats.consultations,
-      icon: "🩺",
-      accent: "#fb923c",
-      sub: "Effectuées",
+      iconName: "heart-pulse",
+      color: C.amber,
+      colorLight: C.amberLight,
+      sub: "Effectuées à ce jour",
       trend: [2, 4, 3, 7, 5, 9, stats.consultations],
       path: "/dashboard/admin/consultations",
       delay: 0.21,
@@ -655,38 +752,102 @@ export default function AdminDashboard() {
   const rdvParMed =
     stats.medecins > 0 ? (stats.rendezvous / stats.medecins).toFixed(1) : "—";
 
-  const statusLabel: Record<string, string> = {
-    "en attente": "En attente",
-    confirmé: "Confirmé",
-    annulé: "Annulé",
-    terminé: "Terminé",
-  };
+  const kpis = [
+    {
+      label: "Taux d'occupation",
+      value: tauxOccup,
+      color: C.sky,
+      iconName: "bar-chart-2",
+    },
+    {
+      label: "RDV / Médecin",
+      value: rdvParMed,
+      color: C.amber,
+      iconName: "calendar",
+    },
+    {
+      label: "Ratio patient / méd.",
+      value:
+        stats.medecins > 0 ? (stats.patients / stats.medecins).toFixed(1) : "—",
+      color: C.teal,
+      iconName: "users",
+    },
+    {
+      label: "Consultations / RDV",
+      value:
+        stats.rendezvous > 0
+          ? `${Math.round((stats.consultations / stats.rendezvous) * 100)}%`
+          : "—",
+      color: C.violet,
+      iconName: "pie-chart",
+    },
+  ];
+
+  const quickLinks = [
+    {
+      label: "Patients",
+      iconName: "users",
+      path: "/dashboard/admin/patients",
+      color: C.teal,
+    },
+    {
+      label: "Médecins",
+      iconName: "stethoscope",
+      path: "/dashboard/admin/medecins",
+      color: C.violet,
+    },
+    {
+      label: "Rendez-vous",
+      iconName: "calendar",
+      path: "/dashboard/admin/rendezvous",
+      color: C.sky,
+    },
+    {
+      label: "Consult.",
+      iconName: "heart-pulse",
+      path: "/dashboard/admin/consultations",
+      color: C.amber,
+    },
+  ];
 
   return (
     <PrivateRoute allowedRoles={["admin"]}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
-        @keyframes fadeUp    { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes shimmer   { 0% { background-position:-400px 0; } 100% { background-position:400px 0; } }
-        @keyframes pulse-ring{ 0% { transform:scale(1); opacity:.6; } 100% { transform:scale(1.6); opacity:0; } }
-        @keyframes spin      { to { transform:rotate(360deg); } }
-        .dash-card { animation: fadeUp .5s ease both; transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease; }
-        .dash-card:hover { transform: translateY(-5px) scale(1.015); box-shadow: 0 20px 40px rgba(0,0,0,0.22) !important; }
-        .action-btn { transition: all .2s ease; position: relative; overflow: hidden; }
-        .action-btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
-        .rdv-row { transition: background .15s; border-radius: 10px; }
-        .rdv-row:hover { background: rgba(255,255,255,0.03) !important; }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: #0d1520; }
-        ::-webkit-scrollbar-thumb { background: #1e3050; border-radius: 4px; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        * { box-sizing: border-box; }
+        @keyframes fadeUp    { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes shimmer   { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+        @keyframes pulseRing { 0% { transform:scale(1); opacity:.6; } 100% { transform:scale(2); opacity:0; } }
+        
+        /* Corrected Minimized Styles */
+        .stat-card { 
+          animation: fadeUp 0.45s ease both; 
+          transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; 
+        }
+        
+        .stat-card:hover { 
+          transform: translateY(-2px); /* Reduced lift */
+          box-shadow: 0 8px 20px rgba(0,0,0,0.3) !important; /* Darker, more focused shadow */
+          border-color: #2d456e; /* Explicit color or C.surfaceBorder */
+        } 
+
+        .panel { background:${C.surface}; border-radius:12px; border:1px solid ${C.border}; box-shadow:0 4px 12px rgba(0,0,0,0.15); padding:1rem 1.2rem; animation:fadeUp 0.45s ease both; }
+        .panel-title { font-size:12px; font-weight:700; color:${C.text}; letter-spacing:0.02em; text-transform:uppercase; margin:0 0 1rem; display:flex; align-items:center; gap:8px; }
+        .rdv-row { transition:background 0.15s; border-radius:8px; cursor:default; }
+        .rdv-row:hover { background:${C.surfaceAlt}; }
+        .quick-btn { transition:all 0.2s ease; border:none; cursor:pointer; }
+        .quick-btn:hover { transform:translateY(-2px); }
+        ::-webkit-scrollbar { width:4px; }
+        ::-webkit-scrollbar-track { background:${C.bg}; }
+        ::-webkit-scrollbar-thumb { background:${C.border}; border-radius:4px; }
       `}</style>
 
       <div
         style={{
           display: "flex",
           minHeight: "100vh",
-          background: "#0d1520",
-          fontFamily: "'DM Sans', sans-serif",
+          background: C.bg,
+          fontFamily: "'Inter', sans-serif",
         }}
       >
         <Sidebar />
@@ -694,115 +855,23 @@ export default function AdminDashboard() {
           style={{
             marginLeft: 260,
             flex: 1,
-            padding: "5rem 2.5rem 3rem",
+            padding: "4rem 2rem 2rem", // Reduced padding
             overflowX: "hidden",
+            marginTop: 26,
           }}
         >
           <Navbar
-            title="Mon espace santé"
-            subtitle={`Bonjour ${user?.username || "Admin"} 👋`}
+            title="Tableau de bord"
+            subtitle={`Bonjour ${user?.username || "Admin"}`}
           />
 
-          {/* ── Header ────────────────────────────────────────────────────── */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              marginBottom: "2.5rem",
-              animation: "fadeUp .4s ease both",
-            }}
-          >
-            <div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  marginBottom: 6,
-                }}
-              >
-                <LiveIndicator />
-                <span
-                  style={{ fontSize: 12, color: "#4a6080", fontWeight: 500 }}
-                >
-                  {time.toLocaleDateString("fr-FR", {
-                    weekday: "long",
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </span>
-              </div>
-              <h1
-                style={{
-                  fontSize: 32,
-                  fontWeight: 800,
-                  color: "#f0f4ff",
-                  fontFamily: "'Syne', sans-serif",
-                  letterSpacing: "-0.5px",
-                  margin: 0,
-                }}
-              >
-                Dashboard <span style={{ color: "#22d3a5" }}>Admin</span>
-              </h1>
-              <p style={{ color: "#4a6080", fontSize: 14, marginTop: 4 }}>
-                Vue d'ensemble de la plateforme de téléconsultation
-              </p>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div
-                style={{
-                  fontSize: 28,
-                  fontWeight: 700,
-                  color: "#f0f4ff",
-                  fontFamily: "'Syne', sans-serif",
-                  letterSpacing: "-1px",
-                }}
-              >
-                {time.toLocaleTimeString("fr-FR", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                })}
-              </div>
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "#4a6080",
-                  marginTop: 2,
-                  letterSpacing: "0.06em",
-                }}
-              >
-                HEURE LOCALE
-              </div>
-              <button
-                onClick={fetchData}
-                style={{
-                  marginTop: 8,
-                  padding: "5px 14px",
-                  background: "rgba(34,211,165,0.1)",
-                  border: "1px solid rgba(34,211,165,0.25)",
-                  borderRadius: 8,
-                  color: "#22d3a5",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                ↻ Actualiser
-              </button>
-            </div>
-          </div>
-
-          {/* ── Stat Cards ────────────────────────────────────────────────── */}
+          {/* Stat Cards */}
           <div
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(4, 1fr)",
-              gap: 18,
-              marginBottom: "2rem",
+              gap: 16,
+              marginBottom: "1.5rem",
             }}
           >
             {cards.map((c) => (
@@ -815,90 +884,77 @@ export default function AdminDashboard() {
             ))}
           </div>
 
-          {/* ── Row 2 : KPIs + Distribution + Donut ─────────────────────── */}
+          {/* Row 2 : KPIs + Distribution + Statuts */}
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr 1fr",
-              gap: 18,
-              marginBottom: "2rem",
+              gridTemplateColumns: "1fr 1.1fr 1fr",
+              gap: 16,
+              marginBottom: "1.5rem",
             }}
           >
             {/* KPIs */}
             <div
-              style={{
-                background: "linear-gradient(145deg,#131f2e,#1a2a3f)",
-                borderRadius: 20,
-                padding: "1.5rem",
-                border: "1px solid #1e3050",
-                animation: "fadeUp .5s .28s ease both",
-                opacity: 0,
-              }}
+              className="panel"
+              style={{ animationDelay: "0.28s", opacity: 0 }}
             >
-              <h2
-                style={{
-                  fontSize: 14,
-                  fontWeight: 700,
-                  color: "#c8d8f0",
-                  fontFamily: "'Syne',sans-serif",
-                  margin: "0 0 1.2rem",
-                }}
-              >
+              <div className="panel-title">
+                <div
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: 6,
+                    background: C.tealLight,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <LucideIcon name="bar-chart-2" size={10} color={C.teal} />
+                </div>
                 Indicateurs clés
-              </h2>
-              {[
-                {
-                  label: "Taux d'occupation",
-                  value: tauxOccup,
-                  color: "#38bdf8",
-                  icon: "📊",
-                },
-                {
-                  label: "RDV / Médecin",
-                  value: rdvParMed,
-                  color: "#fb923c",
-                  icon: "📅",
-                },
-                {
-                  label: "Ratio patient/méd.",
-                  value:
-                    stats.medecins > 0
-                      ? (stats.patients / stats.medecins).toFixed(1)
-                      : "—",
-                  color: "#22d3a5",
-                  icon: "⚖️",
-                },
-                {
-                  label: "Consultations/RDV",
-                  value:
-                    stats.rendezvous > 0
-                      ? `${Math.round((stats.consultations / stats.rendezvous) * 100)}%`
-                      : "—",
-                  color: "#a78bfa",
-                  icon: "🩺",
-                },
-              ].map((k) => (
+              </div>
+              {kpis.map((k) => (
                 <div
                   key={k.label}
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: 12,
-                    padding: "10px 0",
-                    borderBottom: "1px solid #1a2a3f",
+                    gap: 10,
+                    padding: "8px 0",
+                    borderBottom: `1px solid ${C.surfaceBorder}`,
                   }}
                 >
-                  <span style={{ fontSize: 18 }}>{k.icon}</span>
+                  <div
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 8,
+                      background: `${k.color}22`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <LucideIcon name={k.iconName} size={14} color={k.color} />
+                  </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 11, color: "#4a6080" }}>
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: C.textMuted,
+                        marginBottom: 2,
+                      }}
+                    >
                       {k.label}
                     </div>
                     <div
                       style={{
-                        fontSize: 20,
+                        fontSize: 18,
                         fontWeight: 800,
                         color: k.color,
-                        fontFamily: "'Syne',sans-serif",
+                        lineHeight: 1,
                       }}
                     >
                       {loading ? "—" : k.value}
@@ -908,45 +964,44 @@ export default function AdminDashboard() {
               ))}
             </div>
 
-            {/* Distribution barres */}
+            {/* Distribution */}
             <div
-              style={{
-                background: "linear-gradient(145deg,#131f2e,#1a2a3f)",
-                borderRadius: 20,
-                padding: "1.5rem",
-                border: "1px solid #1e3050",
-                animation: "fadeUp .5s .35s ease both",
-                opacity: 0,
-              }}
+              className="panel"
+              style={{ animationDelay: "0.35s", opacity: 0 }}
             >
-              <h2
-                style={{
-                  fontSize: 14,
-                  fontWeight: 700,
-                  color: "#c8d8f0",
-                  fontFamily: "'Syne',sans-serif",
-                  margin: "0 0 1.2rem",
-                }}
-              >
-                Distribution utilisateurs
-              </h2>
+              <div className="panel-title">
+                <div
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: 6,
+                    background: C.violetLight,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <LucideIcon name="users" size={10} color={C.violet} />
+                </div>
+                Répartition utilisateurs
+              </div>
               {[
                 {
                   label: "Patients",
                   value: stats.patients,
                   ratio: patientsRatio,
-                  color: "#22d3a5",
-                  icon: "👥",
+                  color: C.teal,
+                  iconName: "users",
                 },
                 {
                   label: "Médecins",
                   value: stats.medecins,
                   ratio: medecinRatio,
-                  color: "#a78bfa",
-                  icon: "⚕️",
+                  color: C.violet,
+                  iconName: "stethoscope",
                 },
               ].map((item) => (
-                <div key={item.label} style={{ marginBottom: 18 }}>
+                <div key={item.label} style={{ marginBottom: 16 }}>
                   <div
                     style={{
                       display: "flex",
@@ -955,13 +1010,17 @@ export default function AdminDashboard() {
                     }}
                   >
                     <div
-                      style={{ display: "flex", alignItems: "center", gap: 7 }}
+                      style={{ display: "flex", alignItems: "center", gap: 6 }}
                     >
-                      <span style={{ fontSize: 13 }}>{item.icon}</span>
+                      <LucideIcon
+                        name={item.iconName}
+                        size={12}
+                        color={item.color}
+                      />
                       <span
                         style={{
-                          fontSize: 13,
-                          color: "#8ba0c0",
+                          fontSize: 12,
+                          color: C.textSub,
                           fontWeight: 500,
                         }}
                       >
@@ -980,16 +1039,25 @@ export default function AdminDashboard() {
                       >
                         {loading ? "—" : item.value.toLocaleString()}
                       </span>
-                      <span style={{ fontSize: 11, color: "#4a6080" }}>
+                      <span
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 600,
+                          color: item.color,
+                          background: `${item.color}22`,
+                          padding: "2px 6px",
+                          borderRadius: 20,
+                        }}
+                      >
                         {item.ratio}%
                       </span>
                     </div>
                   </div>
                   <div
                     style={{
-                      height: 6,
+                      height: 5,
                       borderRadius: 99,
-                      background: "#0d1520",
+                      background: C.surfaceAlt,
                       overflow: "hidden",
                     }}
                   >
@@ -998,22 +1066,20 @@ export default function AdminDashboard() {
                         height: "100%",
                         width: `${item.ratio}%`,
                         borderRadius: 99,
-                        background: `linear-gradient(90deg,${item.color}88,${item.color})`,
+                        background: item.color,
                         transition: "width 1s cubic-bezier(.34,1.56,.64,1)",
                       }}
                     />
                   </div>
                 </div>
               ))}
-
-              {/* Donut */}
               <div
                 style={{
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   gap: 20,
-                  marginTop: 20,
+                  marginTop: 8,
                 }}
               >
                 <DonutChart
@@ -1022,27 +1088,27 @@ export default function AdminDashboard() {
                 />
                 <div>
                   {[
-                    { label: "Patients", color: "#22d3a5" },
-                    { label: "Médecins", color: "#a78bfa" },
+                    { label: "Patients", color: C.teal },
+                    { label: "Médecins", color: C.violet },
                   ].map((l) => (
                     <div
                       key={l.label}
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: 7,
+                        gap: 6,
                         marginBottom: 6,
                       }}
                     >
                       <div
                         style={{
-                          width: 10,
-                          height: 10,
+                          width: 8,
+                          height: 8,
                           borderRadius: 3,
                           background: l.color,
                         }}
                       />
-                      <span style={{ fontSize: 12, color: "#8ba0c0" }}>
+                      <span style={{ fontSize: 11, color: C.textSub }}>
                         {l.label}
                       </span>
                     </div>
@@ -1051,33 +1117,32 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Statuts RDV */}
+            {/* Statuts */}
             <div
-              style={{
-                background: "linear-gradient(145deg,#131f2e,#1a2a3f)",
-                borderRadius: 20,
-                padding: "1.5rem",
-                border: "1px solid #1e3050",
-                animation: "fadeUp .5s .42s ease both",
-                opacity: 0,
-              }}
+              className="panel"
+              style={{ animationDelay: "0.42s", opacity: 0 }}
             >
-              <h2
-                style={{
-                  fontSize: 14,
-                  fontWeight: 700,
-                  color: "#c8d8f0",
-                  fontFamily: "'Syne',sans-serif",
-                  margin: "0 0 1.2rem",
-                }}
-              >
+              <div className="panel-title">
+                <div
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: 6,
+                    background: C.skyLight,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <LucideIcon name="clipboard-list" size={10} color={C.sky} />
+                </div>
                 Statuts des rendez-vous
-              </h2>
+              </div>
               {statusDist.length === 0 ? (
                 <div
                   style={{
-                    color: "#4a6080",
-                    fontSize: 13,
+                    color: C.textMuted,
+                    fontSize: 12,
                     textAlign: "center",
                     padding: "2rem 0",
                   }}
@@ -1086,56 +1151,63 @@ export default function AdminDashboard() {
                 </div>
               ) : (
                 statusDist.map((s) => {
-                  const total = statusDist.reduce((acc, x) => acc + x.value, 0);
+                  const total = statusDist.reduce((a, x) => a + x.value, 0);
                   const pct = Math.round((s.value / total) * 100);
+                  const meta = statusMeta[s.label];
                   return (
-                    <div key={s.label} style={{ marginBottom: 14 }}>
+                    <div key={s.label} style={{ marginBottom: 12 }}>
                       <div
                         style={{
                           display: "flex",
                           justifyContent: "space-between",
-                          marginBottom: 5,
+                          marginBottom: 4,
                         }}
                       >
                         <div
                           style={{
                             display: "flex",
                             alignItems: "center",
-                            gap: 8,
+                            gap: 6,
                           }}
                         >
                           <div
                             style={{
-                              width: 8,
-                              height: 8,
+                              width: 7,
+                              height: 7,
                               borderRadius: "50%",
                               background: s.color,
                             }}
                           />
-                          <span style={{ fontSize: 12, color: "#8ba0c0" }}>
-                            {statusLabel[s.label] || s.label}
+                          <span style={{ fontSize: 11, color: C.textSub }}>
+                            {meta?.label || s.label}
                           </span>
                         </div>
-                        <div style={{ display: "flex", gap: 8 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 8,
+                            alignItems: "center",
+                          }}
+                        >
                           <span
                             style={{
-                              fontSize: 12,
+                              fontSize: 11,
                               fontWeight: 700,
                               color: s.color,
                             }}
                           >
                             {s.value}
                           </span>
-                          <span style={{ fontSize: 11, color: "#4a6080" }}>
+                          <span style={{ fontSize: 9, color: C.textMuted }}>
                             {pct}%
                           </span>
                         </div>
                       </div>
                       <div
                         style={{
-                          height: 5,
+                          height: 4,
                           borderRadius: 99,
-                          background: "#0d1520",
+                          background: C.surfaceAlt,
                           overflow: "hidden",
                         }}
                       >
@@ -1156,168 +1228,115 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* ── Row 3 : Graphiques RDV + Consultations ────────────────────── */}
+          {/* Row 3 : Graphiques */}
           <div
             style={{
               display: "grid",
               gridTemplateColumns: "1fr 1fr",
-              gap: 18,
-              marginBottom: "2rem",
+              gap: 16,
+              marginBottom: "1.5rem",
             }}
           >
-            <div
-              style={{
-                background: "linear-gradient(145deg,#131f2e,#1a2a3f)",
-                borderRadius: 20,
-                padding: "1.5rem",
-                border: "1px solid #1e3050",
-                animation: "fadeUp .5s .49s ease both",
-                opacity: 0,
-              }}
-            >
+            {[
+              {
+                title: "Rendez-vous — 6 derniers mois",
+                total: stats.rendezvous,
+                data: rdvParMois,
+                color: C.sky,
+                totalColor: C.sky,
+                delay: "0.49s",
+              },
+              {
+                title: "Consultations — 6 derniers mois",
+                total: stats.consultations,
+                data: consParMois,
+                color: C.amber,
+                totalColor: C.amber,
+                delay: "0.56s",
+              },
+            ].map((chart) => (
               <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 16,
-                }}
+                key={chart.title}
+                className="panel"
+                style={{ animationDelay: chart.delay, opacity: 0 }}
               >
-                <h2
+                <div
                   style={{
-                    fontSize: 14,
-                    fontWeight: 700,
-                    color: "#c8d8f0",
-                    fontFamily: "'Syne',sans-serif",
-                    margin: 0,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 12,
                   }}
                 >
-                  Rendez-vous — 6 derniers mois
-                </h2>
-                <span
-                  style={{
-                    fontSize: 11,
-                    color: "#38bdf8",
-                    fontWeight: 600,
-                    background: "rgba(56,189,248,0.1)",
-                    padding: "3px 10px",
-                    borderRadius: 20,
-                  }}
-                >
-                  Total : {stats.rendezvous}
-                </span>
+                  <div className="panel-title" style={{ margin: 0 }}>
+                    {chart.title}
+                  </div>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      color: chart.totalColor,
+                      fontWeight: 700,
+                      background: `${chart.totalColor}22`,
+                      padding: "2px 8px",
+                      borderRadius: 20,
+                    }}
+                  >
+                    Total : {chart.total}
+                  </span>
+                </div>
+                <BarChart
+                  data={chart.data.map((d) => ({ ...d, color: chart.color }))}
+                />
               </div>
-              <BarChart
-                data={rdvParMois.map((d) => ({ ...d, color: "#38bdf8" }))}
-              />
-            </div>
-
-            <div
-              style={{
-                background: "linear-gradient(145deg,#131f2e,#1a2a3f)",
-                borderRadius: 20,
-                padding: "1.5rem",
-                border: "1px solid #1e3050",
-                animation: "fadeUp .5s .56s ease both",
-                opacity: 0,
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 16,
-                }}
-              >
-                <h2
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 700,
-                    color: "#c8d8f0",
-                    fontFamily: "'Syne',sans-serif",
-                    margin: 0,
-                  }}
-                >
-                  Consultations — 6 derniers mois
-                </h2>
-                <span
-                  style={{
-                    fontSize: 11,
-                    color: "#fb923c",
-                    fontWeight: 600,
-                    background: "rgba(251,146,60,0.1)",
-                    padding: "3px 10px",
-                    borderRadius: 20,
-                  }}
-                >
-                  Total : {stats.consultations}
-                </span>
-              </div>
-              <BarChart
-                data={consParMois.map((d) => ({ ...d, color: "#fb923c" }))}
-              />
-            </div>
+            ))}
           </div>
 
-          {/* ── Row 4 : RDV récents + Top médecins + Activité ─────────────── */}
+          {/* Row 4 : RDV récents + Top médecins + Activité */}
           <div
             style={{
               display: "grid",
               gridTemplateColumns: "1.4fr 1fr 1fr",
-              gap: 18,
+              gap: 16,
             }}
           >
             {/* RDV récents */}
             <div
-              style={{
-                background: "linear-gradient(145deg,#131f2e,#1a2a3f)",
-                borderRadius: 20,
-                padding: "1.5rem",
-                border: "1px solid #1e3050",
-                animation: "fadeUp .5s .63s ease both",
-                opacity: 0,
-              }}
+              className="panel"
+              style={{ animationDelay: "0.63s", opacity: 0 }}
             >
               <div
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  marginBottom: "1rem",
+                  marginBottom: "0.8rem",
                 }}
               >
-                <h2
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 700,
-                    color: "#c8d8f0",
-                    fontFamily: "'Syne',sans-serif",
-                    margin: 0,
-                  }}
-                >
+                <div className="panel-title" style={{ margin: 0 }}>
                   Rendez-vous récents
-                </h2>
+                </div>
                 <button
                   onClick={() => router.push("/dashboard/admin/rendezvous")}
                   style={{
-                    fontSize: 11,
-                    color: "#38bdf8",
-                    background: "none",
+                    fontSize: 10,
+                    color: C.sky,
+                    background: C.skyLight,
                     border: "none",
+                    borderRadius: 6,
+                    padding: "3px 8px",
                     cursor: "pointer",
                     fontFamily: "inherit",
                     fontWeight: 600,
                   }}
                 >
-                  Voir tout →
+                  Voir tout
                 </button>
               </div>
               {recentRdv.length === 0 ? (
                 <div
                   style={{
-                    color: "#4a6080",
-                    fontSize: 13,
+                    color: C.textMuted,
+                    fontSize: 12,
                     textAlign: "center",
                     padding: "2rem 0",
                   }}
@@ -1326,13 +1345,12 @@ export default function AdminDashboard() {
                 </div>
               ) : (
                 recentRdv.map((rv, i) => {
-                  const statusColor: Record<string, string> = {
-                    "en attente": "#f59e0b",
-                    confirmé: "#22d3a5",
-                    annulé: "#f87171",
-                    terminé: "#38bdf8",
+                  const meta = statusMeta[rv.status] || {
+                    color: C.violet,
+                    bg: C.violetLight,
+                    label: rv.status,
+                    iconName: "circle",
                   };
-                  const sc = statusColor[rv.status] || "#a78bfa";
                   return (
                     <div
                       key={rv.id}
@@ -1340,36 +1358,38 @@ export default function AdminDashboard() {
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: 10,
-                        padding: "10px 8px",
+                        gap: 8,
+                        padding: "7px 4px",
                         borderBottom:
                           i < recentRdv.length - 1
-                            ? "1px solid #1a2a3f"
+                            ? `1px solid ${C.surfaceBorder}`
                             : "none",
                       }}
                     >
                       <div
                         style={{
-                          width: 34,
-                          height: 34,
-                          borderRadius: 10,
-                          background: `${sc}18`,
-                          border: `1px solid ${sc}30`,
+                          width: 30,
+                          height: 30,
+                          borderRadius: 8,
+                          background: meta.bg,
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          fontSize: 14,
                           flexShrink: 0,
                         }}
                       >
-                        📅
+                        <LucideIcon
+                          name="calendar"
+                          size={14}
+                          color={meta.color}
+                        />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div
                           style={{
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: 600,
-                            color: "#c8d8f0",
+                            color: C.text,
                             whiteSpace: "nowrap",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
@@ -1380,9 +1400,9 @@ export default function AdminDashboard() {
                         </div>
                         <div
                           style={{
-                            fontSize: 11,
-                            color: "#4a6080",
-                            marginTop: 2,
+                            fontSize: 10,
+                            color: C.textMuted,
+                            marginTop: 1,
                           }}
                         >
                           {new Date(rv.date_heure).toLocaleDateString("fr-FR", {
@@ -1395,17 +1415,17 @@ export default function AdminDashboard() {
                       </div>
                       <span
                         style={{
-                          fontSize: 10,
+                          fontSize: 9,
                           fontWeight: 700,
-                          color: sc,
-                          background: `${sc}18`,
-                          padding: "3px 8px",
+                          color: meta.color,
+                          background: meta.bg,
+                          padding: "2px 6px",
                           borderRadius: 20,
                           flexShrink: 0,
                           textTransform: "capitalize",
                         }}
                       >
-                        {rv.status}
+                        {meta.label}
                       </span>
                     </div>
                   );
@@ -1415,31 +1435,30 @@ export default function AdminDashboard() {
 
             {/* Top médecins */}
             <div
-              style={{
-                background: "linear-gradient(145deg,#131f2e,#1a2a3f)",
-                borderRadius: 20,
-                padding: "1.5rem",
-                border: "1px solid #1e3050",
-                animation: "fadeUp .5s .7s ease both",
-                opacity: 0,
-              }}
+              className="panel"
+              style={{ animationDelay: "0.70s", opacity: 0 }}
             >
-              <h2
-                style={{
-                  fontSize: 14,
-                  fontWeight: 700,
-                  color: "#c8d8f0",
-                  fontFamily: "'Syne',sans-serif",
-                  margin: "0 0 1rem",
-                }}
-              >
+              <div className="panel-title">
+                <div
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: 6,
+                    background: C.violetLight,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <LucideIcon name="bar-chart-2" size={10} color={C.violet} />
+                </div>
                 Top médecins
-              </h2>
+              </div>
               {topMedecins.length === 0 ? (
                 <div
                   style={{
-                    color: "#4a6080",
-                    fontSize: 13,
+                    color: C.textMuted,
+                    fontSize: 12,
                     textAlign: "center",
                     padding: "2rem 0",
                   }}
@@ -1453,11 +1472,11 @@ export default function AdminDashboard() {
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      gap: 10,
+                      gap: 8,
                       padding: "8px 0",
                       borderBottom:
                         i < topMedecins.length - 1
-                          ? "1px solid #1a2a3f"
+                          ? `1px solid ${C.surfaceBorder}`
                           : "none",
                     }}
                   >
@@ -1465,15 +1484,15 @@ export default function AdminDashboard() {
                       style={{
                         width: 24,
                         height: 24,
-                        borderRadius: 8,
-                        background: "rgba(167,139,250,0.15)",
-                        border: "1px solid rgba(167,139,250,0.25)",
+                        borderRadius: 6,
+                        background: i === 0 ? C.amberLight : C.violetLight,
+                        border: `1px solid ${i === 0 ? C.amber : C.violet}40`,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        fontSize: 11,
+                        fontSize: 10,
                         fontWeight: 800,
-                        color: "#a78bfa",
+                        color: i === 0 ? C.amber : C.violet,
                         flexShrink: 0,
                       }}
                     >
@@ -1482,9 +1501,9 @@ export default function AdminDashboard() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div
                         style={{
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: 600,
-                          color: "#c8d8f0",
+                          color: C.text,
                           whiteSpace: "nowrap",
                           overflow: "hidden",
                           textOverflow: "ellipsis",
@@ -1492,194 +1511,119 @@ export default function AdminDashboard() {
                       >
                         Dr. {m.name}
                       </div>
-                      <div style={{ fontSize: 10, color: "#4a6080" }}>
+                      <div style={{ fontSize: 9, color: C.textMuted }}>
                         {m.spec}
                       </div>
                     </div>
                     <span
                       style={{
-                        fontSize: 12,
+                        fontSize: 10,
                         fontWeight: 700,
-                        color: "#a78bfa",
-                        background: "rgba(167,139,250,0.1)",
-                        padding: "2px 8px",
-                        borderRadius: 20,
-                        flexShrink: 0,
+                        color: C.textSub,
                       }}
                     >
-                      {m.count} RDV
+                      {m.count}
                     </span>
                   </div>
                 ))
               )}
             </div>
 
-            {/* Activité récente */}
+            {/* Activity */}
             <div
-              style={{
-                background: "linear-gradient(145deg,#131f2e,#1a2a3f)",
-                borderRadius: 20,
-                padding: "1.5rem",
-                border: "1px solid #1e3050",
-                animation: "fadeUp .5s .77s ease both",
-                opacity: 0,
-              }}
+              className="panel"
+              style={{ animationDelay: "0.77s", opacity: 0 }}
             >
-              <h2
-                style={{
-                  fontSize: 14,
-                  fontWeight: 700,
-                  color: "#c8d8f0",
-                  fontFamily: "'Syne',sans-serif",
-                  margin: "0 0 1rem",
-                }}
-              >
-                Activité récente
-              </h2>
-              {activity.length === 0 ? (
+              <div className="panel-title">
                 <div
                   style={{
-                    color: "#4a6080",
-                    fontSize: 13,
-                    textAlign: "center",
-                    padding: "2rem 0",
+                    width: 18,
+                    height: 18,
+                    borderRadius: 6,
+                    background: C.skyLight,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                 >
-                  Aucune activité
+                  <LucideIcon name="refresh-cw" size={10} color={C.sky} />
                 </div>
-              ) : (
-                activity.map((item, i) => (
+                Activité récente
+              </div>
+              <div style={{ position: "relative", paddingLeft: 10 }}>
+                {/* Vertical Line */}
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 4,
+                    bottom: 4,
+                    width: 2,
+                    background: C.surfaceBorder,
+                    borderRadius: 2,
+                  }}
+                />
+                {activity.map((act, i) => (
                   <div
                     key={i}
                     style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: 10,
-                      padding: "8px 0",
-                      borderBottom:
-                        i < activity.length - 1 ? "1px solid #1a2a3f" : "none",
+                      marginBottom: 16,
+                      position: "relative",
                     }}
                   >
+                    {/* Dot */}
                     <div
                       style={{
-                        width: 7,
-                        height: 7,
+                        position: "absolute",
+                        left: -15,
+                        top: 1,
+                        width: 8,
+                        height: 8,
                         borderRadius: "50%",
-                        background: item.dot,
-                        flexShrink: 0,
-                        marginTop: 4,
+                        background: C.bg,
+                        border: `2px solid ${act.dot}`,
+                        zIndex: 1,
                       }}
                     />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: "#8ba0c0",
-                          lineHeight: 1.4,
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {item.text}
-                      </div>
-                      <div
-                        style={{ fontSize: 10, color: "#4a6080", marginTop: 2 }}
-                      >
-                        {item.time}
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-
-              {/* Actions rapides en bas */}
-              <div
-                style={{
-                  marginTop: 16,
-                  paddingTop: 16,
-                  borderTop: "1px solid #1a2a3f",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 700,
-                    letterSpacing: "1px",
-                    textTransform: "uppercase",
-                    color: "#4a6080",
-                    marginBottom: 10,
-                  }}
-                >
-                  Actions rapides
-                </div>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 8,
-                  }}
-                >
-                  {[
-                    {
-                      label: "Patients",
-                      icon: "👥",
-                      path: "/dashboard/admin/patients",
-                      color: "#22d3a5",
-                    },
-                    {
-                      label: "Médecins",
-                      icon: "⚕️",
-                      path: "/dashboard/admin/medecins",
-                      color: "#a78bfa",
-                    },
-                    {
-                      label: "RDV",
-                      icon: "📅",
-                      path: "/dashboard/admin/rendezvous",
-                      color: "#38bdf8",
-                    },
-                    {
-                      label: "Consult.",
-                      icon: "🩺",
-                      path: "/dashboard/admin/consultations",
-                      color: "#fb923c",
-                    },
-                  ].map((a) => (
-                    <button
-                      key={a.label}
-                      className="action-btn"
-                      onClick={() => router.push(a.path)}
+                    <div
                       style={{
-                        padding: "8px 10px",
-                        background: `${a.color}10`,
-                        border: `1px solid ${a.color}25`,
-                        borderRadius: 10,
-                        cursor: "pointer",
-                        fontFamily: "inherit",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
+                        fontSize: 11,
+                        color: C.textSub,
+                        fontWeight: 500,
+                        lineHeight: 1.4,
                       }}
                     >
-                      <span style={{ fontSize: 14 }}>{a.icon}</span>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 600,
-                          color: a.color,
-                        }}
-                      >
-                        {a.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
+                      {act.text}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 9,
+                        color: C.textMuted,
+                        marginTop: 2,
+                      }}
+                    >
+                      {act.time}
+                    </div>
+                  </div>
+                ))}
+                {activity.length === 0 && (
+                  <div
+                    style={{
+                      color: C.textMuted,
+                      fontSize: 12,
+                      textAlign: "center",
+                      padding: "2rem 0",
+                    }}
+                  >
+                    Aucune activité
+                  </div>
+                )}
               </div>
             </div>
           </div>
         </main>
       </div>
+      <AIAnalyticsPanel data={rawData} />
     </PrivateRoute>
   );
 }

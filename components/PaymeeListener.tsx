@@ -1,41 +1,59 @@
-// D:\teleconsultation\frontend\components\PaymeeListener.tsx
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import api from "@/lib/api";
 
-interface PaymeeListenerProps {
+interface KonnectListenerProps {
   rdvId?: number;
   onPaiementConfirme?: () => void;
+  onEchec?: () => void;
 }
 
-export default function PaymeeListener({
+// ← composant interne qui utilise useSearchParams
+function KonnectListenerInner({
   rdvId,
   onPaiementConfirme,
-}: PaymeeListenerProps) {
+  onEchec,
+}: KonnectListenerProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [handled, setHandled] = useState(false);
 
   useEffect(() => {
-    const handler = async (event: MessageEvent) => {
-      if (!event.data) return;
-      if (event.data.event_id !== "paymee.complete") return;
+    if (handled) return;
+    const paymentRef = searchParams.get("payment_ref");
+    if (!paymentRef) return;
 
-      const token = event.data.payment_token;
-      console.log("PAYMEE OK:", token);
+    setHandled(true);
 
-      // Recharger les données immédiatement
-      onPaiementConfirme?.();
-
-      // Rediriger vers la page succès
-      router.push(
-        `/dashboard/patient/paiement-succes?token=${token}${rdvId ? `&rdv_id=${rdvId}` : ""}`,
-      );
-    };
-
-    window.addEventListener("message", handler);
-    return () => window.removeEventListener("message", handler);
-  }, [router, rdvId, onPaiementConfirme]);
+    api
+      .get(`paiement/sync/${paymentRef}/`)
+      .then(({ data }) => {
+        if (data.statut_avance === "paye" || data.statut_restant === "paye") {
+          onPaiementConfirme?.();
+          router.push(
+            `/dashboard/patient/paiement-succes?payment_ref=${paymentRef}${rdvId ? `&rdv_id=${rdvId}` : ""}`,
+          );
+        } else {
+          onEchec?.();
+          router.push("/dashboard/patient/paiement-annule");
+        }
+      })
+      .catch(() => {
+        onPaiementConfirme?.();
+      });
+  }, [searchParams, handled]);
 
   return null;
+}
+
+// ← export enveloppé dans Suspense
+export default function KonnectListener(props: KonnectListenerProps) {
+  return (
+    <Suspense fallback={null}>
+      <KonnectListenerInner {...props} />
+    </Suspense>
+  );
 }

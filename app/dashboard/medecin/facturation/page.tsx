@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../../context/AuthContext";
@@ -6,6 +7,27 @@ import Sidebar from "../../../../components/Sidebar";
 import Navbar from "../../../../components/Navbar";
 import PrivateRoute from "../../../../components/PrivateRoute";
 import api from "../../../../lib/api";
+
+// ─────────────────────────────────────────────────────────────
+// IMPORTS LUCIDE ICONS
+// ─────────────────────────────────────────────────────────────
+import {
+  Pill,
+  Search,
+  X,
+  CheckCircle,
+  AlertCircle,
+  FileText,
+  Eye,
+  Printer,
+  CreditCard,
+  TrendingUp,
+} from "lucide-react";
+
+// ─────────────────────────────────────────────────────────────
+// TYPES
+// ─────────────────────────────────────────────────────────────
+
 interface Revenu {
   total_brut: number;
   total_acomptes: number;
@@ -52,446 +74,529 @@ interface Facture {
   lignes: LigneFacture[];
 }
 
+interface Stats {
+  rendezvous: number;
+  consultations: number;
+  ordonnances: number;
+}
+
+// ─────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────
 const fmt = (n: number | undefined | null) =>
   n != null ? Number(n).toFixed(2) + " DT" : "— DT";
 
-const pct = (part: number, total: number) =>
-  total > 0 ? Math.round((part / total) * 100) : 0;
-
-const statutColor: Record<string, string> = {
-  acompte_verse: "#F59E0B",
-  solde_verse:   "#10B981",
-  annule:        "#EF4444",
+const statutConfig: Record<string, { color: string; bg: string; icon: any }> = {
+  acompte_verse: { color: "#D97706", bg: "#FFFBEB", icon: AlertCircle },
+  solde_verse: { color: "#059669", bg: "#ECFDF5", icon: CheckCircle },
+  annule: { color: "#DC2626", bg: "#FEF2F2", icon: X },
 };
 
-const ligneIcon: Record<string, string> = {
-  acompte_medecin:    "💰",
-  acompte_plateforme: "🏢",
-  solde_medecin:      "✅",
+const ligneIcon: Record<string, any> = {
+  acompte_medecin: CreditCard,
+  acompte_plateforme: TrendingUp,
+  solde_medecin: CheckCircle,
 };
 
+// ─────────────────────────────────────────────────────────────
+// PANEL VISUALISATION (Détail Facture)
+// ─────────────────────────────────────────────────────────────
+function ViewPanel({
+  facture,
+  onClose,
+}: {
+  facture: Facture;
+  onClose: () => void;
+}) {
+  const initials = (name: string) =>
+    name
+      ?.split(" ")
+      .map((n) => n[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "?";
+
+  const statutInfo =
+    statutConfig[facture.statut] || statutConfig["acompte_verse"];
+  const StatutIcon = statutInfo.icon;
+
+  return (
+    <>
+      <div className="panel-header">
+        <div>
+          <div className="panel-title">Détail de la Facture</div>
+          <div className="panel-sub">Référence #{facture.id}</div>
+        </div>
+        <button className="panel-close" onClick={onClose}>
+          ✕
+        </button>
+      </div>
+
+      <div className="panel-body">
+        {/* En-tête Patient + Statut */}
+        <div className="pt-badge">
+          <div className="pt-avatar">{initials(facture.patient_name)}</div>
+          <div>
+            <div className="pt-name">{facture.patient_name || "Inconnu"}</div>
+            <div className="pt-dr">
+              {new Date(facture.created_at).toLocaleDateString("fr-FR")}
+            </div>
+          </div>
+        </div>
+
+        {/* KPIs Financiers dans le panneau */}
+        <div
+          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
+        >
+          <div
+            style={{
+              background: "#F8FAFC",
+              padding: "12px",
+              borderRadius: "10px",
+              border: "1px solid #E2E8F0",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                color: "#64748b",
+                fontWeight: 700,
+                marginBottom: 4,
+              }}
+            >
+              TOTAL FACTURE
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: "#1E293B" }}>
+              {fmt(facture.montant_total)}
+            </div>
+          </div>
+          <div
+            style={{
+              background: "#F0FDF4",
+              padding: "12px",
+              borderRadius: "10px",
+              border: "1px solid #BBF7D0",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                color: "#15803D",
+                fontWeight: 700,
+                marginBottom: 4,
+              }}
+            >
+              VOTRE PART (75%)
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: "#166534" }}>
+              {fmt(facture.total_medecin)}
+            </div>
+          </div>
+        </div>
+
+        {/* Barre de progression */}
+        <div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              marginBottom: 6,
+            }}
+          >
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#64748B" }}>
+              Progression Paiement
+            </span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#8B5CF6" }}>
+              {facture.pourcentage_paye}%
+            </span>
+          </div>
+          <div
+            style={{
+              height: "8px",
+              background: "#E2E8F0",
+              borderRadius: "4px",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                height: "100%",
+                width: `${facture.pourcentage_paye}%`,
+                background: "linear-gradient(90deg, #8B5CF6, #10B981)",
+                borderRadius: "4px",
+                transition: "width 0.5s",
+              }}
+            />
+          </div>
+          <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
+            <div
+              style={{
+                flex: 1,
+                textAlign: "center",
+                padding: "8px",
+                background: "#FFFBEB",
+                borderRadius: "8px",
+                border: "1px solid #FDE68A",
+              }}
+            >
+              <div style={{ fontSize: 10, color: "#D97706", fontWeight: 700 }}>
+                ACOMPTE
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#B45309" }}>
+                {fmt(facture.acompte_medecin)}
+              </div>
+            </div>
+            <div
+              style={{
+                flex: 1,
+                textAlign: "center",
+                padding: "8px",
+                background: "#F0FDF4",
+                borderRadius: "8px",
+                border: "1px solid #BBF7D0",
+              }}
+            >
+              <div style={{ fontSize: 10, color: "#059669", fontWeight: 700 }}>
+                SOLDE
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#047857" }}>
+                {fmt(facture.solde_medecin)}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Liste des transactions */}
+        <div>
+          <div className="section-label">Transactions</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {facture.lignes.map((l) => {
+              const IconComp = ligneIcon[l.type_ligne] || FileText;
+              return (
+                <div
+                  key={l.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "12px",
+                    background: "#FAFAFE",
+                    borderRadius: "10px",
+                    border: "1px solid #E5E2F5",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: "8px",
+                      background: "#F3E8FF",
+                      color: "#8B5CF6",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <IconComp size={16} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "#334155",
+                      }}
+                    >
+                      {l.type_ligne_display}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#94A3B8" }}>
+                      {new Date(l.date).toLocaleString("fr-FR")}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 700,
+                      color: "#8B5CF6",
+                      background: "linear-gradient(135deg, #F3E8FF, #EDE9FE)",
+                      padding: "4px 10px",
+                      borderRadius: "8px",
+                    }}
+                  >
+                    {fmt(l.montant)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="panel-footer">
+        <button className="btn-panel-cancel" onClick={onClose}>
+          Fermer
+        </button>
+        <button
+          className="btn-panel-edit"
+          style={{ background: "#F0FDF4", color: "#059669" }}
+        >
+          <Printer size={16} /> Imprimer
+        </button>
+      </div>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// PAGE PRINCIPALE
+// ─────────────────────────────────────────────────────────────
 export default function FacturationPage() {
   const { token, isLoading, username } = useAuth();
   const router = useRouter();
 
-  const [resume, setResume]     = useState<Resume | null>(null);
+  const [resume, setResume] = useState<Resume | null>(null);
   const [factures, setFactures] = useState<Facture[]>([]);
-  const [selected, setSelected] = useState<Facture | null>(null);
-  const [loading, setLoading]   = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  // État du panneau
+  const [selectedFacture, setSelectedFacture] = useState<Facture | null>(null);
 
   useEffect(() => {
     if (isLoading) return;
-    if (!token) { router.push("/login"); return; }
+    if (!token) {
+      router.push("/login");
+      return;
+    }
 
-    Promise.all([
-      api.get("factures/resume/"),
-      api.get("factures/"),
-    ])
+    Promise.all([api.get("factures/resume/"), api.get("factures/")])
       .then(([r, f]) => {
+        console.log("resume:", r.data);
+        console.log("factures:", f.data);
         setResume(r.data);
         setFactures(f.data);
       })
-      .catch(() => {})
+      .catch((err) => {
+        console.error(
+          "ERREUR FACTURATION:",
+          err.response?.status,
+          err.response?.data,
+        );
+      })
       .finally(() => setLoading(false));
   }, [token, isLoading]);
 
   if (isLoading || loading) return null;
 
-  const r = resume;
+  // Filtrage simple
+  const filtered = factures.filter(
+    (f) =>
+      f.patient_name?.toLowerCase().includes(search.toLowerCase()) ||
+      f.id.toString().includes(search),
+  );
+
+  const openView = (f: Facture) => {
+    setSelectedFacture(f);
+  };
+
+  const closePanel = () => {
+    setSelectedFacture(null);
+  };
 
   return (
     <PrivateRoute allowedRoles={["medecin"]}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght:700;800&family=DM+Sans:wght:400;500;600&display=swap');
+        *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
 
-        @keyframes fadeUp {
-          from { opacity:0; transform:translateY(16px); }
-          to   { opacity:1; transform:translateY(0); }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+        .root  { min-height:100vh; background:#F4F2F9; font-family:'DM Sans',sans-serif; display:flex; }
+        .main  { margin-left:260px; flex:1; padding:2rem 2.5rem; padding-top:calc(70px + 2.5rem); animation:fadeUp .4s ease; }
+
+        .page-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:28px; }
+        .page-title  { font-family:'Syne',sans-serif; font-size:28px; font-weight:800; background: linear-gradient(135deg, #8B5CF6, #10B981); -webkit-background-clip: text; color: transparent; }
+        .page-sub    { font-size:13px; color:#64748b; margin-top:6px; }
+
+        .search-container {
+            background: white;
+            border: 1px solid #EAE8F5;
+            border-radius: 14px;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+            margin-bottom: 24px;
         }
-
-        .main-gradient-bg {
-          background: linear-gradient(135deg,#FDF4FF 0%,#ECFDF5 100%);
-          min-height: 100vh;
-          font-family: 'DM Sans', sans-serif;
+        .search-container:focus-within {
+            border-color: #8B5CF6;
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
         }
-
-        .glass-card {
-          background: rgba(255,255,255,0.78);
-          backdrop-filter: blur(12px);
-          border: 1px solid rgba(255,255,255,0.92);
-          border-radius: 22px;
-          box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03);
-          animation: fadeUp .5s ease backwards;
-        }
-
-        .kpi-card {
-          position: relative;
-          border-radius: 20px;
-          padding: 1.4rem 1.6rem;
-          overflow: hidden;
-          animation: fadeUp .5s ease backwards;
-          cursor: default;
-        }
-
-        .kpi-card::before {
-          content:'';
-          position:absolute;
-          top:-30px;right:-30px;
-          width:100px;height:100px;
-          border-radius:50%;
-          background:rgba(255,255,255,0.18);
+        .search-input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 14px;
+            color: #1e1b4b;
+            outline: none;
         }
 
-        .text-grad {
-          background: linear-gradient(135deg,#8B5CF6,#10B981);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
+        .table-card { background:#fff; border-radius:20px; border:1px solid #EAE8F5; overflow:hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+        .table-head { display:grid; grid-template-columns:2fr 1fr 1.2fr 1fr 1fr; padding:14px 24px; background:#FAFAFE; border-bottom:1px solid #EAE8F5; }
+        .th { font-size:11px; font-weight:700; color:#8B5CF6; text-transform:uppercase; letter-spacing:.6px; }
+        .table-row { display:grid; grid-template-columns:2fr 1fr 1.2fr 1fr 1fr; padding:16px 24px; border-bottom:1px solid #F4F2F9; align-items:center; transition:background .15s; cursor:pointer; }
+        .table-row:last-child { border-bottom:none; }
+        .table-row:hover { background:#F8FAFC; }
 
-        .fact-row {
-          display:grid;
-          grid-template-columns: 1fr 1fr 1fr 120px 90px;
-          align-items:center;
-          gap:12px;
-          padding:14px 16px;
-          border-radius:14px;
-          cursor:pointer;
-          transition:background .2s;
-          border: 1px solid transparent;
-        }
-        .fact-row:hover { background:rgba(139,92,246,.06); border-color:rgba(139,92,246,.2); }
-        .fact-row.active { background:rgba(16,185,129,.07); border-color:rgba(16,185,129,.3); }
+        .td-name { display:flex; align-items:center; gap:12px; font-size:14px; font-weight:600; color:#1e1b4b; }
+        .avatar  { width:36px; height:36px; border-radius:12px; background:linear-gradient(135deg, #F3E8FF, #D1FAE5); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color: #7C3AED; flex-shrink:0; }
+        .td-date { font-size:13px; color:#64748b; font-weight: 500; }
 
-        .progbar-track {
-          height:6px; border-radius:3px;
-          background:rgba(0,0,0,.08);
-          overflow:hidden;
-          margin-top:6px;
-        }
-        .progbar-fill {
-          height:100%;
-          border-radius:3px;
-          background: linear-gradient(90deg,#8B5CF6,#10B981);
-          transition: width .6s ease;
-        }
+        .type-badge { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:12px; font-size:11px; font-weight:700; }
 
-        .detail-panel {
-          background: rgba(255,255,255,0.9);
-          backdrop-filter: blur(16px);
-          border: 1px solid rgba(139,92,246,.2);
-          border-radius: 22px;
-          padding: 1.8rem;
-          animation: fadeUp .4s ease;
-        }
+        .action-btn { display:inline-flex; align-items:center; gap:6px; background:#F0EEF9; color:#7C3AED; font-size:11px; font-weight:700; padding:6px 12px; border-radius:20px; cursor:pointer; transition:all .2s; border:none; font-family:'DM Sans',sans-serif; }
+        .action-btn:hover { background:#8B5CF6; color: white; transform: translateY(-1px); }
 
-        .tag {
-          display:inline-block;
-          font-size:11px;
-          font-weight:700;
-          padding:3px 10px;
-          border-radius:20px;
-        }
+        .empty { text-align:center; padding:60px 20px; color:#8A87A0; }
+
+        /* Panel Styles */
+        .overlay { position:fixed; inset:0; background:rgba(0,0,0,0.35); display:flex; align-items:center; justify-content:center; z-index:200; }
+        .panel   { width:520px; height:90vh; background:#fff; border-left:1px solid #EAE8F5; display:flex; flex-direction:column; overflow-y:auto; animation:slideIn .25s ease; border-radius:20px; border:1px solid #EAE8F5; }
+        @keyframes slideIn { from{transform:translateX(60px);opacity:0} to{transform:translateX(0);opacity:1} }
+
+        .panel-header { padding:18px 22px; border-bottom:1px solid #F0EEF9; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; background:#fff; z-index:1; }
+        .panel-title  { font-family:'Syne',sans-serif; font-size:16px; font-weight:800; color:#1C1040; }
+        .panel-sub    { font-size:12px; color:#8A87A0; margin-top:2px; }
+        .panel-close  { width:32px; height:32px; border:1px solid #EAE8F5; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#fff; color:#8A87A0; font-size:14px; transition:all .2s; }
+        .panel-close:hover { background:#F0EEF9; color:#1C1040; }
+
+        .panel-body   { padding:22px; flex:1; display:flex; flex-direction:column; gap:18px; }
+        .pt-badge     { display:flex; align-items:center; gap:10px; border-radius:12px; padding:12px 16px; background: #F8FAFC; border: 1px solid #E2E8F0; }
+        .pt-avatar    { width:40px; height:40px; border-radius:50%; background: linear-gradient(135deg, #8B5CF6, #10B981); color:#fff; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:700; flex-shrink:0; }
+        .pt-name      { font-size:15px; font-weight:700; color:#3C3489; }
+        .pt-dr        { font-size:12px; color:#8A87A0; margin-top:2px; }
+        .section-label{ font-size:11px; font-weight:700; color:#8A87A0; text-transform:uppercase; letter-spacing:.7px; margin-bottom:6px; }
+        
+        .panel-footer    { padding:14px 22px; background:#FAFAFE; border-top:1px solid #F0EEF9; display:flex; gap:10px; position:sticky; bottom:0; }
+        .btn-panel-cancel{ flex:1; padding:10px; background:#fff; border:1px solid #E5E2F5; border-radius:12px; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; color:#8A87A0; cursor:pointer; }
+        .btn-panel-cancel:hover { border-color:#C4C0D8; color:#1C1040; }
+        .btn-panel-edit  { flex:2; padding:10px; background:#F0EEF9; border:none; border-radius:12px; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; color:#7C3AED; cursor:pointer; }
+        .btn-panel-edit:hover { background:#8B5CF6; color:#fff; }
       `}</style>
 
-      <div className="main-gradient-bg" style={{ display:"flex" }}>
+      <div className="root">
         <Sidebar stats={{}} />
-        <Navbar title="Facturation" subtitle={`Tableau de bord financier – ${username}`} />
+        <Navbar
+          title="Facturation"
+          subtitle={`Tableau de bord – Dr. ${username}`}
+        />
 
-        <main style={{ flex:1, marginLeft:240, padding:"2rem", paddingTop:"100px" }}>
-
-          {/* ── KPI Cards ─────────────────────────────────────────── */}
-<div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:16, marginBottom:28 }}>
-
-  {[
-    {
-      icon: "🪙",
-      iconBg: "#EDE9FE",
-      iconColor: "#8B5CF6",
-      borderColor: "#8B5CF6",
-      label: "Revenus totaux",
-      value: fmt(r?.revenu?.total_brut),
-      sub: "75% de chaque consultation",
-      delay: "0s",
-    },
-    {
-      icon: "🧾",
-      iconBg: "#FEF3C7",
-      iconColor: "#F59E0B",
-      borderColor: "#F59E0B",
-      label: "Acomptes perçus",
-      value: fmt(r?.revenu?.total_acomptes),
-      sub: "25% à la réservation",
-      delay: ".08s",
-    },
-    {
-      icon: "✅",
-      iconBg: "#D1FAE5",
-      iconColor: "#10B981",
-      borderColor: "#10B981",
-      label: "Soldes perçus",
-      value: fmt(r?.revenu?.total_soldes),
-      sub: "50% après consultation",
-      delay: ".16s",
-    },
-    {
-      icon: "💊",
-      iconBg: "#FCE7F3",
-      iconColor: "#EC4899",
-      borderColor: "#EC4899",
-      label: "Consultations soldées",
-      value: String(r?.revenu?.nb_consultations ?? 0),
-      sub: "100% réglées",
-      delay: ".24s",
-    },
-  ].map((card, i) => (
-    <div
-      key={i}
-      style={{
-        background: "#fff",
-        border: "1px solid #e2e8f0",
-        borderTop: `3px solid ${card.borderColor}`,
-        borderRadius: 16,
-        padding: "1.2rem 1.4rem",
-        animation: `fadeUp .5s ease ${card.delay} backwards`,
-        cursor: "default",
-      }}
-    >
-      {/* Icône */}
-      <div style={{
-        width: 38, height: 38,
-        borderRadius: 10,
-        background: card.iconBg,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 18,
-        marginBottom: 14,
-      }}>
-        {card.icon}
-      </div>
-
-      {/* Label */}
-      <p style={{ fontSize: 12, fontWeight: 600, color: "#64748b", margin: "0 0 6px" }}>
-        {card.label}
-      </p>
-
-      {/* Valeur */}
-      <p style={{
-        fontFamily: "'Syne', sans-serif",
-        fontSize: 26,
-        fontWeight: 800,
-        color: "#0f172a",
-        margin: "0 0 6px",
-        lineHeight: 1.1,
-      }}>
-        {card.value}
-      </p>
-
-      {/* Sous-texte */}
-      <p style={{ fontSize: 11, color: "#94a3b8", margin: 0 }}>
-        {card.sub}
-      </p>
-    </div>
-  ))}
-</div>
-
-          {/* ── Répartition visuelle ───────────────────────────────── */}
-          <div className="glass-card" style={{ padding:"1.6rem", marginBottom:24, animationDelay:".3s" }}>
-            <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:16, color:"#1e1b4b", marginBottom:20 }}>
-              Répartition des revenus
-            </h2>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}>
-
-              {/* Barre médecin */}
-              <div>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
-                  <span style={{ fontSize:13, fontWeight:600, color:"#334155" }}>Médecin</span>
-                  <span className="text-grad" style={{ fontSize:14, fontWeight:700 }}>
-                    {fmt(r?.factures?.total_medecin)} — 75%
-                  </span>
-                </div>
-                <div className="progbar-track">
-                  <div className="progbar-fill" style={{ width:"75%" }} />
-                </div>
-                <p style={{ fontSize:11, color:"#64748b", marginTop:6 }}>
-                  25% acompte + 50% solde
-                </p>
-              </div>
-
-              {/* Barre plateforme */}
-              <div>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
-                  <span style={{ fontSize:13, fontWeight:600, color:"#334155" }}>Plateforme</span>
-                  <span style={{ fontSize:14, fontWeight:700, color:"#94a3b8" }}>
-                    {fmt(r?.factures?.total_plateforme)} — 25%
-                  </span>
-                </div>
-                <div className="progbar-track">
-                  <div style={{ height:"100%", borderRadius:3, background:"#e2e8f0", width:"25%", transition:"width .6s" }} />
-                </div>
-                <p style={{ fontSize:11, color:"#64748b", marginTop:6 }}>
-                  25% à la réservation uniquement
-                </p>
-              </div>
-            </div>
-
-            {/* Schéma de ventilation */}
-            <div style={{ marginTop:24, padding:"16px 20px", background:"rgba(139,92,246,.05)", borderRadius:14, border:"1px solid rgba(139,92,246,.15)" }}>
-              <p style={{ fontSize:12, fontWeight:700, color:"#6366F1", marginBottom:12, textTransform:"uppercase", letterSpacing:".5px" }}>
-                Schéma de ventilation automatique
-              </p>
-              <div style={{ display:"flex", alignItems:"center", gap:0, flexWrap:"wrap" }}>
-                {[
-                  { label:"Acompte 50%", sub:"à la réservation", color:"#F59E0B" },
-                  { label:"→", color:"transparent", sub:"" },
-                  { label:"Plateforme 25%", sub:"immédiat", color:"#8B5CF6" },
-                  { label:"+", color:"transparent", sub:"" },
-                  { label:"Médecin 25%", sub:"immédiat", color:"#10B981" },
-                ].map((item, i) => (
-                  <div key={i} style={{ display:"flex", alignItems:"center" }}>
-                    {item.color === "transparent"
-                      ? <span style={{ fontSize:18, color:"#94a3b8", padding:"0 8px" }}>{item.label}</span>
-                      : <div style={{ background:item.color+"22", border:`1px solid ${item.color}44`, borderRadius:10, padding:"8px 14px", textAlign:"center" }}>
-                          <p style={{ fontSize:12, fontWeight:700, color:item.color, margin:0 }}>{item.label}</p>
-                          {item.sub && <p style={{ fontSize:10, color:item.color+"99", margin:0 }}>{item.sub}</p>}
-                        </div>
-                    }
-                  </div>
-                ))}
-              </div>
-              <div style={{ display:"flex", alignItems:"center", gap:0, flexWrap:"wrap", marginTop:10 }}>
-                {[
-                  { label:"Solde 50%", sub:"après consultation", color:"#3B82F6" },
-                  { label:"→", color:"transparent", sub:"" },
-                  { label:"Plateforme 0%", sub:"rien", color:"#94a3b8" },
-                  { label:"+", color:"transparent", sub:"" },
-                  { label:"Médecin 50%", sub:"intégral", color:"#10B981" },
-                ].map((item, i) => (
-                  <div key={i} style={{ display:"flex", alignItems:"center" }}>
-                    {item.color === "transparent"
-                      ? <span style={{ fontSize:18, color:"#94a3b8", padding:"0 8px" }}>{item.label}</span>
-                      : <div style={{ background:item.color+"22", border:`1px solid ${item.color}44`, borderRadius:10, padding:"8px 14px", textAlign:"center" }}>
-                          <p style={{ fontSize:12, fontWeight:700, color:item.color, margin:0 }}>{item.label}</p>
-                          {item.sub && <p style={{ fontSize:10, color:item.color+"99", margin:0 }}>{item.sub}</p>}
-                        </div>
-                    }
-                  </div>
-                ))}
-              </div>
+        <main className="main">
+          <div className="page-header">
+            <div>
+              <div className="page-title">Facturation</div>
+              <div className="page-sub">Suivi financier des consultations</div>
             </div>
           </div>
 
-          {/* ── Liste des factures + détail ───────────────────────── */}
-          <div style={{ display:"grid", gridTemplateColumns: selected ? "1.1fr 1fr" : "1fr", gap:20 }}>
+          {/* Recherche */}
+          <div className="search-container">
+            <Search size={18} color="#94a3b8" />
+            <input
+              className="search-input"
+              placeholder="Rechercher par patient, numéro..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
 
-            {/* Liste */}
-            <div className="glass-card" style={{ padding:"1.4rem", animationDelay:".35s" }}>
-              <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:16, color:"#1e1b4b", marginBottom:16 }}>
-                Factures ({factures.length})
-              </h2>
-
-              {/* En-tête */}
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 120px 90px", gap:12, padding:"8px 16px", marginBottom:4 }}>
-                {["Patient","Montant","Ma part","Statut",""].map(h => (
-                  <span key={h} style={{ fontSize:11, fontWeight:700, color:"#94a3b8", textTransform:"uppercase", letterSpacing:".5px" }}>{h}</span>
-                ))}
-              </div>
-
-              <div style={{ display:"flex", flexDirection:"column", gap:6, maxHeight:480, overflowY:"auto" }}>
-                {factures.length === 0
-                  ? <p style={{ color:"#94a3b8", textAlign:"center", padding:"2rem", fontSize:13 }}>Aucune facture</p>
-                  : factures.map(f => (
-                    <div
-                      key={f.id}
-                      className={`fact-row${selected?.id === f.id ? " active" : ""}`}
-                      onClick={() => setSelected(selected?.id === f.id ? null : f)}
-                    >
-                      <div>
-                        <p style={{ fontSize:13, fontWeight:600, color:"#1e293b", margin:0 }}>{f.patient_name || "Patient"}</p>
-                        <p style={{ fontSize:11, color:"#94a3b8", margin:0 }}>{new Date(f.created_at).toLocaleDateString("fr-FR")}</p>
-                      </div>
-                      <p style={{ fontSize:13, fontWeight:600, color:"#334155" }}>{fmt(f.montant_total)}</p>
-                      <div>
-                        <p className="text-grad" style={{ fontSize:13, fontWeight:700, margin:0 }}>{fmt(f.total_medecin)}</p>
-                        <div className="progbar-track">
-                          <div className="progbar-fill" style={{ width:`${f.pourcentage_paye * 0.75}%` }} />
-                        </div>
-                      </div>
-                      <span
-                        className="tag"
-                        style={{
-                          background: (statutColor[f.statut] ?? "#94a3b8") + "22",
-                          color: statutColor[f.statut] ?? "#94a3b8",
-                          border: `1px solid ${(statutColor[f.statut] ?? "#94a3b8")}44`,
-                        }}
-                      >
-                        {f.statut_display}
-                      </span>
-                      <span style={{ fontSize:12, color:"#94a3b8" }}>Voir →</span>
-                    </div>
-                  ))
-                }
-              </div>
+          {/* Tableau */}
+          <div className="table-card">
+            <div className="table-head">
+              <span className="th">Patient</span>
+              <span className="th">Date</span>
+              <span className="th">Total</span>
+              <span className="th">Statut</span>
+              <span className="th">Action</span>
             </div>
 
-            {/* Détail */}
-            {selected && (
-              <div className="detail-panel">
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:20 }}>
-                  <div>
-                    <h3 style={{ fontFamily:"'Syne',sans-serif", fontSize:16, fontWeight:700, color:"#1e1b4b", margin:0 }}>
-                      Facture #{selected.id}
-                    </h3>
-                    <p style={{ fontSize:13, color:"#64748b", margin:"4px 0 0" }}>{selected.patient_name}</p>
-                  </div>
-                  <button
-                    onClick={() => setSelected(null)}
-                    style={{ background:"none", border:"none", cursor:"pointer", fontSize:18, color:"#94a3b8" }}
-                  >✕</button>
-                </div>
-
-                {/* Totaux */}
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:20 }}>
-                  {[
-                    { label:"Montant total", value: fmt(selected.montant_total), color:"#6366F1" },
-                    { label:"Ma part totale", value: fmt(selected.total_medecin), color:"#10B981" },
-                    { label:"Acompte reçu", value: fmt(selected.acompte_medecin), color:"#F59E0B" },
-                    { label:"Solde reçu", value: fmt(selected.solde_medecin), color:"#3B82F6" },
-                  ].map(item => (
-                    <div key={item.label} style={{ background:item.color+"11", borderRadius:12, padding:"12px 16px", border:`1px solid ${item.color}22` }}>
-                      <p style={{ fontSize:11, fontWeight:700, color:item.color, margin:0, textTransform:"uppercase", letterSpacing:".5px" }}>{item.label}</p>
-                      <p style={{ fontFamily:"'Syne',sans-serif", fontSize:20, fontWeight:800, color:item.color, margin:"6px 0 0" }}>{item.value}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Progression */}
-                <div style={{ marginBottom:20 }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
-                    <span style={{ fontSize:12, fontWeight:600, color:"#334155" }}>Progression du paiement</span>
-                    <span className="text-grad" style={{ fontSize:12, fontWeight:700 }}>{selected.pourcentage_paye}%</span>
-                  </div>
-                  <div className="progbar-track" style={{ height:8 }}>
-                    <div className="progbar-fill" style={{ width:`${selected.pourcentage_paye}%` }} />
-                  </div>
-                </div>
-
-                {/* Lignes */}
-                <h4 style={{ fontSize:13, fontWeight:700, color:"#1e1b4b", marginBottom:10 }}>Transactions</h4>
-                <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                  {selected.lignes.map(l => (
-                    <div key={l.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 14px", background:"rgba(255,255,255,.8)", borderRadius:12, border:"1px solid rgba(0,0,0,.06)" }}>
-                      <span style={{ fontSize:18 }}>{ligneIcon[l.type_ligne] ?? "📄"}</span>
-                      <div style={{ flex:1 }}>
-                        <p style={{ fontSize:12, fontWeight:600, color:"#334155", margin:0 }}>{l.type_ligne_display}</p>
-                        <p style={{ fontSize:11, color:"#94a3b8", margin:0 }}>{new Date(l.date).toLocaleString("fr-FR")}</p>
-                      </div>
-                      <span className="text-grad" style={{ fontSize:14, fontWeight:700 }}>{fmt(l.montant)}</span>
-                    </div>
-                  ))}
-                </div>
+            {loading ? (
+              <div
+                style={{ padding: 20, textAlign: "center", color: "#94a3b8" }}
+              >
+                Chargement...
               </div>
+            ) : filtered.length === 0 ? (
+              <div className="empty">Aucune facture trouvée.</div>
+            ) : (
+              filtered.map((f) => {
+                const statutInfo =
+                  statutConfig[f.statut] ?? statutConfig["acompte_verse"];
+                const StatutIcon = statutInfo.icon;
+
+                return (
+                  <div
+                    key={f.id}
+                    className="table-row"
+                    onClick={() => openView(f)}
+                  >
+                    <div className="td-name">
+                      <div className="avatar">
+                        {f.patient_name?.charAt(0)?.toUpperCase() || "?"}
+                      </div>
+                      {f.patient_name || "—"}
+                    </div>
+                    <div className="td-date">
+                      {new Date(f.created_at).toLocaleDateString("fr-FR")}
+                    </div>
+                    <div>
+                      <span
+                        className="type-badge"
+                        style={{ color: "#1e293b", background: "#F1F5F9" }}
+                      >
+                        {fmt(f.montant_total)}
+                      </span>
+                    </div>
+                    <div>
+                      <span
+                        className="type-badge"
+                        style={{
+                          color: statutInfo.color,
+                          background: statutInfo.bg,
+                        }}
+                      >
+                        <StatutIcon size={12} strokeWidth={2.5} />
+                        {f.statut_display}
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button className="action-btn">
+                        <Eye size={13} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         </main>
+
+        {/* Panneau Détail */}
+        {selectedFacture && (
+          <div
+            className="overlay"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) closePanel();
+            }}
+          >
+            <div className="panel">
+              <ViewPanel facture={selectedFacture} onClose={closePanel} />
+            </div>
+          </div>
+        )}
       </div>
     </PrivateRoute>
   );

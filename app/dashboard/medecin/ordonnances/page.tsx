@@ -1,62 +1,149 @@
+// page.tsx (Ordonnances)
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../../context/AuthContext";
 import PrivateRoute from "../../../../components/PrivateRoute";
 import api from "../../../../lib/api";
 import Sidebar from "../../../../components/Sidebar";
 import Navbar from "../../../../components/Navbar";
+import {
+  Calendar,
+  Search,
+  X,
+  Plus,
+  Trash2,
+  Eye,
+  Inbox,
+  Loader2,
+  Filter,
+  Pencil,
+  FileText,
+} from "lucide-react";
 
-interface Stats { rendezvous: number; consultations: number; ordonnances: number; }
-interface Ordonnance {
-  id: number; patient_name: string; medecin_name: string;
-  date: string; date_heure: string; medicaments: string; consultation: number;
-}
+import { Stats, Ordonnance, SHARED_MODAL_CSS } from "./ordonnances-shared";
+import OrdonnanceModal from "./OrdonnanceModal";
+import ViewOrdonnanceModal from "./ViewOrdonnanceModal";
+import EditOrdonnanceModal from "./EditOrdonnanceModal";
+
+// ─────────────────────────────────────────────
+// PAGE PRINCIPALE
+// ─────────────────────────────────────────────
 
 export default function OrdonnancesPage() {
   const { token, isLoading, username } = useAuth();
   const router = useRouter();
 
-  const [stats, setStats]             = useState<Stats>({ rendezvous: 0, consultations: 0, ordonnances: 0 });
+  const [stats, setStats] = useState<Stats>({
+    rendezvous: 0,
+    consultations: 0,
+    ordonnances: 0,
+  });
   const [ordonnances, setOrdonnances] = useState<Ordonnance[]>([]);
-  const [search, setSearch]           = useState("");
-  const [loading, setLoading]         = useState(true);
-  const [deleting, setDeleting]       = useState<number | null>(null);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState<number | null>(null);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [filterPeriod, setFilterPeriod] = useState<"all" | "month" | "week">(
+    "all",
+  );
+  const [viewOrd, setViewOrd] = useState<Ordonnance | null>(null);
+  const [editOrd, setEditOrd] = useState<Ordonnance | null>(null);
+
+  const fetchData = useCallback(() => {
+    setLoading(true);
+    Promise.all([
+      api.get("rendezvous/"),
+      api.get("consultations/"),
+      api.get("ordonnances/"),
+    ])
+      .then(([r, c, o]) => {
+        setStats({
+          rendezvous: r.data.length,
+          consultations: c.data.length,
+          ordonnances: o.data.length,
+        });
+        const sorted = [...o.data].sort(
+          (a: Ordonnance, b: Ordonnance) =>
+            new Date(b.date || b.date_heure || 0).getTime() -
+            new Date(a.date || a.date_heure || 0).getTime(),
+        );
+        setOrdonnances(sorted);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   useEffect(() => {
     if (isLoading) return;
-    if (!token) { router.push("/login"); return; }
-    setLoading(true);
-    Promise.all([api.get("rendezvous/"), api.get("consultations/"), api.get("ordonnances/")])
-      .then(([r, c, o]) => {
-        setStats({ rendezvous: r.data.length, consultations: c.data.length, ordonnances: o.data.length });
-        const sorted = [...o.data].sort((a: Ordonnance, b: Ordonnance) =>
-          new Date(b.date || b.date_heure || 0).getTime() - new Date(a.date || a.date_heure || 0).getTime()
-        );
-        setOrdonnances(sorted);
-      }).catch(() => {}).finally(() => setLoading(false));
-  }, [token, isLoading]);
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+    fetchData();
+  }, [token, isLoading, fetchData]);
 
   const handleDelete = async (id: number) => {
     if (!confirm("Supprimer cette ordonnance ?")) return;
     setDeleting(id);
     try {
       await api.delete(`ordonnances/${id}/`);
-      setOrdonnances(prev => prev.filter(o => o.id !== id));
-      setStats(prev => ({ ...prev, ordonnances: prev.ordonnances - 1 }));
-    } catch { alert("Erreur lors de la suppression."); }
-    finally { setDeleting(null); }
+      setOrdonnances((prev) => prev.filter((o) => o.id !== id));
+      setStats((prev) => ({ ...prev, ordonnances: prev.ordonnances - 1 }));
+    } catch {
+      alert("Erreur lors de la suppression.");
+    } finally {
+      setDeleting(null);
+    }
   };
 
   if (isLoading) return null;
 
-  const filtered = ordonnances.filter(o =>
-    (o.patient_name ?? "").toLowerCase().includes(search.toLowerCase()) ||
-    (o.medicaments ?? "").toLowerCase().includes(search.toLowerCase())
-  );
+  const now = new Date();
+
+  const filtered = ordonnances.filter((o) => {
+    const matchSearch =
+      (o.patient_name ?? "").toLowerCase().includes(search.toLowerCase()) ||
+      (o.medicaments ?? "").toLowerCase().includes(search.toLowerCase());
+    const dateStr = o.date || o.date_heure;
+    const d = dateStr ? new Date(dateStr) : null;
+    if (filterPeriod === "week") {
+      const weekAgo = new Date(now);
+      weekAgo.setDate(now.getDate() - 7);
+      return matchSearch && d !== null && d >= weekAgo;
+    }
+    if (filterPeriod === "month") {
+      return (
+        matchSearch &&
+        d !== null &&
+        d.getMonth() === now.getMonth() &&
+        d.getFullYear() === now.getFullYear()
+      );
+    }
+    return matchSearch;
+  });
+
+  const countMonth = ordonnances.filter((o) => {
+    const d = o.date || o.date_heure ? new Date(o.date || o.date_heure) : null;
+    return (
+      d &&
+      d.getMonth() === now.getMonth() &&
+      d.getFullYear() === now.getFullYear()
+    );
+  }).length;
+
+  const countWeek = ordonnances.filter((o) => {
+    const weekAgo = new Date(now);
+    weekAgo.setDate(now.getDate() - 7);
+    const d = o.date || o.date_heure ? new Date(o.date || o.date_heure) : null;
+    return d && d >= weekAgo;
+  }).length;
 
   const previewMeds = (text: string) => {
-    const lines = text.split("\n").filter(l => l.trim() && !l.startsWith("Notes"));
+    const lines = text
+      .split("\n")
+      .filter((l) => l.trim() && !l.startsWith("Notes"));
     if (!lines.length) return "—";
     const first = lines[0].replace(/^[-•]\s*/, "").trim();
     return lines.length > 1 ? `${first} +${lines.length - 1}` : first;
@@ -64,194 +151,331 @@ export default function OrdonnancesPage() {
 
   return (
     <PrivateRoute allowedRoles={["medecin"]}>
+      {/* CSS partagé par les 3 modals (à injecter une seule fois ici) */}
+      <style>{SHARED_MODAL_CSS}</style>
+
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap');
-        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-        @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-        @keyframes countPop{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
+        @keyframes fadeUpPage { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
 
-        :root{
-          --bg:#F4F5F9;--card:#FFFFFF;--ink:#111827;--ink2:#374151;--muted:#9CA3AF;
-          --border:#E5E7EB;--border-light:#F3F4F6;
-          --accent:#4F6BF6;--accent-soft:#EEF2FF;--accent-hover:#3B52D9;
-          --green:#10B981;--green-soft:#ECFDF5;
-          --red:#EF4444;--red-soft:#FEF2F2;
-          --amber:#F59E0B;--amber-soft:#FFFBEB;
-          --radius:14px;--radius-lg:20px;
-          --shadow-sm:0 1px 3px rgba(0,0,0,.04);
-          --shadow:0 4px 20px rgba(0,0,0,.06);
-          --shadow-lg:0 12px 40px rgba(0,0,0,.08);
-        }
+        .dme-bg { background:linear-gradient(135deg,#FDF4FF 0%,#ECFDF5 100%); min-height:100vh; }
+        .dme-card { background:rgba(255,255,255,0.78); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.95); border-radius:24px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.02); }
 
-        .root{min-height:100vh;background:var(--bg);font-family:'Inter',sans-serif;display:flex}
-        .main{margin-left:260px;flex:1;padding:2rem 2.5rem;padding-top:calc(70px + 2rem);animation:fadeUp .5s ease}
+        .root { display:flex; font-family:'DM Sans',sans-serif; }
+        .main { margin-left:260px; flex:1; padding:2rem 2.5rem; padding-top:calc(70px + 2rem); animation:fadeUpPage 0.5s ease; }
 
-        /* ── Header ── */
-        .page-header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:36px}
-        .page-eyebrow{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:1.8px;text-transform:uppercase;margin-bottom:8px}
-        .page-title{font-family:'Playfair Display',serif;font-size:34px;font-weight:600;color:var(--ink);letter-spacing:-.5px}
-        .page-sub{font-size:13px;color:var(--muted);margin-top:6px}
+        .page-header { display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:36px; }
+        .page-title { 
+            font-family:'Syne',sans-serif; 
+            font-size:28px; 
+            font-weight:800; 
+            background: linear-gradient(135deg, #8B5CF6, #10B981); 
+            -webkit-background-clip: text; 
+            background-clip: text; 
+            color: transparent; 
+            -webkit-text-fill-color: transparent; }
+        .page-sub { font-size:14px; color:#64748B; margin-top:4px; }
 
-        .btn-new{display:flex;align-items:center;gap:10px;background:var(--accent);color:#fff;border:none;border-radius:12px;padding:12px 24px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .25s;box-shadow:0 4px 16px rgba(79,107,246,.25)}
-        .btn-new:hover{background:var(--accent-hover);transform:translateY(-2px);box-shadow:0 8px 28px rgba(79,107,246,.35)}
-        .btn-new-icon{width:24px;height:24px;border-radius:7px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:16px}
+        .btn-new { display:flex; align-items:center; gap:10px; background:linear-gradient(135deg,#8B5CF6,#10B981); color:white; border:none; border-radius:14px; padding:12px 24px; font-family:'DM Sans',sans-serif; font-size:14px; font-weight:600; cursor:pointer; transition:all 0.25s; box-shadow:0 4px 14px rgba(139,92,246,0.25); }
+        .btn-new:hover { transform:translateY(-2px); box-shadow:0 8px 20px rgba(139,92,246,0.35); }
 
-        /* ── Stats ── */
-        .stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:28px}
-        .stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px 24px;cursor:pointer;transition:all .25s;position:relative;overflow:hidden}
-        .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:transparent;transition:background .25s}
-        .stat-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color:transparent}
-        .stat-card:hover::before{background:var(--accent)}
-        .stat-card:nth-child(2):hover::before{background:var(--green)}
-        .stat-card:nth-child(3):hover::before{background:var(--amber)}
-        .stat-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
-        .stat-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px}
-        .stat-icon.s1{background:var(--accent-soft)}
-        .stat-icon.s2{background:var(--green-soft)}
-        .stat-icon.s3{background:var(--amber-soft)}
-        .stat-val{font-family:'Playfair Display',serif;font-size:30px;font-weight:600;color:var(--ink);animation:countPop .4s ease}
-        .stat-lbl{font-size:12.5px;color:var(--muted);font-weight:500;margin-top:2px}
+        .toolbar-row { display:flex; gap:16px; align-items:center; margin-bottom:24px; flex-wrap:wrap; }
 
-        /* ── Search ── */
-        .toolbar{display:flex;gap:12px;margin-bottom:20px}
-        .search-wrap{flex:1;background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:0 18px;display:flex;align-items:center;gap:12px;height:48px;transition:all .2s}
-        .search-wrap:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,107,246,.08)}
-        .search-icon{font-size:16px;color:var(--muted);flex-shrink:0}
-        .search-input{flex:1;border:none;background:transparent;font-family:'Inter',sans-serif;font-size:13.5px;color:var(--ink);outline:none}
-        .search-input::placeholder{color:var(--muted)}
-        .clear-btn{background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:2px;transition:color .2s}
-        .clear-btn:hover{color:var(--ink)}
+        .search-container { position:relative; display:flex; align-items:center; background:rgba(255,255,255,0.8); border:1.5px solid rgba(0,0,0,0.06); border-radius:12px; box-shadow:0 1px 2px rgba(0,0,0,0.05); transition:all 0.2s; flex:1; min-width:300px; }
+        .search-container:focus-within { border-color:#8B5CF6; background:white; box-shadow:0 0 0 3px rgba(139,92,246,0.1); }
+        .search-input { width:100%; padding:12px 40px; border:none; background:transparent; font-family:'DM Sans',sans-serif; font-size:14px; color:#334155; outline:none; }
+        .search-icon-abs { position:absolute; left:12px; color:#94A3B8; pointer-events:none; }
+        .clear-btn-search { position:absolute; right:12px; background:none; border:none; cursor:pointer; color:#94A3B8; padding:4px; border-radius:6px; transition:all 0.2s; display:flex; align-items:center; justify-content:center; }
+        .clear-btn-search:hover { background:#F1F5F9; color:#EF4444; }
 
-        /* ── Table ── */
-        .table-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-sm)}
-        .table-head{display:grid;grid-template-columns:2.2fr 1.2fr 2.5fr 1fr;padding:14px 28px;background:var(--bg);border-bottom:1px solid var(--border)}
-        .th{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+        .filter-btn { display:flex; align-items:center; gap:8px; padding:8px 14px; border-radius:10px; border:1px solid rgba(0,0,0,0.05); background:rgba(255,255,255,0.7); color:#475569; font-size:13px; font-weight:600; cursor:pointer; transition:all 0.2s; font-family:'DM Sans',sans-serif; }
+        .filter-btn:hover { background:rgba(139,92,246,0.05); border-color:rgba(139,92,246,0.2); color:#8B5CF6; }
+        .filter-btn.active { background:rgba(139,92,246,0.1); border-color:rgba(139,92,246,0.3); color:#8B5CF6; }
 
-        .table-row{display:grid;grid-template-columns:2.2fr 1.2fr 2.5fr 1fr;padding:16px 28px;border-bottom:1px solid var(--border-light);align-items:center;transition:all .15s}
-        .table-row:last-child{border-bottom:none}
-        .table-row:hover{background:var(--accent-soft);margin:0 8px;padding-left:36px;padding-right:36px;border-radius:10px;border-color:transparent}
+        .table-card { padding:8px 0; overflow:hidden; }
+        .table-head { display:grid; grid-template-columns:2fr 1.1fr 2.2fr 1.8fr; padding:12px 28px; font-size:11px; font-weight:700; color:#64748B; text-transform:uppercase; letter-spacing:1px; }
+        .table-row { display:grid; grid-template-columns:2fr 1.1fr 2.2fr 1.8fr; padding:14px 28px; align-items:center; transition:all 0.15s; border-bottom:1px solid rgba(0,0,0,0.03); }
+        .table-row:last-child { border-bottom:none; }
+        .table-row:hover { background:rgba(139,92,246,0.04); }
 
-        .td-patient{display:flex;align-items:center;gap:14px}
-        .avatar{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--accent-soft),#DDD6FE);display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:15px;font-weight:600;color:var(--accent);flex-shrink:0}
-        .pt-name{font-size:13.5px;font-weight:600;color:var(--ink)}
-        .pt-ref{font-size:11px;color:var(--muted);margin-top:1px;font-weight:500}
-        .td-date{font-size:13px;color:var(--ink2);font-weight:500}
-        .td-meds{font-size:12.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:16px}
+        .td-patient { display:flex; align-items:center; gap:12px; }
+        .avatar { width:38px; height:38px; border-radius:10px; background:linear-gradient(135deg,#E0E7FF,#C7D2FE); display:flex; align-items:center; justify-content:center; font-family:'Syne',sans-serif; font-size:16px; font-weight:700; color:#4F46E5; flex-shrink:0; }
+        .pt-name { font-size:14px; font-weight:600; color:#1E293B; }
+        .pt-ref { font-size:11px; color:#94A3B8; font-weight:500; }
+        .td-date { font-size:13px; color:#475569; font-weight:500; }
+        .td-meds { font-size:13px; color:#64748B; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-right:16px; }
 
-        .actions-cell{display:flex;gap:8px}
-        .btn-sm{display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:8px;font-family:'Inter',sans-serif;font-size:11px;font-weight:600;cursor:pointer;border:none;transition:all .15s}
-        .btn-view{background:var(--accent-soft);color:var(--accent)}
-        .btn-view:hover{background:#DDE3FD;transform:translateY(-1px)}
-        .btn-del{background:var(--red-soft);color:var(--red)}
-        .btn-del:hover{background:#FECACA}
-        .btn-del:disabled{opacity:.35;cursor:not-allowed;transform:none}
+        .actions-cell { display:flex; gap:6px; flex-wrap:nowrap; }
+        .btn-sm { display:inline-flex; align-items:center; gap:5px; padding:7px 12px; border-radius:9px; font-size:12px; font-weight:600; cursor:pointer; border:none; transition:all 0.2s; font-family:'DM Sans',sans-serif; white-space:nowrap; }
+        .btn-view { background:rgba(139,92,246,0.1); color:#8B5CF6; }
+        .btn-view:hover { background:#8B5CF6; color:white; }
+        .btn-edit-row { background:rgba(16,185,129,0.1); color:#10B981; }
+        .btn-edit-row:hover { background:#10B981; color:white; }
+        .btn-del { background:rgba(239,68,68,0.1); color:#EF4444; }
+        .btn-del:hover { background:#EF4444; color:white; }
+        .btn-del:disabled { opacity:0.5; cursor:not-allowed; }
 
-        /* ── Empty ── */
-        .empty{text-align:center;padding:80px 20px}
-        .empty-icon{font-size:52px;margin-bottom:16px;opacity:.25}
-        .empty-title{font-family:'Playfair Display',serif;font-size:22px;font-weight:600;color:var(--ink);margin-bottom:8px}
-        .empty-sub{font-size:13px;color:var(--muted)}
-        .empty-btn{margin-top:24px;padding:12px 28px;background:var(--accent);border:none;border-radius:12px;color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(79,107,246,.25);transition:all .2s}
-        .empty-btn:hover{background:var(--accent-hover);transform:translateY(-1px)}
-
-        /* ── Skeleton ── */
-        .skel{background:linear-gradient(90deg,var(--border-light) 25%,#F0F0F5 50%,var(--border-light) 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:8px;height:14px}
+        .empty { text-align:center; padding:80px 20px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#94A3B8; }
+        .empty-icon { width:64px; height:64px; border-radius:20px; background:rgba(139,92,246,0.05); border:2px dashed rgba(139,92,246,0.15); display:flex; align-items:center; justify-content:center; color:#8B5CF6; margin-bottom:20px; }
+        .empty-title { font-family:'Syne',sans-serif; font-size:20px; font-weight:800; color:#1E293B; margin-bottom:8px; }
+        .empty-sub { font-size:14px; margin-bottom:24px; max-width:300px; }
+        .empty-btn { padding:12px 28px; background:linear-gradient(135deg,#8B5CF6,#10B981); border:none; border-radius:14px; color:white; font-family:'DM Sans',sans-serif; font-size:14px; font-weight:600; cursor:pointer; box-shadow:0 4px 14px rgba(139,92,246,0.25); transition:all 0.2s; }
+        .empty-btn:hover { transform:translateY(-2px); }
       `}</style>
 
-      <div className="root">
+      <div className="root dme-bg">
         <Sidebar stats={stats} />
-        <Navbar title="Ordonnances" subtitle={`Dr. ${username}`} />
+        <Navbar title="Ordonnances" subtitle={`Dr. ${username ?? ""}`} />
 
         <main className="main">
+          {/* Header */}
           <div className="page-header">
             <div>
-              <div className="page-eyebrow">Prescriptions médicales</div>
               <div className="page-title">Ordonnances</div>
-              <div className="page-sub">{stats.ordonnances} ordonnance{stats.ordonnances !== 1 ? "s" : ""} enregistrée{stats.ordonnances !== 1 ? "s" : ""}</div>
+              <div className="page-sub">
+                {stats.ordonnances} ordonnance
+                {stats.ordonnances !== 1 ? "s" : ""} enregistrée
+                {stats.ordonnances !== 1 ? "s" : ""}
+              </div>
             </div>
-            <button className="btn-new" onClick={() => router.push("/dashboard/medecin/ordonnances/nouvelle")}>
-              <span className="btn-new-icon">＋</span> Nouvelle ordonnance
+            <button className="btn-new" onClick={() => setIsModalOpen(true)}>
+              <Plus size={20} strokeWidth={2} /> Nouvelle ordonnance
             </button>
           </div>
 
-          <div className="stats-row">
-            {[
-              { icon: "📅", cls: "s1", val: stats.rendezvous,    lbl: "Rendez-vous",  path: "/dashboard/medecin/rendezvous" },
-              { icon: "🩺", cls: "s2", val: stats.consultations, lbl: "Consultations", path: "/dashboard/medecin/consultations" },
-              { icon: "📋", cls: "s3", val: stats.ordonnances,   lbl: "Ordonnances",  path: "/dashboard/medecin/ordonnances" },
-            ].map(s => (
-              <div key={s.lbl} className="stat-card" onClick={() => router.push(s.path)}>
-                <div className="stat-top">
-                  <div className={`stat-icon ${s.cls}`}>{s.icon}</div>
-                </div>
-                <div className="stat-val">{s.val}</div>
-                <div className="stat-lbl">{s.lbl}</div>
+          {/* Toolbar */}
+          <div className="toolbar-row">
+            <div className="search-container">
+              <div className="search-icon-abs">
+                <Search size={18} strokeWidth={2} />
               </div>
-            ))}
-          </div>
+              <input
+                className="search-input"
+                placeholder="Rechercher par patient ou médicament…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              {search && (
+                <button
+                  className="clear-btn-search"
+                  onClick={() => setSearch("")}
+                >
+                  <X size={16} strokeWidth={2} />
+                </button>
+              )}
+            </div>
 
-          <div className="toolbar">
-            <div className="search-wrap">
-              <span className="search-icon">🔍</span>
-              <input className="search-input" placeholder="Rechercher par patient ou médicament…"
-                value={search} onChange={e => setSearch(e.target.value)} />
-              {search && <button className="clear-btn" onClick={() => setSearch("")}>✕</button>}
+            {/* Filtres temporels */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                className={`filter-btn ${filterPeriod === "all" ? "active" : ""}`}
+                onClick={() => setFilterPeriod("all")}
+              >
+                <FileText size={14} strokeWidth={2.5} />
+                <span>Toutes</span>
+                <span
+                  style={{
+                    marginLeft: 2,
+                    background: filterPeriod === "all" ? "#8B5CF6" : "#E2E8F0",
+                    color: filterPeriod === "all" ? "#fff" : "#64748B",
+                    borderRadius: 20,
+                    padding: "1px 7px",
+                    fontSize: 11,
+                    fontWeight: 700,
+                  }}
+                >
+                  {stats.ordonnances}
+                </span>
+              </button>
+
+              <button
+                className={`filter-btn ${filterPeriod === "month" ? "active" : ""}`}
+                onClick={() => setFilterPeriod("month")}
+              >
+                <Calendar size={14} strokeWidth={2.5} />
+                <span>Ce mois</span>
+                <span
+                  style={{
+                    marginLeft: 2,
+                    background:
+                      filterPeriod === "month" ? "#8B5CF6" : "#E2E8F0",
+                    color: filterPeriod === "month" ? "#fff" : "#64748B",
+                    borderRadius: 20,
+                    padding: "1px 7px",
+                    fontSize: 11,
+                    fontWeight: 700,
+                  }}
+                >
+                  {countMonth}
+                </span>
+              </button>
+
+              <button
+                className={`filter-btn ${filterPeriod === "week" ? "active" : ""}`}
+                onClick={() => setFilterPeriod("week")}
+              >
+                <Filter size={14} strokeWidth={2.5} />
+                <span>Cette semaine</span>
+                <span
+                  style={{
+                    marginLeft: 2,
+                    background: filterPeriod === "week" ? "#8B5CF6" : "#E2E8F0",
+                    color: filterPeriod === "week" ? "#fff" : "#64748B",
+                    borderRadius: 20,
+                    padding: "1px 7px",
+                    fontSize: 11,
+                    fontWeight: 700,
+                  }}
+                >
+                  {countWeek}
+                </span>
+              </button>
             </div>
           </div>
 
-          <div className="table-card">
+          {/* Table */}
+          <div className="dme-card table-card">
             <div className="table-head">
-              <span className="th">Patient</span>
-              <span className="th">Date</span>
-              <span className="th">Médicaments</span>
-              <span className="th">Actions</span>
+              <span>Patient</span>
+              <span>Date</span>
+              <span>Médicaments</span>
+              <span>Actions</span>
             </div>
 
             {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="table-row">
-                  <div style={{display:"flex",alignItems:"center",gap:14}}>
-                    <div className="skel" style={{width:38,height:38,borderRadius:10,flexShrink:0}} />
-                    <div className="skel" style={{width:"55%"}} />
-                  </div>
-                  <div className="skel" style={{width:"55%"}} />
-                  <div className="skel" style={{width:"70%"}} />
-                  <div className="skel" style={{width:"40%"}} />
-                </div>
-              ))
+              <div
+                style={{
+                  padding: 40,
+                  display: "flex",
+                  justifyContent: "center",
+                  color: "#94A3B8",
+                }}
+              >
+                <Loader2 size={32} strokeWidth={2} className="spin" />
+              </div>
             ) : filtered.length === 0 ? (
               <div className="empty">
-                <div className="empty-icon">📋</div>
-                <div className="empty-title">{search ? `Aucun résultat pour « ${search} »` : "Aucune ordonnance"}</div>
-                <div className="empty-sub">{search ? "Essayez un autre terme de recherche." : "Créez votre première ordonnance pour commencer."}</div>
-                {!search && <button className="empty-btn" onClick={() => router.push("/dashboard/medecin/ordonnances/nouvelle")}>＋ Nouvelle ordonnance</button>}
+                <div className="empty-icon">
+                  <Inbox size={32} strokeWidth={1.5} />
+                </div>
+                <div className="empty-title">
+                  {search
+                    ? `Aucun résultat pour « ${search} »`
+                    : filterPeriod !== "all"
+                      ? "Aucune ordonnance sur cette période"
+                      : "Aucune ordonnance"}
+                </div>
+                <div className="empty-sub">
+                  {search
+                    ? "Essayez un autre terme."
+                    : filterPeriod !== "all"
+                      ? "Élargissez la période ou créez une nouvelle ordonnance."
+                      : "Créez votre première ordonnance pour commencer."}
+                </div>
+                {!search && (
+                  <button
+                    className="empty-btn"
+                    onClick={() => setIsModalOpen(true)}
+                  >
+                    <Plus
+                      size={18}
+                      strokeWidth={2}
+                      style={{ marginRight: 8 }}
+                    />{" "}
+                    Nouvelle ordonnance
+                  </button>
+                )}
               </div>
-            ) : filtered.map(o => (
-              <div key={o.id} className="table-row">
-                <div className="td-patient">
-                  <div className="avatar">{(o.patient_name ?? "?").charAt(0).toUpperCase()}</div>
-                  <div>
-                    <div className="pt-name">{o.patient_name || "—"}</div>
-                    <div className="pt-ref">#ORD-{String(o.id).padStart(4,"0")}</div>
+            ) : (
+              filtered.map((o) => (
+                <div key={o.id} className="table-row">
+                  <div className="td-patient">
+                    <div className="avatar">
+                      {(o.patient_name ?? "?").charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="pt-name">{o.patient_name || "—"}</div>
+                      <div className="pt-ref">
+                        #{String(o.id).padStart(4, "0")}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="td-date">
+                    {o.date || o.date_heure
+                      ? new Date(o.date || o.date_heure).toLocaleDateString(
+                          "fr-FR",
+                          {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          },
+                        )
+                      : "—"}
+                  </div>
+                  <div className="td-meds" title={o.medicaments}>
+                    {previewMeds(o.medicaments || "")}
+                  </div>
+                  <div className="actions-cell">
+                    <button
+                      className="btn-sm btn-view"
+                      onClick={() => setViewOrd(o)}
+                    >
+                      <Eye size={13} strokeWidth={2} /> Voir
+                    </button>
+                    <button
+                      className="btn-sm btn-edit-row"
+                      onClick={() => setEditOrd(o)}
+                    >
+                      <Pencil size={13} strokeWidth={2} /> Modifier
+                    </button>
+                    <button
+                      className="btn-sm btn-del"
+                      disabled={deleting === o.id}
+                      onClick={() => handleDelete(o.id)}
+                    >
+                      {deleting === o.id ? (
+                        <Loader2 size={13} strokeWidth={2} className="spin" />
+                      ) : (
+                        <Trash2 size={13} strokeWidth={2} />
+                      )}
+                    </button>
                   </div>
                 </div>
-                <div className="td-date">
-                  {(o.date || o.date_heure)
-                    ? new Date(o.date || o.date_heure).toLocaleDateString("fr-FR", { day:"numeric", month:"short", year:"numeric" })
-                    : "—"}
-                </div>
-                <div className="td-meds" title={o.medicaments}>{previewMeds(o.medicaments || "")}</div>
-                <div className="actions-cell">
-                  <button className="btn-sm btn-view" onClick={() => router.push(`/dashboard/medecin/ordonnances/${o.id}`)}>Voir</button>
-                  <button className="btn-sm btn-del" disabled={deleting === o.id} onClick={() => handleDelete(o.id)}>
-                    {deleting === o.id ? "…" : "Supprimer"}
-                  </button>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </main>
+
+        {/* MODALS */}
+        <OrdonnanceModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onCreated={fetchData}
+        />
+
+        {viewOrd && (
+          <ViewOrdonnanceModal
+            ordonnance={viewOrd}
+            onClose={() => setViewOrd(null)}
+            onEdit={() => {
+              setEditOrd(viewOrd);
+              setViewOrd(null);
+            }}
+          />
+        )}
+
+        {editOrd && (
+          <EditOrdonnanceModal
+            ordonnance={editOrd}
+            onClose={() => setEditOrd(null)}
+            onSaved={(updated) => {
+              setOrdonnances((prev) =>
+                prev.map((o) => (o.id === updated.id ? updated : o)),
+              );
+              setEditOrd(null);
+            }}
+          />
+        )}
       </div>
     </PrivateRoute>
   );

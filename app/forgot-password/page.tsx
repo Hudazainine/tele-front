@@ -95,6 +95,12 @@ const CSS = `
   display:flex;align-items:center;justify-content:center;
   box-shadow:0 4px 14px rgba(68,182,178,0.4);
 }
+.fp-card-ic {
+  width:88px;height:88px;
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 0.75rem;
+  position:relative;
+}
 .fp-logo-ic svg { width:18px;height:18px }
 .fp-logo-tx { font-size:16px;font-weight:800;color:white;letter-spacing:-.3px }
 
@@ -174,8 +180,7 @@ const CSS = `
 .fp-step-c-b { animation:fpStepBack .38s cubic-bezier(.22,1,.36,1) both }
 
 /* Progress pills */
-.fp-pills { display:flex; align-items:center; justify-content:center; gap:6px; margin-bottom:2rem }
-.fp-pill  { height:4px; border-radius:2px; transition:all .45s cubic-bezier(.4,0,.2,1) }
+.fp-pills { display:flex; align-items:center; justify-content:center; gap:6px; margin-bottom:1.5rem }.fp-pill  { height:4px; border-radius:2px; transition:all .45s cubic-bezier(.4,0,.2,1) }
 
 /* Step icon */
 .fp-icon {
@@ -894,31 +899,6 @@ export default function ForgotPasswordPage() {
           <div className="fp-blob fp-b2" />
           <div className="fp-blob fp-b3" />
 
-          {/* Logo */}
-          <div className="fp-logo">
-            <div className="fp-logo-ic">
-              <svg viewBox="0 0 18 18" fill="none">
-                <rect
-                  x="3"
-                  y="6.5"
-                  width="12"
-                  height="5"
-                  rx="1.2"
-                  fill="white"
-                />
-                <rect
-                  x="6.5"
-                  y="3"
-                  width="5"
-                  height="12"
-                  rx="1.2"
-                  fill="white"
-                />
-              </svg>
-            </div>
-            <span className="fp-logo-tx">TéléConsult</span>
-          </div>
-
           {/* SVG Illustration */}
           <div className="fp-illus">
             <svg
@@ -1348,30 +1328,16 @@ export default function ForgotPasswordPage() {
             ───────────────────────── */}
             {step === "request" && (
               <div className={stepClass}>
-                <button
-                  className="fp-back"
-                  onClick={() => router.push("/login")}
-                >
-                  <svg
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  >
-                    <path d="M9 2L4 7L9 12" />
-                  </svg>
-                  Retour à la connexion
-                </button>
-
-                <div
-                  className="fp-icon"
-                  style={{
-                    background: "rgba(68,182,178,0.08)",
-                    color: "#44B6B2",
-                  }}
-                >
-                  🔐
+                <div className="fp-card-ic">
+                  <img
+                    src="/LogoT.png"
+                    alt="AlloMed Logo"
+                    style={{
+                      width: 84,
+                      height: 84,
+                      objectFit: "contain",
+                    }}
+                  />
                 </div>
                 <h1 className="fp-h1">Mot de passe oublié ?</h1>
                 <p className="fp-sub-p">

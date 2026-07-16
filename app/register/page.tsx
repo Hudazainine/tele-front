@@ -198,7 +198,12 @@ const CSS = `
   .rp-blob{position:absolute;border-radius:50%;pointer-events:none;filter:blur(70px)}
   .rp-b1{width:350px;height:350px;background:rgba(228,205,243,0.12);top:-8%;left:-5%;animation:rpBlobMove 12s ease-in-out infinite} /* Mauve Clair */
   .rp-b2{width:280px;height:280px;background:rgba(68,182,178,0.08);bottom:5%;right:-3%;animation:rpBlobMove 10s ease-in-out infinite 3s reverse} /* Vert Foncé */
-
+  .rp-card-ic {
+    width:88px;height:88px;
+    display:flex;align-items:center;justify-content:center;
+    margin:0 auto 0.75rem;
+    position:relative;
+  }
   .rp-logo{position:absolute;top:1.75rem;left:2rem;z-index:5;display:flex;align-items:center;gap:10px}
   /* Logo Vert Clair -> Vert Foncé */
   .rp-logo-ic{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,#A3DDDC,#44B6B2);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(68,182,178,0.35)}
@@ -270,7 +275,7 @@ const CSS = `
   .rp-step-c{animation:rpStepIn .38s cubic-bezier(.22,1,.36,1) both}
 
   /* Step indicator */
-  .rp-steps{display:flex;align-items:center;gap:8px;margin-bottom:2rem}
+  .rp-steps{display:flex;align-items:center;gap:8px;margin-bottom:1.5rem}
 /* Dans votre constante CSS */
   .rp-step-dot {
     width: 40px;          /* Taille réduite pour s'intégrer correctement */
@@ -502,29 +507,7 @@ export default function RegisterPage() {
         <div className="rp-left">
           <div className="rp-blob rp-b1" />
           <div className="rp-blob rp-b2" />
-          <div className="rp-logo">
-            <div className="rp-logo-ic">
-              <svg viewBox="0 0 18 18" fill="none">
-                <rect
-                  x="3"
-                  y="6.5"
-                  width="12"
-                  height="5"
-                  rx="1.2"
-                  fill="white"
-                />
-                <rect
-                  x="6.5"
-                  y="3"
-                  width="5"
-                  height="12"
-                  rx="1.2"
-                  fill="white"
-                />
-              </svg>
-            </div>
-            <span className="rp-logo-tx">TéléConsult</span>
-          </div>
+
           <div className="rp-illus">
             <svg viewBox="0 0 440 380" fill="none">
               <ellipse
@@ -813,6 +796,18 @@ export default function RegisterPage() {
 
         <div className="rp-right">
           <div className="rp-card">
+            <div className="rp-card-ic">
+              <img
+                src="/LogoT.png"
+                alt="AlloMed Logo"
+                style={{
+                  width: 84,
+                  height: 84,
+                  objectFit: "contain",
+                }}
+              />
+            </div>
+
             {/* Step indicator */}
             <div className="rp-steps">
               {[1, 2].map((s) => (
@@ -891,13 +886,13 @@ export default function RegisterPage() {
                     label="Prénom"
                     value={form.first_name}
                     onChange={(v) => set("first_name", v)}
-                    placeholder="Jean"
+                    placeholder="Ahmed"
                   />
                   <Field
                     label="Nom"
                     value={form.last_name}
                     onChange={(v) => set("last_name", v)}
-                    placeholder="Dupont"
+                    placeholder="Ben Moussa"
                   />
                 </div>
                 <button className="rp-btn" onClick={goStep2}>
@@ -915,13 +910,13 @@ export default function RegisterPage() {
                   label="Nom d'utilisateur"
                   value={form.username}
                   onChange={(v) => set("username", v)}
-                  placeholder="jean.dupont"
+                  placeholder="ahmed.benmoussa"
                 />
                 <Field
                   label="Adresse email"
                   value={form.email}
                   onChange={(v) => set("email", v)}
-                  placeholder="jean@email.com"
+                  placeholder="ahmed@email.com"
                   type="email"
                 />
                 <Field

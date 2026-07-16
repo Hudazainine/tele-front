@@ -46,37 +46,37 @@ const SPECIALTIES = [
     icon: icons.heart,
     title: "Cardiologie",
     color: "#7C3AED",
-    img: "https://images.unsplash.com/photo-1628348070881-cf72db4a5646?q=80&w=400&auto=format&fit=crop",
+    img: "https://images.unsplash.com/photo-1690784261287-f32b7b79b29f?q=80&w=400&auto=format&fit=crop",
   },
   {
     icon: icons.brain,
     title: "Neurologie",
     color: "#14B8A6",
-    img: "https://images.unsplash.com/photo-1559757175-5700dde675bc?q=80&w=400&auto=format&fit=crop",
+    img: "https://images.unsplash.com/photo-1559757296-c68c34d39551?q=80&w=400&auto=format&fit=crop",
   },
   {
     icon: icons.eye,
     title: "Ophtalmologie",
     color: "#3B82F6",
-    img: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?q=80&w=400&auto=format&fit=crop",
+    img: "https://images.unsplash.com/photo-1483519173755-be893fab1f46?q=80&w=400&auto=format&fit=crop",
   },
   {
     icon: icons.stethoscope,
     title: "Généraliste",
     color: "#10B981",
-    img: "https://images.unsplash.com/photo-1612349317150-e813f7851ce5?q=80&w=400&auto=format&fit=crop",
+    img: "https://images.unsplash.com/photo-1505751172876-fa1923c5c528?q=80&w=400&auto=format&fit=crop",
   },
   {
     icon: icons.user,
     title: "Pédiatrie",
     color: "#F59E0B",
-    img: "https://images.unsplash.com/photo-1584515933487-779824d29309?q=80&w=400&auto=format&fit=crop",
+    img: "https://images.unsplash.com/photo-1758691463080-30a990ef61bb?q=80&w=400&auto=format&fit=crop",
   },
   {
     icon: icons.shield,
     title: "Dermatologie",
     color: "#EC4899",
-    img: "https://images.unsplash.com/photo-1570172619644-d6013b3a7b3f?q=80&w=400&auto=format&fit=crop",
+    img: "https://images.unsplash.com/photo-1606501176727-e24f1e183fd6?q=80&w=400&auto=format&fit=crop",
   },
 ];
 
@@ -258,11 +258,11 @@ export default function Home() {
         >
           {/* Custom AlloMed Logo SVG */}
           <img
-            src="/LogoT.png"
+            src="/Logo.png"
             alt="AlloMed Logo"
             style={{
-              width: 40,
-              height: 40,
+              width: 60,
+              height: 60,
               objectFit: "contain",
             }}
           />
@@ -455,7 +455,7 @@ export default function Home() {
                   display: "inline-block",
                 }}
               ></span>{" "}
-              Téléconsultation en ligne
+              ALLOMed
             </div>
             <h1
               style={{
@@ -602,7 +602,7 @@ export default function Home() {
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <img
-                  src="https://images.unsplash.com/photo-1612349317150-e813f7851ce5?q=80&w=100&auto=format&fit=crop"
+                  src="karim-mrad.jpg"
                   alt="Dr."
                   style={{
                     width: 40,
@@ -1277,62 +1277,17 @@ export default function Home() {
               }}
             >
               {/* Custom AlloMed Logo SVG */}
-              <svg
-                width="32"
-                height="32"
-                viewBox="0 0 40 40"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M6 8C6 5.79086 7.79086 4 10 4H30C32.2091 4 34 5.79086 34 8V24C34 26.2091 32.2091 28 30 28H16L8 34V28H10C7.79086 28 6 26.2091 6 24V8Z"
-                  fill="url(#alloGrad2)"
-                />
-                <path
-                  d="M17 13L24 17L17 21V13Z"
-                  fill="white"
-                  stroke="white"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <circle cx="30" cy="8" r="3" fill="#14B8A6" />
-                <defs>
-                  <linearGradient
-                    id="alloGrad2"
-                    x1="6"
-                    y1="4"
-                    x2="34"
-                    y2="34"
-                    gradientUnits="userSpaceOnUse"
-                  >
-                    <stop stopColor="#7C3AED" />
-                    <stop offset="1" stopColor="#14B8A6" />
-                  </linearGradient>
-                </defs>
-              </svg>
+
               <div>
-                <span
+                <img
+                  src="/Logo.png"
+                  alt="AlloMed Logo"
                   style={{
-                    fontSize: 18,
-                    fontWeight: 800,
-                    color: "#0F172A",
-                    display: "block",
-                    lineHeight: 1,
+                    width: 60,
+                    height: 60,
+                    objectFit: "contain",
                   }}
-                >
-                  AlloMed
-                </span>
-                <span
-                  style={{
-                    fontSize: 8,
-                    fontWeight: 600,
-                    color: "#14B8A6",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Téléconsultation
-                </span>
+                />
               </div>
             </div>
             <p

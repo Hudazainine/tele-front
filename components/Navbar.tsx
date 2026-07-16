@@ -6,19 +6,87 @@ import api from "../lib/api";
 import MessagesBell from "./MessagesBell";
 
 // ─────────────────────────────────────────────────────────────
-// ICONS (SVG Components)
+// DESIGN TOKENS
 // ─────────────────────────────────────────────────────────────
 
-const LucideIcon = ({
+const T_PATIENT = {
+  bg: "rgba(255,255,255,0.78)",
+  dropdownBg: "rgba(255,255,255,0.96)",
+  border: "rgba(76,175,130,0.18)",
+  textPrimary: "#1A1A1A",
+  textMuted: "#6B6560",
+  accent: "#4CAF82",
+  accentLight: "rgba(76,175,130,0.10)",
+  accentDark: "#2E7D55",
+  gradientA: "#4CAF82", // Teal/Vert Patient
+  gradientB: "#10B981",
+  shadow: "0 4px 20px rgba(76,175,130,0.08)",
+  dropdownShadow: "0 20px 40px rgba(76,175,130,0.14)",
+  iconBtnBg: "rgba(255,255,255,0.7)",
+  iconBtnHoverBg: "rgba(255,255,255,0.95)",
+  iconBtnHoverBorder: "rgba(76,175,130,0.4)",
+  itemHoverBg: "rgba(76,175,130,0.05)",
+  avatarBg: "linear-gradient(135deg,#4CAF82,#10B981)",
+  menuItemBg: "rgba(76,175,130,0.08)",
+  isDark: false,
+};
+
+const T_MEDECIN = {
+  bg: "rgba(255,255,255,0.78)",
+  dropdownBg: "rgba(255,255,255,0.96)",
+  border: "rgba(139,92,246,0.18)",
+  textPrimary: "#1e1b4b",
+  textMuted: "#6B7280",
+  accent: "#8B5CF6",
+  accentLight: "rgba(139,92,246,0.10)",
+  accentDark: "#6D28D9",
+  gradientA: "#8B5CF6", // Violet Médecin
+  gradientB: "#10B981",
+  shadow: "0 4px 20px rgba(139,92,246,0.08)",
+  dropdownShadow: "0 20px 40px rgba(139,92,246,0.15)",
+  iconBtnBg: "rgba(255,255,255,0.7)",
+  iconBtnHoverBg: "rgba(255,255,255,0.95)",
+  iconBtnHoverBorder: "rgba(139,92,246,0.4)",
+  itemHoverBg: "rgba(139,92,246,0.05)",
+  avatarBg: "linear-gradient(135deg,#8B5CF6,#10B981)",
+  menuItemBg: "rgba(139,92,246,0.08)",
+  isDark: false,
+};
+
+const T_ADMIN = {
+  bg: "#0d1520",
+  dropdownBg: "#0d1520",
+  border: "#1e3050",
+  textPrimary: "#f0f4ff",
+  textMuted: "#8ba0c0",
+  accent: "#22d3a5",
+  accentLight: "rgba(34,211,165,0.12)",
+  accentDark: "#22d3a5",
+  gradientA: "#8B5CF6", // Violet Admin (Primary)
+  gradientB: "#22d3a5", // Teal Admin (Secondary)
+  shadow: "0 1px 0 #1e3050",
+  dropdownShadow: "0 20px 40px rgba(0,0,0,0.6)",
+  iconBtnBg: "rgba(255,255,255,0.04)",
+  iconBtnHoverBg: "rgba(139,92,246,0.12)",
+  iconBtnHoverBorder: "rgba(139,92,246,0.4)",
+  itemHoverBg: "rgba(255,255,255,0.04)",
+  avatarBg: "linear-gradient(135deg,#8B5CF6,#22d3a5)",
+  menuItemBg: "rgba(255,255,255,0.05)",
+  isDark: true,
+};
+
+// ─────────────────────────────────────────────────────────────
+// ICONS
+// ─────────────────────────────────────────────────────────────
+
+const Icon = ({
   path,
-  size = 20,
+  size = 18,
   color = "currentColor",
-  style,
 }: {
   path: string;
   size?: number;
   color?: string;
-  style?: React.CSSProperties;
 }) => (
   <svg
     width={size}
@@ -26,10 +94,9 @@ const LucideIcon = ({
     viewBox="0 0 24 24"
     fill="none"
     stroke={color}
-    strokeWidth="2"
+    strokeWidth="1.75"
     strokeLinecap="round"
     strokeLinejoin="round"
-    style={style}
     dangerouslySetInnerHTML={{ __html: path }}
   />
 );
@@ -39,7 +106,7 @@ const iconPaths = {
   user: "<path d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'></path><circle cx='12' cy='7' r='4'></circle>",
   logOut:
     "<path d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'></path><polyline points='16 17 21 12 16 7'></polyline><line x1='21' y1='12' x2='9' y2='12'></line>",
-  check: "<polyline points='20 6 9 17 4 12'></polyline>",
+  chevronDown: "<polyline points='6 9 12 15 18 9'></polyline>",
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -54,25 +121,53 @@ interface Notification {
 interface NavbarProps {
   title: string;
   subtitle?: string;
+  // Optionnel : Pour forcer l'affichage "Dashboard ROLE" si désiré
+  showRoleHeader?: boolean;
 }
 
-export default function Navbar({ title, subtitle }: NavbarProps) {
+// ─────────────────────────────────────────────────────────────
+// COMPONENT
+// ─────────────────────────────────────────────────────────────
+
+export default function Navbar({
+  title,
+  subtitle,
+  showRoleHeader = true,
+}: NavbarProps) {
   const { username, role, logout } = useAuth();
   const router = useRouter();
+
+  const tk =
+    role === "admin" ? T_ADMIN : role === "medecin" ? T_MEDECIN : T_PATIENT;
+
   const [notifs, setNotifs] = useState<Notification[]>([]);
   const [showNotifs, setShowNotifs] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
+  // Détermination du label du rôle et des couleurs pour le header
+  const roleInfo = {
+    admin: { label: "Admin", colorA: "#8B5CF6", colorB: "#22d3a5" },
+    medecin: { label: "Médecin", colorA: "#8B5CF6", colorB: "#10B981" },
+    patient: { label: "Patient", colorA: "#378ADD", colorB: "#059669" },
+  };
+
+  const currentRoleInfo =
+    roleInfo[role as keyof typeof roleInfo] || roleInfo.patient;
+
+  // Si on veut utiliser les couleurs du token actuel par défaut ou celles du rôle spécifique
+  // Ici on force les couleurs spécifiques au rôle pour la cohérence demandée
+  const headerGradient = `linear-gradient(135deg, ${currentRoleInfo.colorA}, ${currentRoleInfo.colorB})`;
+
   useEffect(() => {
-    const fetch = () =>
+    const fetchNotifs = () =>
       api
         .get("notifications/")
         .then((r) => setNotifs(r.data))
         .catch(() => {});
-    fetch();
-    const interval = setInterval(fetch, 5000);
+    fetchNotifs();
+    const interval = setInterval(fetchNotifs, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -88,11 +183,6 @@ export default function Navbar({ title, subtitle }: NavbarProps) {
   }, []);
 
   const unread = notifs.filter((n) => !n.lu).length;
-  const isDark = role === "admin";
-
-  // Unified gradient colors
-  const accent1 = "#8B5CF6"; // Mauve
-  const accent2 = "#10B981"; // Green
 
   const notifPath =
     role === "admin"
@@ -108,70 +198,65 @@ export default function Navbar({ title, subtitle }: NavbarProps) {
         ? "/dashboard/medecin/profil"
         : "/dashboard/patient/profil";
 
-  const roleLabel =
-    role === "admin"
-      ? "Administrateur"
-      : role === "medecin"
-        ? "Médecin"
-        : "Patient";
+  const gradientStyle = `linear-gradient(135deg, ${tk.gradientA}, ${tk.gradientB})`;
+
+  const dropdownCard: React.CSSProperties = {
+    position: "absolute",
+    top: "calc(100% + 10px)",
+    right: 0,
+    background: tk.dropdownBg,
+    backdropFilter: "blur(24px)",
+    WebkitBackdropFilter: "blur(24px)",
+    border: `1px solid ${tk.border}`,
+    borderRadius: 16,
+    boxShadow: tk.dropdownShadow,
+    zIndex: 200,
+    overflow: "hidden",
+    animation: "navDropIn 0.2s cubic-bezier(0.4,0,0.2,1)",
+  };
+
+  const iconBtnBase: React.CSSProperties = {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    border: `1px solid ${tk.border}`,
+    background: tk.iconBtnBg,
+    backdropFilter: "blur(12px)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    position: "relative",
+    transition: "all 0.2s ease",
+  };
 
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
-        
-        @keyframes dropIn {
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
+
+        @keyframes navDropIn {
           from { opacity: 0; transform: translateY(-8px) scale(0.98); }
           to   { opacity: 1; transform: translateY(0) scale(1); }
         }
 
-        .glass-dropdown {
-          position: absolute;
-          top: calc(100% + 12px);
-          right: 0;
-          border-radius: 20px;
-          z-index: 200;
-          overflow: hidden;
-          animation: dropIn .25s cubic-bezier(0.4, 0, 0.2, 1);
+        .nav-icon-btn:hover {
+          background: ${tk.iconBtnHoverBg} !important;
+          border-color: ${tk.iconBtnHoverBorder} !important;
+          box-shadow: 0 0 12px ${tk.gradientA}22 !important;
         }
-
-        .nb-item {
-          transition: all 0.2s ease;
-        }
-        
-        .nb-item:hover {
-          background: ${isDark ? "rgba(139, 92, 246, 0.1)" : "rgba(139, 92, 246, 0.05)"} !important;
-        }
-
-        .text-gradient {
-          background: linear-gradient(135deg, ${accent1}, ${accent2});
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-
-        .btn-gradient {
-          background: linear-gradient(135deg, ${accent1}, ${accent2});
+        .nav-dd-item { transition: background 0.15s; }
+        .nav-dd-item:hover { background: ${tk.itemHoverBg} !important; }
+        .nav-grad-btn {
+          background: ${gradientStyle};
           color: white;
           border: none;
-          box-shadow: 0 4px 12px ${accent1}44;
-          transition: all 0.3s ease;
+          box-shadow: 0 4px 12px ${tk.gradientA}44;
+          transition: all 0.25s ease;
         }
-
-        .btn-gradient:hover {
+        .nav-grad-btn:hover {
           transform: translateY(-1px);
-          box-shadow: 0 6px 16px ${accent1}55;
-        }
-
-        .nav-action-btn {
-          background: ${isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.6)"};
-          border: 1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(139, 92, 246, 0.15)"};
-          transition: all 0.3s ease;
-        }
-
-        .nav-action-btn:hover {
-          border-color: ${accent1}88;
-          background: ${isDark ? "rgba(139, 92, 246, 0.15)" : "rgba(255,255,255,0.9)"};
-          box-shadow: 0 0 12px ${accent1}22;
+          box-shadow: 0 6px 16px ${tk.gradientA}55;
         }
       `}</style>
 
@@ -181,44 +266,70 @@ export default function Navbar({ title, subtitle }: NavbarProps) {
           top: 0,
           right: 0,
           left: 260,
-          height: 70,
-          background: isDark
-            ? "rgba(15, 12, 26, 0.85)"
-            : "rgba(255, 255, 255, 0.75)",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
-          borderBottom: `1px solid ${isDark ? "rgba(139, 92, 246, 0.15)" : "rgba(255, 255, 255, 0.6)"}`,
+          height: 66,
+          // Admin : couleur plate identique au top du sidebar (#0d1520)
+          // + bordure basse = même séparateur que sidebar (#1e3050)
+          background: role === "admin" ? "#0d1520" : tk.bg,
+          backdropFilter: role === "admin" ? "none" : "blur(20px)",
+          WebkitBackdropFilter: role === "admin" ? "none" : "blur(20px)",
+          borderBottom: `1px solid ${tk.border}`,
           display: "flex",
           alignItems: "center",
-          padding: "0 2rem",
+          padding: "0 28px",
           justifyContent: "space-between",
           zIndex: 99,
           fontFamily: "'DM Sans', sans-serif",
-          boxShadow: isDark
-            ? "0 4px 20px rgba(0,0,0,0.3)"
-            : "0 4px 20px rgba(139, 92, 246, 0.06)",
+          boxShadow: tk.shadow,
         }}
       >
-        {/* Titre */}
+        {/* ── Titre avec Rôle ──────────────────────────────────────── */}
         <div>
-          <h1
-            style={{
-              fontSize: 18,
-              fontWeight: 800,
-              color: isDark ? "#f0f4ff" : "#1e1b4b",
-              margin: 0,
-              fontFamily: "'Syne', sans-serif",
-            }}
-          >
-            {title}
-          </h1>
+          {showRoleHeader ? (
+            <h1
+              style={{
+                fontSize: 24,
+                fontWeight: 800,
+                color: tk.textPrimary,
+                margin: 0,
+                fontFamily: "'DM Sans', sans-serif",
+                letterSpacing: "-0.5px",
+              }}
+            >
+              Dashboard{" "}
+              <span
+                style={{
+                  background: headerGradient,
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
+                {currentRoleInfo.label}
+              </span>
+            </h1>
+          ) : (
+            // Fallback si on ne veut pas le format Dashboard ROLE
+            <h1
+              style={{
+                fontSize: 17,
+                fontWeight: 700,
+                color: tk.textPrimary,
+                margin: 0,
+                fontFamily: "'DM Sans', sans-serif",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {title}
+            </h1>
+          )}
+
           {subtitle && (
             <p
               style={{
                 fontSize: 12,
-                color: isDark ? "rgba(255,255,255,0.5)" : "#64748b",
+                color: tk.textMuted,
                 margin: 0,
-                fontWeight: 500,
+                fontWeight: 400,
+                marginTop: 2,
               }}
             >
               {subtitle}
@@ -226,72 +337,45 @@ export default function Navbar({ title, subtitle }: NavbarProps) {
           )}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          
-          {/* 💬 Messages Bell */}
-          <MessagesBell />
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {/* Messages — médecin uniquement */}
+          {role === "medecin" && <MessagesBell />}
 
-          {/* 🔔 Notifications */}
+          {/* ── Notifications ──────────────────────────────── */}
           <div ref={notifRef} style={{ position: "relative" }}>
             <button
-              className="nav-action-btn"
+              className="nav-icon-btn"
               onClick={() => {
                 setShowNotifs(!showNotifs);
                 setShowProfile(false);
               }}
-              style={{
-                width: 42,
-                height: 42,
-                borderRadius: 12,
-                cursor: "pointer",
-                fontSize: 16,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                position: "relative",
-              }}
+              style={iconBtnBase}
             >
-              <LucideIcon
-                path={iconPaths.bell}
-                size={20}
-                color={isDark ? "#f0f4ff" : "#334155"}
-              />
+              <Icon path={iconPaths.bell} size={17} color={tk.textMuted} />
               {unread > 0 && (
                 <span
                   style={{
                     position: "absolute",
                     top: 8,
                     right: 8,
-                    width: 8,
-                    height: 8,
-                    background: `linear-gradient(135deg, ${accent1}, ${accent2})`,
+                    width: 7,
+                    height: 7,
+                    background: gradientStyle,
                     borderRadius: "50%",
-                    border: `2px solid ${isDark ? "#0F0C1A" : "white"}`,
-                    boxShadow: `0 0 8px ${accent1}88`,
+                    border: `2px solid ${role === "admin" ? "#0d1520" : "white"}`,
+                    boxShadow: `0 0 8px ${tk.gradientA}88`,
                   }}
                 />
               )}
             </button>
 
             {showNotifs && (
-              <div
-                className="glass-dropdown"
-                style={{
-                  width: 360,
-                  background: isDark
-                    ? "rgba(15, 12, 26, 0.95)"
-                    : "rgba(255, 255, 255, 0.9)",
-                  backdropFilter: "blur(24px)",
-                  border: `1px solid ${isDark ? "rgba(139, 92, 246, 0.2)" : "rgba(255, 255, 255, 0.8)"}`,
-                  boxShadow: isDark
-                    ? "0 20px 40px rgba(0,0,0,0.5)"
-                    : "0 20px 40px rgba(139, 92, 246, 0.15)",
-                }}
-              >
+              <div style={{ ...dropdownCard, width: 350 }}>
+                {/* Header */}
                 <div
                   style={{
-                    padding: "16px 20px",
-                    borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"}`,
+                    padding: "14px 18px",
+                    borderBottom: `1px solid ${tk.border}`,
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
@@ -301,41 +385,43 @@ export default function Navbar({ title, subtitle }: NavbarProps) {
                     style={{
                       fontSize: 14,
                       fontWeight: 700,
-                      color: isDark ? "#f0f4ff" : "#1e1b4b",
-                      fontFamily: "'Syne', sans-serif",
+                      color: tk.textPrimary,
                     }}
                   >
                     Notifications
                   </span>
                   {unread > 0 && (
                     <span
-                      className="btn-gradient"
+                      className="nav-grad-btn"
                       style={{
                         fontSize: 11,
                         padding: "4px 10px",
                         borderRadius: 20,
                         fontWeight: 700,
+                        cursor: "default",
                       }}
                     >
                       {unread} nouvelles
                     </span>
                   )}
                 </div>
-                <div style={{ maxHeight: 300, overflowY: "auto" }}>
+
+                {/* Liste */}
+                <div style={{ maxHeight: 290, overflowY: "auto" }}>
                   {notifs.length === 0 ? (
                     <div
                       style={{
-                        padding: "2.5rem",
+                        padding: "36px",
                         textAlign: "center",
-                        color: isDark ? "#4a6080" : "#94a3b8",
+                        color: tk.textMuted,
                         fontSize: 13,
                       }}
                     >
-                      <div style={{ marginBottom: 12 }}>
-                        <LucideIcon
+                      <div style={{ marginBottom: 10 }}>
+                        <Icon
                           path={iconPaths.bell}
-                          size={32}
-                          color={isDark ? "#4a6080" : "#cbd5e1"}
+                          size={28}
+                          color={tk.isDark ? "#1e3050" : "#D4CFC6"}
                         />
                       </div>
                       Aucune notification
@@ -344,43 +430,39 @@ export default function Navbar({ title, subtitle }: NavbarProps) {
                     notifs.slice(0, 5).map((n) => (
                       <div
                         key={n.id}
-                        className="nb-item"
+                        className="nav-dd-item"
                         style={{
-                          padding: "14px 20px",
-                          borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)"}`,
+                          padding: "13px 18px",
+                          borderBottom: `1px solid ${tk.border}`,
                           display: "flex",
                           alignItems: "flex-start",
-                          gap: 12,
+                          gap: 11,
                           cursor: "pointer",
                         }}
                       >
                         <div
                           style={{
-                            width: 8,
-                            height: 8,
+                            width: 7,
+                            height: 7,
                             borderRadius: "50%",
                             background: n.lu
-                              ? isDark
-                                ? "#2a3f5a"
-                                : "#d1d5db"
-                              : `linear-gradient(135deg, ${accent1}, ${accent2})`,
-                            marginTop: 6,
+                              ? tk.isDark
+                                ? "#1e3050"
+                                : "#D4CFC6"
+                              : gradientStyle,
+                            marginTop: 5,
                             flexShrink: 0,
-                            boxShadow: n.lu ? "none" : `0 0 8px ${accent1}66`,
+                            boxShadow: n.lu
+                              ? "none"
+                              : `0 0 8px ${tk.gradientA}66`,
                           }}
                         />
                         <p
                           style={{
                             fontSize: 13,
-                            color: isDark
-                              ? n.lu
-                                ? "#4a6080"
-                                : "#c8d8f0"
-                              : n.lu
-                                ? "#94a3b8"
-                                : "#334155",
+                            color: n.lu ? tk.textMuted : tk.textPrimary,
                             lineHeight: 1.5,
-                            fontWeight: n.lu ? 400 : 600,
+                            fontWeight: n.lu ? 400 : 500,
                             margin: 0,
                           }}
                         >
@@ -390,9 +472,11 @@ export default function Navbar({ title, subtitle }: NavbarProps) {
                     ))
                   )}
                 </div>
-                <div style={{ padding: "12px 16px" }}>
+
+                {/* Footer */}
+                <div style={{ padding: "12px 14px" }}>
                   <button
-                    className="btn-gradient"
+                    className="nav-grad-btn"
                     onClick={() => {
                       router.push(notifPath);
                       setShowNotifs(false);
@@ -400,11 +484,11 @@ export default function Navbar({ title, subtitle }: NavbarProps) {
                     style={{
                       width: "100%",
                       padding: "10px",
-                      borderRadius: 12,
+                      borderRadius: 10,
                       fontSize: 13,
-                      fontWeight: 700,
+                      fontWeight: 600,
                       cursor: "pointer",
-                      fontFamily: "inherit",
+                      fontFamily: "'DM Sans', sans-serif",
                     }}
                   >
                     Voir toutes les notifications
@@ -414,10 +498,10 @@ export default function Navbar({ title, subtitle }: NavbarProps) {
             )}
           </div>
 
-          {/* 👤 Profil dropdown */}
+          {/* ── Profil ─────────────────────────────────────── */}
           <div ref={profileRef} style={{ position: "relative" }}>
             <button
-              className="nav-action-btn"
+              className="nav-icon-btn"
               onClick={() => {
                 setShowProfile(!showProfile);
                 setShowNotifs(false);
@@ -425,85 +509,76 @@ export default function Navbar({ title, subtitle }: NavbarProps) {
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 10,
-                padding: "6px 14px 6px 6px",
-                borderRadius: 14,
+                gap: 9,
+                padding: "5px 12px 5px 5px",
+                borderRadius: 12,
+                border: `1px solid ${tk.border}`,
+                background: tk.iconBtnBg,
+                backdropFilter: "blur(12px)",
                 cursor: "pointer",
+                height: 38,
+                transition: "all 0.2s ease",
               }}
             >
               <div
                 style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 10,
-                  background: "linear-gradient(135deg, #8B5CF6, #10B981)",
+                  width: 28,
+                  height: 28,
+                  borderRadius: 8,
+                  background: tk.avatarBg,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: 14,
+                  fontSize: 13,
                   color: "white",
-                  fontWeight: 800,
-                  boxShadow: "0 2px 8px rgba(139, 92, 246, 0.4)",
+                  fontWeight: 700,
+                  flexShrink: 0,
+                  boxShadow: `0 2px 8px ${tk.gradientA}44`,
                 }}
               >
                 {username ? username[0].toUpperCase() : "?"}
               </div>
               <span
                 style={{
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: isDark ? "#f0f4ff" : "#1e1b4b",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: tk.textPrimary,
                 }}
               >
                 {username}
               </span>
-              <LucideIcon
-                path="M6 9l6 6 6-6"
-                size={14}
-                color={isDark ? "#4a6080" : "#94a3b8"}
-                style={{ marginLeft: 4 }}
+              <Icon
+                path={iconPaths.chevronDown}
+                size={13}
+                color={tk.textMuted}
               />
             </button>
 
             {showProfile && (
-              <div
-                className="glass-dropdown"
-                style={{
-                  width: 260,
-                  background: isDark
-                    ? "rgba(15, 12, 26, 0.95)"
-                    : "rgba(255, 255, 255, 0.9)",
-                  backdropFilter: "blur(24px)",
-                  border: `1px solid ${isDark ? "rgba(139, 92, 246, 0.2)" : "rgba(255, 255, 255, 0.8)"}`,
-                  boxShadow: isDark
-                    ? "0 20px 40px rgba(0,0,0,0.5)"
-                    : "0 20px 40px rgba(139, 92, 246, 0.15)",
-                }}
-              >
-                {/* Info utilisateur */}
+              <div style={{ ...dropdownCard, width: 250 }}>
+                {/* Carte utilisateur */}
                 <div
                   style={{
-                    padding: "20px",
-                    borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"}`,
+                    padding: "18px",
+                    borderBottom: `1px solid ${tk.border}`,
                   }}
                 >
                   <div
-                    style={{ display: "flex", alignItems: "center", gap: 14 }}
+                    style={{ display: "flex", alignItems: "center", gap: 12 }}
                   >
                     <div
                       style={{
-                        width: 48,
-                        height: 48,
-                        borderRadius: 14,
-                        background:
-                          "linear-gradient(135deg, #534AB7 , #10B981)",
+                        width: 44,
+                        height: 44,
+                        borderRadius: 12,
+                        background: tk.avatarBg,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        fontSize: 20,
+                        fontSize: 18,
                         color: "white",
-                        fontWeight: 800,
-                        boxShadow: "0 6px 12px rgba(139, 92, 246, 0.3)",
+                        fontWeight: 700,
+                        boxShadow: `0 4px 12px ${tk.gradientA}44`,
                       }}
                     >
                       {username ? username[0].toUpperCase() : "?"}
@@ -511,202 +586,146 @@ export default function Navbar({ title, subtitle }: NavbarProps) {
                     <div>
                       <p
                         style={{
-                          fontSize: 15,
-                          fontWeight: 700,
-                          color: isDark ? "#f0f4ff" : "#1e1b4b",
+                          fontSize: 14,
+                          fontWeight: 600,
+                          color: tk.textPrimary,
                           margin: 0,
                         }}
                       >
                         {username}
                       </p>
                       <p
-                        className="text-gradient"
                         style={{
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: 700,
-                          margin: 0,
-                          marginTop: 2,
+                          margin: "2px 0 0",
+                          // Utilisation du gradient spécifique au rôle pour le label dans le menu
+                          background: headerGradient,
+                          WebkitBackgroundClip: "text",
+                          WebkitTextFillColor: "transparent",
                         }}
                       >
-                        {roleLabel}
+                        {currentRoleInfo.label}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Actions */}
-                <div style={{ padding: "10px" }}>
-                  <button
-                    className="nb-item"
-                    onClick={() => {
-                      router.push(profilPath);
-                      setShowProfile(false);
-                    }}
-                    style={{
-                      width: "100%",
-                      padding: "12px 14px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      background: "transparent",
-                      border: "none",
-                      cursor: "pointer",
-                      borderRadius: 12,
-                      fontFamily: "inherit",
-                      textAlign: "left",
-                    }}
-                  >
-                    <div
+                {/* Liens menu */}
+                <div style={{ padding: "8px" }}>
+                  {[
+                    {
+                      icon: iconPaths.user,
+                      label: "Mon profil",
+                      path: profilPath,
+                    },
+                    {
+                      icon: iconPaths.bell,
+                      label: "Notifications",
+                      path: notifPath,
+                      badge: unread,
+                    },
+                  ].map((item) => (
+                    <button
+                      key={item.label}
+                      className="nav-dd-item"
+                      onClick={() => {
+                        router.push(item.path);
+                        setShowProfile(false);
+                      }}
                       style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: 8,
-                        background: isDark
-                          ? "rgba(255,255,255,0.05)"
-                          : "rgba(139, 92, 246, 0.1)",
+                        width: "100%",
+                        padding: "9px 10px",
                         display: "flex",
                         alignItems: "center",
-                        justifyContent: "center",
+                        gap: 10,
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        borderRadius: 9,
+                        fontFamily: "'DM Sans', sans-serif",
+                        textAlign: "left",
                       }}
                     >
-                      <LucideIcon
-                        path={iconPaths.user}
-                        size={16}
-                        color={isDark ? "#c8d8f0" : "#64748b"}
-                      />
-                    </div>
-                    <span
-                      style={{
-                        fontSize: 14,
-                        color: isDark ? "#c8d8f0" : "#334155",
-                        fontWeight: 500,
-                      }}
-                    >
-                      Mon profil
-                    </span>
-                  </button>
-
-                  <button
-                    className="nb-item"
-                    onClick={() => {
-                      router.push(notifPath);
-                      setShowProfile(false);
-                    }}
-                    style={{
-                      width: "100%",
-                      padding: "12px 14px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      background: "transparent",
-                      border: "none",
-                      cursor: "pointer",
-                      borderRadius: 12,
-                      fontFamily: "inherit",
-                      textAlign: "left",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: 8,
-                        background: isDark
-                          ? "rgba(255,255,255,0.05)"
-                          : "rgba(16, 185, 129, 0.1)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <LucideIcon
-                        path={iconPaths.bell}
-                        size={16}
-                        color={isDark ? "#c8d8f0" : "#64748b"}
-                      />
-                    </div>
-                    <span
-                      style={{
-                        fontSize: 14,
-                        color: isDark ? "#c8d8f0" : "#334155",
-                        fontWeight: 500,
-                      }}
-                    >
-                      Notifications
-                    </span>
-                    {unread > 0 && (
-                      <span
-                        className="btn-gradient"
+                      <div
                         style={{
-                          marginLeft: "auto",
-                          fontSize: 11,
-                          padding: "3px 8px",
-                          borderRadius: 8,
-                          fontWeight: 700,
+                          width: 30,
+                          height: 30,
+                          borderRadius: 7,
+                          background: tk.menuItemBg,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
                         }}
                       >
-                        {unread}
+                        <Icon path={item.icon} size={14} color={tk.textMuted} />
+                      </div>
+                      <span
+                        style={{
+                          fontSize: 13,
+                          color: tk.textPrimary,
+                          fontWeight: 500,
+                          flex: 1,
+                        }}
+                      >
+                        {item.label}
                       </span>
-                    )}
-                  </button>
+                      {item.badge && item.badge > 0 ? (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            padding: "2px 8px",
+                            borderRadius: 8,
+                            fontWeight: 700,
+                            background: tk.accentLight,
+                            color: tk.accentDark,
+                          }}
+                        >
+                          {item.badge}
+                        </span>
+                      ) : null}
+                    </button>
+                  ))}
                 </div>
 
                 {/* Déconnexion */}
-                <div
-                  style={{
-                    padding: "10px",
-                    paddingTop: 0,
-                  }}
-                >
+                <div style={{ padding: "8px", paddingTop: 0 }}>
                   <button
-                    className="nb-item"
+                    className="nav-dd-item"
                     onClick={() => {
                       logout();
                       router.push("/login");
                     }}
                     style={{
                       width: "100%",
-                      padding: "12px 14px",
+                      padding: "9px 10px",
                       display: "flex",
                       alignItems: "center",
-                      gap: 12,
-                      background: "rgba(239, 68, 68, 0.05)",
-                      border: "none",
+                      gap: 10,
+                      background: "rgba(239,68,68,0.04)",
+                      border: "1px solid rgba(239,68,68,0.12)",
                       cursor: "pointer",
-                      borderRadius: 12,
-                      fontFamily: "inherit",
+                      borderRadius: 9,
+                      fontFamily: "'DM Sans', sans-serif",
                       textAlign: "left",
-                      transition: "background 0.2s",
                     }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.background =
-                        "rgba(239, 68, 68, 0.1)")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background =
-                        "rgba(239, 68, 68, 0.05)")
-                    }
                   >
                     <div
                       style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: 8,
-                        background: "rgba(239, 68, 68, 0.1)",
+                        width: 30,
+                        height: 30,
+                        borderRadius: 7,
+                        background: "rgba(239,68,68,0.08)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
                       }}
                     >
-                      <LucideIcon
-                        path={iconPaths.logOut}
-                        size={16}
-                        color="#ef4444"
-                      />
+                      <Icon path={iconPaths.logOut} size={14} color="#ef4444" />
                     </div>
                     <span
                       style={{
-                        fontSize: 14,
+                        fontSize: 13,
                         color: "#ef4444",
                         fontWeight: 600,
                       }}

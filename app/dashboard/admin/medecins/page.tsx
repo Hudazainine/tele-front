@@ -4,7 +4,22 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "../../../../context/AuthContext";
 import Sidebar from "../../../../components/Sidebar";
 import PrivateRoute from "../../../../components/PrivateRoute";
+import Navbar from "../../../../components/Navbar";
 import api from "../../../../lib/api";
+import {
+  Stethoscope,
+  Search,
+  Plus,
+  X,
+  Lock,
+  AlertTriangle,
+  Check,
+  User,
+  Mail,
+  Shield,
+  Trash2,
+  Loader2,
+} from "lucide-react";
 
 interface Medecin {
   id: number;
@@ -30,46 +45,177 @@ const SPECIALITES = [
   "Rhumatologue",
 ];
 
-const style = `
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap');
+// ─── Dark Theme Design Tokens ──────────────────────────────────
+const C = {
+  bg: "#050a10", // Fond global très sombre
+  surface: "#131f2e", // Cartes / Modales
+  surfaceAlt: "#1e2a3d", // Hover / Inputs
+  border: "#2d456e", // Bordures
+  borderStrong: "#4a6080",
 
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(16px); }
-    to   { opacity: 1; transform: translateY(0); }
+  text: "#f1f5f9", // Texte principal
+  textSub: "#94a3b8", // Texte secondaire
+  textMuted: "#64748b", // Texte muted
+
+  // Accents (Teal, Violet, Sky, etc.)
+  teal: "#2dd4bf",
+  tealLight: "rgba(45, 212, 191, 0.15)",
+  tealDark: "#0f766e",
+
+  violet: "#8b5cf6",
+  violetLight: "rgba(139, 92, 246, 0.15)",
+
+  sky: "#38bdf8",
+  skyLight: "rgba(56, 189, 248, 0.15)",
+
+  amber: "#fbbf24",
+  amberLight: "rgba(251, 191, 36, 0.15)",
+
+  red: "#f87171",
+  redLight: "rgba(248, 113, 113, 0.15)",
+
+  green: "#4ade80",
+  greenLight: "rgba(74, 222, 128, 0.15)",
+};
+
+const css = `
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+  * { box-sizing: border-box; }
+
+  @keyframes fadeUp  { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes fadeIn  { from { opacity:0; } to { opacity:1; } }
+  @keyframes slideUp { from { opacity:0; transform:translateY(28px) scale(.97); } to { opacity:1; transform:translateY(0) scale(1); } }
+  @keyframes spin    { to { transform: rotate(360deg); } }
+
+  .panel {
+    background: ${C.surface};
+    border-radius: 16px;
+    border: 1px solid ${C.border};
+    box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    animation: fadeUp 0.45s ease both;
   }
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateX(32px); }
-    to   { opacity: 1; transform: translateX(0); }
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
 
   .med-row { transition: background 0.15s; }
-  .med-row:hover { background: rgba(167,139,250,0.06) !important; }
+  .med-row:hover { background: ${C.surfaceAlt}; }
+
+  .search-input {
+    padding: 10px 16px 10px 40px; border-radius: 10px; border: 1px solid ${C.border};
+    background: ${C.surface}; color: ${C.text}; font-size: 13px;
+    font-family: inherit; outline: none; transition: border-color 0.2s ease; width: 260px;
+  }
+  .search-input::placeholder { color: ${C.textMuted}; }
+  .search-input:focus { border-color: ${C.violet}; box-shadow: 0 0 0 3px ${C.violetLight}; }
+
+  .add-btn {
+    padding: 10px 20px; background: ${C.violet}; border: none; border-radius: 10px;
+    color: white; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+    display: flex; align-items: center; gap: 8px;
+    box-shadow: 0 4px 12px ${C.violet}44; transition: all 0.2s ease;
+  }
+  .add-btn:hover { transform: translateY(-1px); background: #7c3aed; }
+
+  .dt-table-wrap { border-radius: 16px; overflow: hidden; border: 1px solid ${C.border}; background: ${C.surface}; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+  .dt-table { width: 100%; border-collapse: collapse; }
+  .dt-thead-tr { background: ${C.surfaceAlt}; border-bottom: 1px solid ${C.border}; }
+  .dt-th {
+    text-align: left; padding: 12px 20px; font-size: 11px; font-weight: 700;
+    color: ${C.textMuted}; letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .dt-row { border-bottom: 1px solid ${C.border}; transition: background 0.15s; }
+  .dt-row:last-child { border-bottom: none; }
+  .dt-td { padding: 14px 20px; font-size: 13px; color: ${C.textSub}; vertical-align: middle; }
+  .dt-empty { padding: 2.5rem 0; text-align: center; color: ${C.textMuted}; font-size: 13px; }
+
+  .del-btn {
+    padding: 6px 12px; border-radius: 7px; border: 1px solid ${C.red}40;
+    background: ${C.redLight}; color: ${C.red}; font-size: 11px; font-weight: 600;
+    cursor: pointer; font-family: inherit; transition: all 0.15s ease;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .del-btn:hover { transform: translateY(-1px); background: ${C.red}20; }
+  
+  .del-confirm {
+    padding: 6px 12px; border-radius: 7px; border: none;
+    background: ${C.red}; color: white; font-size: 11px; font-weight: 700;
+    cursor: pointer; font-family: inherit;
+  }
+  .del-cancel {
+    padding: 6px 10px; border-radius: 7px; border: 1px solid ${C.border};
+    background: transparent; color: ${C.textSub}; font-size: 11px;
+    cursor: pointer; font-family: inherit;
+  }
+  .del-cancel:hover { color: ${C.text}; border-color: ${C.borderStrong}; }
 
   .med-input {
     width: 100%; padding: 11px 14px;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 10px; font-size: 13px; color: white;
+    background: ${C.surfaceAlt};
+    border: 1px solid ${C.border};
+    border-radius: 10px; font-size: 13px; color: ${C.text};
     outline: none; box-sizing: border-box; font-family: inherit;
     transition: border-color 0.2s, background 0.2s;
   }
-  .med-input::placeholder { color: rgba(255,255,255,0.25); }
+  .med-input::placeholder { color: ${C.textMuted}; }
   .med-input:focus {
-    border-color: rgba(167,139,250,0.6);
-    background: rgba(255,255,255,0.07);
+    border-color: ${C.violet}; background: ${C.surface};
   }
+  .med-input option { background: ${C.surface}; color: ${C.text}; }
+
   .med-label {
     font-size: 10px; font-weight: 700; letter-spacing: 1px;
-    text-transform: uppercase; color: rgba(255,255,255,0.35);
+    text-transform: uppercase; color: ${C.textMuted};
     display: block; margin-bottom: 6px;
   }
+
   .spinner {
     width: 14px; height: 14px;
-    border: 2px solid rgba(255,255,255,0.2);
+    border: 2px solid rgba(255,255,255,0.35);
     border-top-color: white; border-radius: 50%;
     animation: spin 0.7s linear infinite; display: inline-block;
   }
+
+  .mo {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(5, 10, 16, 0.75); backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    animation: fadeIn .2s ease;
+  }
+  .mb {
+    background: ${C.surface}; border: 1px solid ${C.border}; border-radius: 20px;
+    padding: 2rem; width: 100%; max-width: 480px;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.5);
+    animation: slideUp .28s cubic-bezier(.34,1.56,.64,1);
+  }
+
+  .modal-close {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: ${C.surfaceAlt}; border: 1px solid ${C.border};
+    color: ${C.textSub}; cursor: pointer; font-family: inherit;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .modal-close:hover { background: ${C.border}; color: ${C.text}; }
+
+  .bs {
+    padding: 11px 20px; background: transparent; border: 1px solid ${C.border};
+    border-radius: 11px; color: ${C.textSub}; font-size: 13px; font-weight: 600;
+    font-family: inherit; cursor: pointer; transition: all .2s ease;
+  }
+  .bs:hover { border-color: ${C.borderStrong}; color: ${C.text}; background: ${C.surfaceAlt}; }
+
+  .bp {
+    padding: 12px; background: ${C.violet}; border: none; border-radius: 10px;
+    color: white; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    box-shadow: 0 4px 12px ${C.violet}44; transition: all .2s ease;
+  }
+  .bp:hover { transform: translateY(-1px); background: #7c3aed; }
+  .bp:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: ${C.bg}; }
+  ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: ${C.borderStrong}; }
 `;
 
 const emptyForm = {
@@ -82,7 +228,7 @@ const emptyForm = {
 };
 
 export default function AdminMedecins() {
-  const { token, isLoading } = useAuth();
+  const { token, isLoading, user } = useAuth();
   const router = useRouter();
   const [medecins, setMedecins] = useState<Medecin[]>([]);
   const [loading, setLoading] = useState(true);
@@ -128,7 +274,6 @@ export default function AdminMedecins() {
     const { username, email, password, first_name, last_name, specialite } =
       form;
 
-    // Validations front
     if (!first_name.trim() || !last_name.trim()) {
       setFormError("Prénom et nom sont requis.");
       return;
@@ -188,7 +333,6 @@ export default function AdminMedecins() {
         setFormError(`Mot de passe : ${data.password[0]}`);
       else if (data?.non_field_errors) setFormError(data.non_field_errors[0]);
       else {
-        // Afficher le détail brut pour le debug
         const detail =
           data?.detail || JSON.stringify(data) || "Erreur inconnue.";
         setFormError(`Erreur : ${detail}`);
@@ -211,13 +355,13 @@ export default function AdminMedecins() {
 
   return (
     <PrivateRoute allowedRoles={["admin"]}>
-      <style>{style}</style>
+      <style>{css}</style>
       <div
         style={{
           display: "flex",
           minHeight: "100vh",
-          background: "#0d1520",
-          fontFamily: "'DM Sans', sans-serif",
+          background: C.bg,
+          fontFamily: "'Inter', sans-serif",
         }}
       >
         <Sidebar />
@@ -225,109 +369,108 @@ export default function AdminMedecins() {
           style={{
             marginLeft: 260,
             flex: 1,
-            padding: "2.5rem",
+            padding: "5rem 2.4rem 3rem",
             overflowX: "hidden",
           }}
         >
+          <Navbar
+            title="Médecins"
+            subtitle={`Bonjour ${user?.username || "Admin"}`}
+          />
+
           {/* Header */}
           <div
             style={{
               display: "flex",
               justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "2rem",
-              animation: "fadeUp 0.4s ease both",
+              alignItems: "flex-start",
+              marginBottom: "1.6rem",
+              animation: "fadeUp 0.35s ease both",
+              flexWrap: "wrap",
+              gap: 16,
             }}
           >
             <div>
-              <p
+              <div
                 style={{
                   fontSize: 11,
+                  color: C.violet,
                   fontWeight: 700,
-                  letterSpacing: "2px",
+                  letterSpacing: "0.12em",
                   textTransform: "uppercase",
-                  color: "#a78bfa",
                   marginBottom: 6,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
                 }}
               >
-                Administration
-              </p>
+                <Stethoscope size={14} /> Administration
+              </div>
               <h1
                 style={{
                   fontSize: 28,
                   fontWeight: 800,
-                  color: "#f0f4ff",
-                  fontFamily: "'Syne', sans-serif",
-                  letterSpacing: "-0.5px",
+                  color: C.text,
                   margin: 0,
+                  letterSpacing: "-0.5px",
                 }}
               >
                 Gestion des médecins
               </h1>
-              <p style={{ color: "#4a6080", fontSize: 13, marginTop: 4 }}>
+              <p
+                style={{
+                  color: C.textMuted,
+                  fontSize: 13,
+                  marginTop: 4,
+                  marginBottom: 0,
+                }}
+              >
                 {medecins.length} praticien(s) enregistré(s) · Seul l'admin peut
                 créer des comptes médecins
               </p>
             </div>
 
             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-              <input
-                placeholder="Rechercher..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                style={{
-                  padding: "10px 16px",
-                  borderRadius: 10,
-                  fontSize: 13,
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  color: "white",
-                  outline: "none",
-                  fontFamily: "inherit",
-                  width: 220,
-                }}
-              />
+              <div style={{ position: "relative" }}>
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 12,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: C.textMuted,
+                  }}
+                >
+                  <Search size={16} />
+                </div>
+                <input
+                  className="search-input"
+                  placeholder="Rechercher…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
               <button
+                className="add-btn"
                 onClick={() => {
                   setShowForm(true);
                   setFormError("");
                   setFormSuccess("");
                 }}
-                style={{
-                  padding: "10px 20px",
-                  background: "linear-gradient(135deg, #a78bfa, #7c3aed)",
-                  border: "none",
-                  borderRadius: 10,
-                  color: "white",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  boxShadow: "0 4px 16px rgba(124,58,237,0.35)",
-                }}
               >
-                <span style={{ fontSize: 16 }}>+</span> Nouveau médecin
+                <Plus size={16} /> Nouveau médecin
               </button>
             </div>
           </div>
 
           {/* Table */}
           <div
-            style={{
-              background: "linear-gradient(145deg, #131f2e, #1a2a3f)",
-              borderRadius: 18,
-              border: "1px solid #1e3050",
-              overflow: "hidden",
-              animation: "fadeUp 0.4s 0.1s ease both",
-              opacity: 0,
-            }}
+            className="dt-table-wrap"
+            style={{ animation: "fadeUp 0.45s ease both" }}
           >
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <table className="dt-table">
               <thead>
-                <tr style={{ borderBottom: "1px solid #1e3050" }}>
+                <tr className="dt-thead-tr">
                   {[
                     "Médecin",
                     "Spécialité",
@@ -335,18 +478,7 @@ export default function AdminMedecins() {
                     "Identifiant",
                     "Action",
                   ].map((h) => (
-                    <th
-                      key={h}
-                      style={{
-                        padding: "14px 20px",
-                        textAlign: "left",
-                        fontSize: 10,
-                        fontWeight: 700,
-                        letterSpacing: "1px",
-                        textTransform: "uppercase",
-                        color: "#4a6080",
-                      }}
-                    >
+                    <th key={h} className="dt-th">
                       {h}
                     </th>
                   ))}
@@ -355,43 +487,25 @@ export default function AdminMedecins() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td
-                      colSpan={5}
-                      style={{
-                        padding: "3rem",
-                        textAlign: "center",
-                        color: "#4a6080",
-                      }}
-                    >
+                    <td colSpan={5} className="dt-empty">
                       Chargement...
                     </td>
                   </tr>
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td
-                      colSpan={5}
-                      style={{
-                        padding: "3rem",
-                        textAlign: "center",
-                        color: "#4a6080",
-                      }}
-                    >
+                    <td colSpan={5} className="dt-empty">
                       Aucun médecin trouvé
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((m, i) => (
-                    <tr
-                      key={m.id}
-                      className="med-row"
-                      style={{ borderBottom: "1px solid #1a2a3f" }}
-                    >
-                      <td style={{ padding: "14px 20px" }}>
+                  filtered.map((m) => (
+                    <tr key={m.id} className="med-row dt-row">
+                      <td className="dt-td">
                         <div
                           style={{
                             display: "flex",
                             alignItems: "center",
-                            gap: 10,
+                            gap: 12,
                           }}
                         >
                           <div
@@ -399,117 +513,93 @@ export default function AdminMedecins() {
                               width: 36,
                               height: 36,
                               borderRadius: "50%",
-                              background: "rgba(167,139,250,0.15)",
-                              border: "1px solid rgba(167,139,250,0.25)",
+                              background: C.violetLight,
+                              border: `1px solid ${C.violet}44`,
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
-                              fontSize: 16,
+                              color: C.violet,
                             }}
                           >
-                            ⚕
+                            <Stethoscope size={18} />
                           </div>
-                          <div>
-                            <div
-                              style={{
-                                fontSize: 13,
-                                fontWeight: 600,
-                                color: "#c8d8f0",
-                              }}
-                            >
-                              Dr. {m.first_name} {m.last_name}
-                            </div>
+                          <div
+                            style={{
+                              fontSize: 14,
+                              fontWeight: 600,
+                              color: C.text,
+                            }}
+                          >
+                            Dr. {m.first_name} {m.last_name}
                           </div>
                         </div>
                       </td>
-                      <td style={{ padding: "14px 20px" }}>
+                      <td className="dt-td">
                         <span
                           style={{
                             padding: "4px 12px",
                             borderRadius: 20,
                             fontSize: 11,
                             fontWeight: 600,
-                            background: "rgba(167,139,250,0.12)",
-                            color: "#a78bfa",
-                            border: "1px solid rgba(167,139,250,0.2)",
+                            background: C.violetLight,
+                            color: C.violet,
+                            border: `1px solid ${C.violet}33`,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
                           }}
                         >
-                          {m.specialite || "—"}
+                          <Shield size={10} /> {m.specialite || "—"}
                         </span>
                       </td>
-                      <td
-                        style={{
-                          padding: "14px 20px",
-                          fontSize: 13,
-                          color: "#4a6080",
-                        }}
-                      >
-                        {m.email || "—"}
+                      <td className="dt-td">
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                          }}
+                        >
+                          <Mail size={12} color={C.textMuted} />{" "}
+                          {m.email || "—"}
+                        </div>
                       </td>
-                      <td style={{ padding: "14px 20px" }}>
+                      <td className="dt-td">
                         <code
                           style={{
                             fontSize: 12,
-                            color: "#22d3a5",
-                            background: "rgba(34,211,165,0.08)",
+                            color: C.teal,
+                            background: C.tealLight,
                             padding: "3px 8px",
                             borderRadius: 6,
+                            border: `1px solid ${C.teal}33`,
                           }}
                         >
                           {m.username}
                         </code>
                       </td>
-                      <td style={{ padding: "14px 20px" }}>
+                      <td className="dt-td">
                         {deleteId === m.id ? (
                           <div style={{ display: "flex", gap: 6 }}>
                             <button
+                              className="del-confirm"
                               onClick={() => handleDelete(m.id)}
-                              style={{
-                                padding: "5px 12px",
-                                borderRadius: 7,
-                                border: "none",
-                                background: "#dc2626",
-                                color: "white",
-                                fontSize: 11,
-                                fontWeight: 700,
-                                cursor: "pointer",
-                                fontFamily: "inherit",
-                              }}
                             >
                               Confirmer
                             </button>
                             <button
+                              className="del-cancel"
                               onClick={() => setDeleteId(null)}
-                              style={{
-                                padding: "5px 10px",
-                                borderRadius: 7,
-                                border: "1px solid #1e3050",
-                                background: "transparent",
-                                color: "#4a6080",
-                                fontSize: 11,
-                                cursor: "pointer",
-                                fontFamily: "inherit",
-                              }}
                             >
                               Annuler
                             </button>
                           </div>
                         ) : (
                           <button
+                            className="del-btn"
                             onClick={() => setDeleteId(m.id)}
-                            style={{
-                              padding: "5px 12px",
-                              borderRadius: 7,
-                              border: "1px solid rgba(220,38,38,0.25)",
-                              background: "rgba(220,38,38,0.08)",
-                              color: "#f87171",
-                              fontSize: 11,
-                              fontWeight: 600,
-                              cursor: "pointer",
-                              fontFamily: "inherit",
-                            }}
                           >
-                            Supprimer
+                            <Trash2 size={12} /> Supprimer
                           </button>
                         )}
                       </td>
@@ -524,49 +614,27 @@ export default function AdminMedecins() {
         {/* ── Modal création médecin ── */}
         {showForm && (
           <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 50,
-              background: "rgba(0,0,0,0.7)",
-              backdropFilter: "blur(4px)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setShowForm(false);
-            }}
+            className="mo"
+            onClick={(e) => e.target === e.currentTarget && setShowForm(false)}
           >
-            <div
-              style={{
-                background: "linear-gradient(145deg, #131f2e, #1a2a3f)",
-                border: "1px solid #1e3050",
-                borderRadius: 22,
-                padding: "2rem",
-                width: "100%",
-                maxWidth: 480,
-                animation: "slideIn 0.3s ease both",
-                boxShadow: "0 32px 64px rgba(0,0,0,0.5)",
-              }}
-            >
+            <div className="mb">
               {/* Modal header */}
               <div
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  marginBottom: "1.75rem",
+                  marginBottom: "1.5rem",
                 }}
               >
                 <div>
                   <div
                     style={{
                       fontSize: 10,
+                      color: C.violet,
                       fontWeight: 700,
-                      letterSpacing: "2px",
+                      letterSpacing: "0.1em",
                       textTransform: "uppercase",
-                      color: "#a78bfa",
                       marginBottom: 4,
                     }}
                   >
@@ -574,10 +642,9 @@ export default function AdminMedecins() {
                   </div>
                   <h2
                     style={{
-                      fontSize: 20,
+                      fontSize: 18,
                       fontWeight: 800,
-                      color: "#f0f4ff",
-                      fontFamily: "'Syne', sans-serif",
+                      color: C.text,
                       margin: 0,
                     }}
                   >
@@ -585,23 +652,10 @@ export default function AdminMedecins() {
                   </h2>
                 </div>
                 <button
+                  className="modal-close"
                   onClick={() => setShowForm(false)}
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: "50%",
-                    background: "rgba(255,255,255,0.06)",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    color: "#4a6080",
-                    fontSize: 16,
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
                 >
-                  ×
+                  <X size={18} />
                 </button>
               </div>
 
@@ -611,15 +665,15 @@ export default function AdminMedecins() {
                   padding: "10px 14px",
                   borderRadius: 10,
                   marginBottom: "1.25rem",
-                  background: "rgba(167,139,250,0.08)",
-                  border: "1px solid rgba(167,139,250,0.2)",
+                  background: C.violetLight,
+                  border: `1px solid ${C.violet}33`,
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
                 }}
               >
-                <span style={{ fontSize: 14 }}>🔒</span>
-                <span style={{ fontSize: 12, color: "rgba(167,139,250,0.8)" }}>
+                <Lock size={14} color={C.violet} />
+                <span style={{ fontSize: 12, color: C.textSub }}>
                   Seul l'administrateur peut créer des comptes médecins.
                 </span>
               </div>
@@ -630,16 +684,16 @@ export default function AdminMedecins() {
                     padding: "10px 14px",
                     borderRadius: 10,
                     marginBottom: "1rem",
-                    background: "rgba(220,38,38,0.1)",
-                    border: "1px solid rgba(220,38,38,0.3)",
-                    color: "#f87171",
+                    background: C.redLight,
+                    border: `1px solid ${C.red}44`,
+                    color: C.red,
                     fontSize: 13,
                     display: "flex",
                     alignItems: "center",
                     gap: 8,
                   }}
                 >
-                  <span>⚠</span> {formError}
+                  <AlertTriangle size={14} /> {formError}
                 </div>
               )}
 
@@ -649,16 +703,16 @@ export default function AdminMedecins() {
                     padding: "10px 14px",
                     borderRadius: 10,
                     marginBottom: "1rem",
-                    background: "rgba(34,211,165,0.1)",
-                    border: "1px solid rgba(34,211,165,0.3)",
-                    color: "#22d3a5",
+                    background: C.greenLight,
+                    border: `1px solid ${C.green}44`,
+                    color: C.green,
                     fontSize: 13,
                     display: "flex",
                     alignItems: "center",
                     gap: 8,
                   }}
                 >
-                  <span>✓</span> {formSuccess}
+                  <Check size={14} /> {formSuccess}
                 </div>
               )}
 
@@ -700,21 +754,13 @@ export default function AdminMedecins() {
                     className="med-input"
                     value={form.specialite}
                     onChange={(e) => set("specialite", e.target.value)}
-                    style={{
-                      color: form.specialite
-                        ? "white"
-                        : "rgba(255,255,255,0.25)",
-                    }}
+                    style={{ color: form.specialite ? C.text : C.textMuted }}
                   >
-                    <option value="" disabled style={{ background: "#131f2e" }}>
+                    <option value="" disabled>
                       Choisir une spécialité...
                     </option>
                     {SPECIALITES.map((s) => (
-                      <option
-                        key={s}
-                        value={s}
-                        style={{ background: "#131f2e", color: "white" }}
-                      >
+                      <option key={s} value={s}>
                         {s}
                       </option>
                     ))}
@@ -746,7 +792,7 @@ export default function AdminMedecins() {
                     style={{
                       borderColor:
                         form.username && /\s/.test(form.username)
-                          ? "rgba(220,38,38,0.5)"
+                          ? C.red
                           : undefined,
                     }}
                   />
@@ -756,8 +802,8 @@ export default function AdminMedecins() {
                       marginTop: 5,
                       color:
                         form.username && /\s/.test(form.username)
-                          ? "#f87171"
-                          : "rgba(255,255,255,0.2)",
+                          ? C.red
+                          : C.textMuted,
                     }}
                   >
                     Sans espaces, ex : dr.martin ou drmartin
@@ -779,49 +825,26 @@ export default function AdminMedecins() {
                 {/* Buttons */}
                 <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
                   <button
+                    className="bs"
+                    style={{ flex: 1 }}
                     onClick={() => setShowForm(false)}
-                    style={{
-                      flex: 1,
-                      padding: "12px",
-                      background: "rgba(255,255,255,0.05)",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      borderRadius: 10,
-                      color: "#4a6080",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                    }}
                   >
                     Annuler
                   </button>
                   <button
+                    className="bp"
+                    style={{ flex: 2 }}
                     onClick={handleCreate}
                     disabled={formLoading}
-                    style={{
-                      flex: 2,
-                      padding: "12px",
-                      background: "linear-gradient(135deg, #a78bfa, #7c3aed)",
-                      border: "none",
-                      borderRadius: 10,
-                      color: "white",
-                      fontSize: 13,
-                      fontWeight: 700,
-                      cursor: formLoading ? "not-allowed" : "pointer",
-                      fontFamily: "inherit",
-                      opacity: formLoading ? 0.7 : 1,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 8,
-                    }}
                   >
                     {formLoading ? (
                       <>
                         <div className="spinner" /> Création...
                       </>
                     ) : (
-                      "✓ Créer le compte médecin"
+                      <>
+                        <Check size={14} /> Créer le compte médecin
+                      </>
                     )}
                   </button>
                 </div>

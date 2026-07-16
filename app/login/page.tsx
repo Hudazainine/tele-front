@@ -27,6 +27,7 @@ const CSS = `
 
   *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
 
+  
   .pg {
     min-height:100vh;
     display:flex;
@@ -136,7 +137,6 @@ const CSS = `
     background:linear-gradient(135deg,#44B6B2,#A3DDDC);
     display:flex;align-items:center;justify-content:center;
     margin:0 auto 1.5rem;
-    box-shadow:0 6px 20px rgba(68,182,178,0.25);
     position:relative;
   }
   .pg-card-ic::before,.pg-card-ic::after {
@@ -391,30 +391,6 @@ export default function LoginPage() {
           <div className="pg-blob pg-b1" />
           <div className="pg-blob pg-b2" />
           <div className="pg-blob pg-b3" />
-
-          <div className="pg-logo">
-            <div className="pg-logo-ic">
-              <svg viewBox="0 0 18 18" fill="none">
-                <rect
-                  x="3"
-                  y="6.5"
-                  width="12"
-                  height="5"
-                  rx="1.2"
-                  fill="white"
-                />
-                <rect
-                  x="6.5"
-                  y="3"
-                  width="5"
-                  height="12"
-                  rx="1.2"
-                  fill="white"
-                />
-              </svg>
-            </div>
-            <span className="pg-logo-tx">TéléConsult</span>
-          </div>
 
           <div className="pg-illus">
             <svg viewBox="0 0 520 420" fill="none">
@@ -982,10 +958,15 @@ export default function LoginPage() {
 
             {/* ── Card icon ── */}
             <div className="pg-card-ic">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <rect x="5" y="8" width="14" height="8" rx="1.5" fill="white" />
-                <rect x="8" y="5" width="8" height="14" rx="1.5" fill="white" />
-              </svg>
+              <img
+                src="/LogoT.png"
+                alt="AlloMed Logo"
+                style={{
+                  width: 100,
+                  height: 100,
+                  objectFit: "contain",
+                }}
+              />
             </div>
 
             <div className="pg-head">

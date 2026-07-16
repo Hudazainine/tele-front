@@ -4,8 +4,32 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../../../../context/AuthContext";
 import Sidebar from "../../../../components/Sidebar";
 import Navbar from "../../../../components/Navbar";
+
+// ============================================================
+// IMPORTANT : L'ERREUR VIENT DE LA LIGNE CI-DESSOUS.
+// Si PrivateRoute utilise "export default", gardez comme ceci :
+// import PrivateRoute from "../../../../components/PrivateRoute";
+// Si PrivateRoute utilise "export const PrivateRoute", utilisez ceci :
+// import { PrivateRoute } from "../../../../components/PrivateRoute";
+// ============================================================
+
 import PrivateRoute from "../../../../components/PrivateRoute";
+
 import api from "../../../../lib/api";
+import {
+  Search,
+  Stethoscope,
+  MessageSquare,
+  FileText,
+  Paperclip,
+  X,
+  Check,
+  CheckCheck,
+  Send,
+  Loader2,
+  Circle,
+  Lock,
+} from "lucide-react";
 
 interface Medecin {
   id: number;
@@ -43,9 +67,14 @@ const THEIR_PALETTE = {
 function extractId(obj: any): number | null {
   if (!obj) return null;
   const candidates = [
-    obj?.id, obj?.user_id, obj?.pk,
-    obj?.user?.id, obj?.user?.user_id, obj?.user?.pk,
-    obj?.data?.id, obj?.data?.user_id,
+    obj?.id,
+    obj?.user_id,
+    obj?.pk,
+    obj?.user?.id,
+    obj?.user?.user_id,
+    obj?.user?.pk,
+    obj?.data?.id,
+    obj?.data?.user_id,
   ];
   for (const c of candidates) {
     const n = Number(c);
@@ -78,9 +107,13 @@ function MedecinMessagesInner() {
 
   useEffect(() => {
     const idFromContext = extractId(user);
-    if (idFromContext) { setCurrentUserId(idFromContext); return; }
+    if (idFromContext) {
+      setCurrentUserId(idFromContext);
+      return;
+    }
     if (!token) return;
-    api.get("users/me/")
+    api
+      .get("users/me/")
       .then((r) => {
         const id = extractId(r.data);
         if (id) setCurrentUserId(id);
@@ -94,10 +127,13 @@ function MedecinMessagesInner() {
 
   useEffect(() => {
     if (isLoading || !token) return;
-    api.get("medecins/")
+    api
+      .get("medecins/")
       .then((r) => {
         const all: Medecin[] = r.data.results || r.data;
-        const unique = all.filter((m, i, s) => s.findIndex((x) => x.id === m.id) === i);
+        const unique = all.filter(
+          (m, i, s) => s.findIndex((x) => x.id === m.id) === i,
+        );
         setMedecins(unique);
         setFilteredMedecins(unique);
       })
@@ -107,8 +143,10 @@ function MedecinMessagesInner() {
 
   useEffect(() => {
     if (currentUserId === null) return;
-    setMedecins(prev => prev.filter(m => Number(m.id) !== currentUserId));
-    setFilteredMedecins(prev => prev.filter(m => Number(m.id) !== currentUserId));
+    setMedecins((prev) => prev.filter((m) => Number(m.id) !== currentUserId));
+    setFilteredMedecins((prev) =>
+      prev.filter((m) => Number(m.id) !== currentUserId),
+    );
   }, [currentUserId]);
 
   useEffect(() => {
@@ -120,13 +158,17 @@ function MedecinMessagesInner() {
   }, [medecins, searchParams]);
 
   useEffect(() => {
-    if (!searchQuery.trim()) { setFilteredMedecins(medecins); return; }
+    if (!searchQuery.trim()) {
+      setFilteredMedecins(medecins);
+      return;
+    }
     const q = searchQuery.toLowerCase();
     setFilteredMedecins(
-      medecins.filter((m) =>
-        getMedecinName(m).toLowerCase().includes(q) ||
-        (m.email || "").toLowerCase().includes(q)
-      )
+      medecins.filter(
+        (m) =>
+          getMedecinName(m).toLowerCase().includes(q) ||
+          (m.email || "").toLowerCase().includes(q),
+      ),
     );
   }, [searchQuery, medecins]);
 
@@ -135,17 +177,22 @@ function MedecinMessagesInner() {
     let isMounted = true;
 
     const fetchMessages = () => {
-      api.get(`messages/?contact=${activeMedecin.id}`)
+      api
+        .get(`messages/?contact=${activeMedecin.id}`)
         .then((r) => {
           if (!isMounted) return;
           const msgs: Message[] = r.data.results || r.data;
           setMessages((prev) => {
-            if (msgs.length > prevMessageCount.current && prevMessageCount.current > 0) {
+            if (
+              msgs.length > prevMessageCount.current &&
+              prevMessageCount.current > 0
+            ) {
               const newMsgs = msgs.slice(prevMessageCount.current);
               if (newMsgs.some((m) => !isMine(m.sender) && !m.is_read)) {
                 showNotif(
                   `Dr. ${getMedecinName(activeMedecin)}`,
-                  newMsgs.find((m) => !isMine(m.sender))?.content || "Nouveau message"
+                  newMsgs.find((m) => !isMine(m.sender))?.content ||
+                    "Nouveau message",
                 );
               }
             }
@@ -164,13 +211,17 @@ function MedecinMessagesInner() {
     setMessages([]);
     fetchMessages();
     const interval = setInterval(fetchMessages, 4000);
-    return () => { isMounted = false; clearInterval(interval); };
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [activeMedecin, currentUserId]);
 
   useEffect(() => {
     if (!token || !medecins.length) return;
     const fn = () =>
-      api.get("messages/unread_by_contact/")
+      api
+        .get("messages/unread_by_contact/")
         .then((r) => setUnreadCounts(r.data))
         .catch(() => {});
     fn();
@@ -241,7 +292,6 @@ function MedecinMessagesInner() {
       const msgs: Message[] = r.data.results || r.data;
       prevMessageCount.current = msgs.length;
       setMessages(msgs);
-
     } catch (err: any) {
       setNewMessage(content);
       console.error("❌ Status:", err?.response?.status);
@@ -255,26 +305,52 @@ function MedecinMessagesInner() {
     `${m.first_name || ""} ${m.last_name || ""}`.trim() || m.username;
 
   const formatTime = (dateStr: string) =>
-    new Date(dateStr).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    new Date(dateStr).toLocaleTimeString("fr-FR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
 
   const getMyInitial = () => {
     const u = user as any;
-    return u?.first_name?.charAt(0)?.toUpperCase() || u?.username?.charAt(0)?.toUpperCase() || "M";
+    return (
+      u?.first_name?.charAt(0)?.toUpperCase() ||
+      u?.username?.charAt(0)?.toUpperCase() ||
+      "M"
+    );
   };
 
   const renderFile = (msg: Message, sent: boolean) => {
     if (!msg.file) return null;
     const apiBase = process.env.NEXT_PUBLIC_API_URL || "";
-    const url = msg.file.startsWith("http") ? msg.file : `${apiBase}${msg.file}`;
+    const url = msg.file.startsWith("http")
+      ? msg.file
+      : `${apiBase}${msg.file}`;
     const name = msg.file_name || msg.file.split("/").pop() || "Fichier";
-    const isImage = msg.file_type?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp)$/i.test(name);
+    const isImage =
+      msg.file_type?.startsWith("image/") ||
+      /\.(jpg|jpeg|png|gif|webp)$/i.test(name);
     const isPDF = /\.pdf$/i.test(name);
     const mb = msg.content ? 8 : 0;
 
     if (isImage) {
       return (
-        <a href={url} target={"_blank" as string} rel="noopener noreferrer" style={{ display: "block", marginBottom: mb }}>
-          <img src={url} alt={name} style={{ maxWidth: "100%", maxHeight: 220, borderRadius: 10, display: "block", objectFit: "cover" }} />
+        <a
+          href={url}
+          target={"_blank" as string}
+          rel="noopener noreferrer"
+          style={{ display: "block", marginBottom: mb }}
+        >
+          <img
+            src={url}
+            alt={name}
+            style={{
+              maxWidth: "100%",
+              maxHeight: 220,
+              borderRadius: 10,
+              display: "block",
+              objectFit: "cover",
+            }}
+          />
         </a>
       );
     }
@@ -292,13 +368,47 @@ function MedecinMessagesInner() {
     };
 
     return (
-      <a href={url} target={"_blank" as string} rel="noopener noreferrer" style={linkStyle}>
-        <span style={{ fontSize: 24 }}>{isPDF ? "📄" : "📎"}</span>
+      <a
+        href={url}
+        target={"_blank" as string}
+        rel="noopener noreferrer"
+        style={linkStyle}
+      >
+        <span
+          style={{
+            display: "flex",
+            alignItems: "center",
+            color: sent ? "rgba(255,255,255,0.85)" : "#166534",
+          }}
+        >
+          {isPDF ? (
+            <FileText size={22} strokeWidth={1.8} />
+          ) : (
+            <Paperclip size={22} strokeWidth={1.8} />
+          )}
+        </span>
         <div style={{ overflow: "hidden" }}>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: sent ? "white" : "#14532D", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}>
+          <p
+            style={{
+              margin: 0,
+              fontSize: 13,
+              fontWeight: 600,
+              color: sent ? "white" : "#14532D",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              maxWidth: 180,
+            }}
+          >
             {name}
           </p>
-          <p style={{ margin: 0, fontSize: 11, color: sent ? "rgba(255,255,255,0.65)" : "#166534" }}>
+          <p
+            style={{
+              margin: 0,
+              fontSize: 11,
+              color: sent ? "rgba(255,255,255,0.65)" : "#166534",
+            }}
+          >
             Cliquez pour ouvrir
           </p>
         </div>
@@ -315,7 +425,13 @@ function MedecinMessagesInner() {
         @keyframes slideUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
         @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.2)} }
         .main-gradient-bg { background: linear-gradient(135deg,#EFF6FF 0%,#F0FDF4 100%); min-height:100vh; }
-        .text-gradient { background: linear-gradient(135deg,#3B82F6,#10B981); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .text-gradient {  background: linear-gradient(135deg, #8B5CF6, #10B981);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          font-family: 'Syne', sans-serif;
+          font-size: 32px;
+          font-weight: 800; }
         .glass-card { background:rgba(255,255,255,0.82); backdrop-filter:blur(14px); border:1px solid rgba(255,255,255,0.9); border-radius:24px; box-shadow:0 2px 12px rgba(0,0,0,0.04); }
         .contact-item { display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:14px; cursor:pointer; transition:all 0.2s; border:1px solid transparent; }
         .contact-item:hover { background:rgba(59,130,246,0.06); }
@@ -328,44 +444,144 @@ function MedecinMessagesInner() {
         .chat-input { flex:1; padding:12px 16px; border-radius:14px; background:rgba(248,250,252,0.95); border:1px solid rgba(0,0,0,0.07); font-size:14px; font-family:'DM Sans',sans-serif; outline:none; transition:all 0.25s; }
         .chat-input:focus { border-color:#3B82F6; box-shadow:0 0 0 3px rgba(59,130,246,0.08); }
         .badge { background:#EF4444; color:white; border-radius:999px; font-size:10px; font-weight:700; padding:1px 6px; min-width:18px; text-align:center; animation:pulse 1s ease infinite; }
-        .msg-meta { font-size:10px; text-align:right; margin:5px 0 0; font-weight:600; }
+        .msg-meta { font-size:10px; text-align:right; margin:5px 0 0; font-weight:600; display:flex; align-items:center; justify-content:flex-end; gap:3px; }
         .avatar-sm { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
-        .file-btn { width:38px; height:38px; border-radius:11px; border:1px solid rgba(0,0,0,0.09); background:white; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:17px; flex-shrink:0; transition:all 0.2s; }
+        .file-btn { width:38px; height:38px; border-radius:11px; border:1px solid rgba(0,0,0,0.09); background:white; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; transition:all 0.2s; }
         .file-btn:hover { background:#EFF6FF; border-color:#3B82F6; }
-        .send-btn { width:42px; height:42px; border-radius:13px; border:none; display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; cursor:pointer; transition:all 0.2s; }
+        .send-btn { width:42px; height:42px; border-radius:13px; border:none; display:flex; align-items:center; justify-content:center; flex-shrink:0; cursor:pointer; transition:all 0.2s; }
         .send-btn:disabled { cursor:not-allowed; }
         .file-preview-bar { display:flex; align-items:center; gap:10px; padding:10px 14px; background:#EFF6FF; border-radius:12px; margin-bottom:10px; border:1px solid #BFDBFE; }
+        @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        .spin { animation: spin 1s linear infinite; }
+        .panel-title  { font-family:'Syne',sans-serif; font-size:16px; font-weight:800; }
       `}</style>
 
-      <div className="main-gradient-bg" style={{ display: "flex", fontFamily: "'DM Sans', sans-serif" }}>
+      <div
+        className="main-gradient-bg"
+        style={{ display: "flex", fontFamily: "'DM Sans', sans-serif" }}
+      >
         <Sidebar stats={{ rendezvous: 0, consultations: 0, ordonnances: 0 }} />
         <Navbar title="Messagerie" subtitle="Communication entre médecins" />
 
-        <main style={{ marginLeft: 240, flex: 1, padding: "2rem", paddingTop: "100px" }}>
-          <h1 className="text-gradient" style={{ fontFamily: "'Syne', sans-serif", fontSize: 32, fontWeight: 800, margin: 0, marginBottom: 24 }}>
-            Discussion Directe
-          </h1>
+        <main
+          style={{
+            marginLeft: 240,
+            flex: 1,
+            padding: "2rem",
+            paddingTop: "100px",
+          }}
+        >
+          <div>
+            <h1
+              className="text-gradient"
+              style={{
+                fontFamily: "'Syne', sans-serif",
+                fontSize: 32,
+                fontWeight: 800,
+                margin: 0,
+              }}
+            >
+              Discussion Directe
+            </h1>
 
-          <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: 20, height: "calc(100vh - 200px)" }}>
+            <p
+              style={{
+                color: "#64748b",
+                fontSize: 14,
+                marginTop: 4,
+              }}
+            >
+              Conversations avec les patients
+            </p>
+          </div>
 
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "320px 1fr",
+              gap: 20,
+              height: "calc(100vh - 200px)",
+            }}
+          >
             {/* PANNEAU GAUCHE */}
-            <div className="glass-card" style={{ padding: 14, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div
+              className="glass-card"
+              style={{
+                padding: 14,
+                overflowY: "auto",
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}
+            >
               <div style={{ position: "relative" }}>
-                <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#94a3b8" }}>🔍</span>
-                <input className="search-input" placeholder="Rechercher..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                <span
+                  style={{
+                    position: "absolute",
+                    left: 10,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    display: "flex",
+                    alignItems: "center",
+                    color: "#94a3b8",
+                  }}
+                >
+                  <Search size={14} strokeWidth={2} />
+                </span>
+                <input
+                  className="search-input"
+                  placeholder="Rechercher..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 4px" }}>
-                <span style={{ fontSize: 15 }}>👨‍⚕️</span>
-                <h3 style={{ fontSize: 13, fontWeight: 700, color: "#1e3a8a", margin: 0 }}>
-                  Mes Collègues {searchQuery && <span style={{ color: "#94a3b8", fontWeight: 400 }}>({filteredMedecins.length})</span>}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "2px 4px",
+                }}
+              >
+                <Stethoscope size={15} color="#1e3a8a" strokeWidth={2} />
+                <h3
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: "#1e3a8a",
+                    margin: 0,
+                  }}
+                >
+                  Mes Collègues{" "}
+                  {searchQuery && (
+                    <span style={{ color: "#94a3b8", fontWeight: 400 }}>
+                      ({filteredMedecins.length})
+                    </span>
+                  )}
                 </h3>
               </div>
 
               {loading ? (
-                <p style={{ color: "#94a3b8", fontSize: 13, textAlign: "center", marginTop: 16 }}>Chargement...</p>
+                <p
+                  style={{
+                    color: "#94a3b8",
+                    fontSize: 13,
+                    textAlign: "center",
+                    marginTop: 16,
+                  }}
+                >
+                  Chargement...
+                </p>
               ) : filteredMedecins.length === 0 ? (
-                <p style={{ color: "#94a3b8", fontSize: 13, textAlign: "center", marginTop: 16 }}>
+                <p
+                  style={{
+                    color: "#94a3b8",
+                    fontSize: 13,
+                    textAlign: "center",
+                    marginTop: 16,
+                  }}
+                >
                   {searchQuery ? "Aucun résultat." : "Aucun médecin inscrit."}
                 </p>
               ) : (
@@ -376,95 +592,265 @@ function MedecinMessagesInner() {
                     onClick={() => setActiveMedecin(m)}
                   >
                     <div style={{ position: "relative" }}>
-                      <div style={{
-                        width: 42, height: 42, borderRadius: 13, flexShrink: 0,
-                        background: activeMedecin?.id === m.id
-                          ? "linear-gradient(135deg, #3B82F6, #1D4ED8)"
-                          : "linear-gradient(135deg, #DBEAFE, #EFF6FF)",
-                        border: "1px solid #BFDBFE",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        color: activeMedecin?.id === m.id ? "white" : "#1e3a8a",
-                        fontWeight: 700, fontSize: 15,
-                      }}>
+                      <div
+                        style={{
+                          width: 42,
+                          height: 42,
+                          borderRadius: 13,
+                          flexShrink: 0,
+                          background:
+                            activeMedecin?.id === m.id
+                              ? "linear-gradient(135deg, #3B82F6, #1D4ED8)"
+                              : "linear-gradient(135deg, #DBEAFE, #EFF6FF)",
+                          border: "1px solid #BFDBFE",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color:
+                            activeMedecin?.id === m.id ? "white" : "#1e3a8a",
+                          fontWeight: 700,
+                          fontSize: 15,
+                        }}
+                      >
                         {getMedecinName(m).charAt(0).toUpperCase()}
                       </div>
                       {(unreadCounts[m.id] || 0) > 0 && (
-                        <span className="badge" style={{ position: "absolute", top: -4, right: -4 }}>
+                        <span
+                          className="badge"
+                          style={{ position: "absolute", top: -4, right: -4 }}
+                        >
                           {unreadCounts[m.id]}
                         </span>
                       )}
                     </div>
                     <div style={{ overflow: "hidden", flex: 1 }}>
-                      <p style={{ margin: 0, fontWeight: 600, fontSize: 13, color: "#1e1b4b" }}>Dr. {getMedecinName(m)}</p>
-                      <p style={{ margin: 0, fontSize: 11, color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontWeight: 600,
+                          fontSize: 13,
+                          color: "#1e1b4b",
+                        }}
+                      >
+                        Dr. {getMedecinName(m)}
+                      </p>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: 11,
+                          color: "#94a3b8",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
                         {m.email || "Médecin"}
                       </p>
                     </div>
-                    {(unreadCounts[m.id] || 0) > 0 && <span style={{ fontSize: 7, color: "#3B82F6" }}>●</span>}
+                    {(unreadCounts[m.id] || 0) > 0 && (
+                      <Circle size={8} fill="#3B82F6" color="#3B82F6" />
+                    )}
                   </div>
                 ))
               )}
             </div>
 
             {/* PANNEAU DROIT */}
-            <div className="glass-card" style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            <div
+              className="glass-card"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+              }}
+            >
               {!activeMedecin ? (
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
-                  <span style={{ fontSize: 56 }}>💬</span>
-                  <h3 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, color: "#334155", margin: 0 }}>Sélectionnez un collègue</h3>
-                  <p style={{ color: "#94a3b8", fontSize: 14, margin: 0 }}>Choisissez un médecin pour commencer une discussion.</p>
+                <div
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 12,
+                  }}
+                >
+                  <MessageSquare size={56} color="#cbd5e1" strokeWidth={1.2} />
+                  <h3
+                    style={{
+                      fontFamily: "'Syne', sans-serif",
+                      fontWeight: 700,
+                      color: "#334155",
+                      margin: 0,
+                    }}
+                  >
+                    Sélectionnez un collègue
+                  </h3>
+                  <p style={{ color: "#94a3b8", fontSize: 14, margin: 0 }}>
+                    Choisissez un médecin pour commencer une discussion.
+                  </p>
                 </div>
               ) : (
                 <>
                   {/* Header */}
-                  <div style={{ padding: "16px 22px", borderBottom: "1px solid rgba(0,0,0,0.055)", display: "flex", alignItems: "center", gap: 12, background: "rgba(255,255,255,0.6)" }}>
-                    <div style={{
-                      width: 40, height: 40, borderRadius: 12,
-                      background: "linear-gradient(135deg, #DBEAFE, #EFF6FF)",
-                      border: "1px solid #BFDBFE",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      color: "#1e3a8a", fontWeight: 700, fontSize: 15,
-                    }}>
+                  <div
+                    style={{
+                      padding: "16px 22px",
+                      borderBottom: "1px solid rgba(0,0,0,0.055)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      background: "rgba(255,255,255,0.6)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 12,
+                        background: "linear-gradient(135deg, #DBEAFE, #EFF6FF)",
+                        border: "1px solid #BFDBFE",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#1e3a8a",
+                        fontWeight: 700,
+                        fontSize: 15,
+                      }}
+                    >
                       {getMedecinName(activeMedecin).charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <p style={{ margin: 0, fontWeight: 700, fontSize: 15, color: "#1e1b4b" }}>Dr. {getMedecinName(activeMedecin)}</p>
-                      <p style={{ margin: 0, fontSize: 11, color: "#10B981", fontWeight: 600 }}>● Discussion privée et sécurisée</p>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontWeight: 700,
+                          fontSize: 15,
+                          color: "#1e1b4b",
+                        }}
+                      >
+                        Dr. {getMedecinName(activeMedecin)}
+                      </p>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: 11,
+                          color: "#10B981",
+                          fontWeight: 600,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
+                        <Lock size={10} strokeWidth={2.5} />
+                        Discussion privée et sécurisée
+                      </p>
                     </div>
                   </div>
 
                   {/* Messages */}
-                  <div style={{ flex: 1, overflowY: "auto", padding: "20px 22px", display: "flex", flexDirection: "column", gap: 6, background: "linear-gradient(180deg,#F8FAFF 0%,#F0FDF4 100%)" }}>
+                  <div
+                    style={{
+                      flex: 1,
+                      overflowY: "auto",
+                      padding: "20px 22px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                      background:
+                        "linear-gradient(180deg,#F8FAFF 0%,#F0FDF4 100%)",
+                    }}
+                  >
                     {messages.length === 0 ? (
-                      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <p style={{ fontSize: 13, color: "#94a3b8" }}>Aucun message. Commencez la conversation !</p>
+                      <div
+                        style={{
+                          flex: 1,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <p style={{ fontSize: 13, color: "#94a3b8" }}>
+                          Aucun message. Commencez la conversation !
+                        </p>
                       </div>
                     ) : (
                       messages.map((msg) => {
                         const sent = isMine(msg.sender);
                         return (
-                          <div key={msg.id} style={{ display: "flex", justifyContent: sent ? "flex-end" : "flex-start", alignItems: "flex-end", gap: 7 }}>
+                          <div
+                            key={msg.id}
+                            style={{
+                              display: "flex",
+                              justifyContent: sent ? "flex-end" : "flex-start",
+                              alignItems: "flex-end",
+                              gap: 7,
+                            }}
+                          >
                             {!sent && (
-                              <div className="avatar-sm" style={{ background: "linear-gradient(135deg,#DBEAFE,#EFF6FF)", border: "1px solid #BFDBFE", color: "#1e3a8a" }}>
-                                {getMedecinName(activeMedecin).charAt(0).toUpperCase()}
+                              <div
+                                className="avatar-sm"
+                                style={{
+                                  background:
+                                    "linear-gradient(135deg,#DBEAFE,#EFF6FF)",
+                                  border: "1px solid #BFDBFE",
+                                  color: "#1e3a8a",
+                                }}
+                              >
+                                {getMedecinName(activeMedecin)
+                                  .charAt(0)
+                                  .toUpperCase()}
                               </div>
                             )}
                             <div
                               className={`msg-bubble ${sent ? "msg-sent" : "msg-received"}`}
-                              style={sent
-                                ? { background: MY_PALETTE.bg, color: MY_PALETTE.text }
-                                : { background: THEIR_PALETTE.bg, border: `1px solid ${THEIR_PALETTE.border}`, color: THEIR_PALETTE.text }
+                              style={
+                                sent
+                                  ? {
+                                      background: MY_PALETTE.bg,
+                                      color: MY_PALETTE.text,
+                                    }
+                                  : {
+                                      background: THEIR_PALETTE.bg,
+                                      border: `1px solid ${THEIR_PALETTE.border}`,
+                                      color: THEIR_PALETTE.text,
+                                    }
                               }
                             >
                               {renderFile(msg, sent)}
-                              {msg.content && <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{msg.content}</p>}
-                              <p className="msg-meta" style={{ color: sent ? MY_PALETTE.meta : THEIR_PALETTE.meta }}>
+                              {msg.content && (
+                                <p
+                                  style={{ margin: 0, whiteSpace: "pre-wrap" }}
+                                >
+                                  {msg.content}
+                                </p>
+                              )}
+                              <p
+                                className="msg-meta"
+                                style={{
+                                  color: sent
+                                    ? MY_PALETTE.meta
+                                    : THEIR_PALETTE.meta,
+                                }}
+                              >
                                 {formatTime(msg.timestamp)}
-                                {sent && <span style={{ marginLeft: 4 }}>{msg.is_read ? "✓✓" : "✓"}</span>}
+                                {sent &&
+                                  (msg.is_read ? (
+                                    <CheckCheck size={12} strokeWidth={2.5} />
+                                  ) : (
+                                    <Check size={12} strokeWidth={2.5} />
+                                  ))}
                               </p>
                             </div>
                             {sent && (
-                              <div className="avatar-sm" style={{ background: "linear-gradient(135deg,#3B82F6,#1D4ED8)", color: "white" }}>
+                              <div
+                                className="avatar-sm"
+                                style={{
+                                  background:
+                                    "linear-gradient(135deg,#3B82F6,#1D4ED8)",
+                                  color: "white",
+                                }}
+                              >
                                 {getMyInitial()}
                               </div>
                             )}
@@ -476,28 +862,81 @@ function MedecinMessagesInner() {
                   </div>
 
                   {/* Input */}
-                  <div style={{ padding: "14px 20px", borderTop: "1px solid rgba(0,0,0,0.055)", background: "white" }}>
+                  <div
+                    style={{
+                      padding: "14px 20px",
+                      borderTop: "1px solid rgba(0,0,0,0.055)",
+                      background: "white",
+                    }}
+                  >
                     {selectedFile && (
                       <div className="file-preview-bar">
-                        {filePreview
-                          ? <img src={filePreview} alt="preview" style={{ width: 40, height: 40, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
-                          : <span style={{ fontSize: 24, flexShrink: 0 }}>{selectedFile.name.endsWith(".pdf") ? "📄" : "📎"}</span>
-                        }
+                        {filePreview ? (
+                          <img
+                            src={filePreview}
+                            alt="preview"
+                            style={{
+                              width: 40,
+                              height: 40,
+                              borderRadius: 8,
+                              objectFit: "cover",
+                              flexShrink: 0,
+                            }}
+                          />
+                        ) : (
+                          <span style={{ color: "#3B82F6", display: "flex" }}>
+                            {selectedFile.name.endsWith(".pdf") ? (
+                              <FileText size={24} strokeWidth={1.8} />
+                            ) : (
+                              <Paperclip size={24} strokeWidth={1.8} />
+                            )}
+                          </span>
+                        )}
                         <div style={{ flex: 1, overflow: "hidden" }}>
-                          <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: "#1e3a8a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <p
+                            style={{
+                              margin: 0,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: "#1e3a8a",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
                             {selectedFile.name}
                           </p>
-                          <p style={{ margin: 0, fontSize: 11, color: "#64748b" }}>
+                          <p
+                            style={{
+                              margin: 0,
+                              fontSize: 11,
+                              color: "#64748b",
+                            }}
+                          >
                             {(selectedFile.size / 1024).toFixed(0)} Ko
                           </p>
                         </div>
-                        <button onClick={clearFile} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "#94a3b8", padding: 4 }}>
-                          ✕
+                        <button
+                          onClick={clearFile}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            color: "#94a3b8",
+                            padding: 4,
+                            display: "flex",
+                            alignItems: "center",
+                          }}
+                        >
+                          <X size={16} strokeWidth={2} />
                         </button>
                       </div>
                     )}
 
-                    <form onSubmit={handleSend} style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <form
+                      onSubmit={handleSend}
+                      style={{ display: "flex", gap: 10, alignItems: "center" }}
+                    >
                       <input
                         ref={fileInputRef}
                         type="file"
@@ -505,13 +944,22 @@ function MedecinMessagesInner() {
                         style={{ display: "none" }}
                         onChange={handleFileChange}
                       />
-                      <button type="button" className="file-btn" onClick={() => fileInputRef.current?.click()} title="Joindre un fichier">
-                        📎
+                      <button
+                        type="button"
+                        className="file-btn"
+                        onClick={() => fileInputRef.current?.click()}
+                        title="Joindre un fichier"
+                      >
+                        <Paperclip size={17} color="#64748b" strokeWidth={2} />
                       </button>
                       <input
                         type="text"
                         className="chat-input"
-                        placeholder={selectedFile ? "Ajouter un message (optionnel)..." : "Écrire un message..."}
+                        placeholder={
+                          selectedFile
+                            ? "Ajouter un message (optionnel)..."
+                            : "Écrire un message..."
+                        }
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
                         autoComplete="off"
@@ -519,15 +967,25 @@ function MedecinMessagesInner() {
                       <button
                         type="submit"
                         className="send-btn"
-                        disabled={(!newMessage.trim() && !selectedFile) || sending}
+                        disabled={
+                          (!newMessage.trim() && !selectedFile) || sending
+                        }
                         style={{
-                          background: (newMessage.trim() || selectedFile) && !sending
-                            ? "linear-gradient(135deg,#3B82F6,#1D4ED8)"
-                            : "#e2e8f0",
-                          color: (newMessage.trim() || selectedFile) && !sending ? "white" : "#94a3b8",
+                          background:
+                            (newMessage.trim() || selectedFile) && !sending
+                              ? "linear-gradient(135deg,#3B82F6,#1D4ED8)"
+                              : "#e2e8f0",
+                          color:
+                            (newMessage.trim() || selectedFile) && !sending
+                              ? "white"
+                              : "#94a3b8",
                         }}
                       >
-                        {sending ? "⏳" : "➤"}
+                        {sending ? (
+                          <Loader2 size={18} strokeWidth={2} className="spin" />
+                        ) : (
+                          <Send size={17} strokeWidth={2} />
+                        )}
                       </button>
                     </form>
                   </div>

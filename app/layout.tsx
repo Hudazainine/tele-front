@@ -6,7 +6,7 @@ import { DM_Sans } from "next/font/google";
 const dmSans = DM_Sans({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "TéléConsultation",
+  title: "ALLOMed",
   description: "Plateforme médicale de téléconsultation",
 };
 
